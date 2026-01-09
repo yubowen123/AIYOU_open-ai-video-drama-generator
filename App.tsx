@@ -215,6 +215,11 @@ export const App = () => {
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Long press for canvas drag
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const isLongPressDraggingRef = useRef(false);
+
   // Modal States
   const [isSketchEditorOpen, setIsSketchEditorOpen] = useState(false);
   const [isMultiFrameOpen, setIsMultiFrameOpen] = useState(false);
@@ -546,18 +551,54 @@ export const App = () => {
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
       if (contextMenu) setContextMenu(null);
       setSelectedGroupId(null);
-      if (e.button === 0 && !e.shiftKey) {
-          if (e.detail > 1) { e.preventDefault(); return; }
-          setSelectedNodeIds([]);
-          setSelectionRect({ startX: e.clientX, startY: e.clientY, currentX: e.clientX, currentY: e.clientY });
-      }
+
+      // Middle click or Shift+Left click for immediate drag
       if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
           canvas.startCanvasDrag(e.clientX, e.clientY);
+          return;
+      }
+
+      // Left click on canvas
+      if (e.button === 0 && !e.shiftKey) {
+          if (e.detail > 1) { e.preventDefault(); return; }
+
+          // Clear selection
+          setSelectedNodeIds([]);
+
+          // Start selection rect
+          setSelectionRect({ startX: e.clientX, startY: e.clientY, currentX: e.clientX, currentY: e.clientY });
+
+          // Setup long press detection (300ms)
+          longPressStartPosRef.current = { x: e.clientX, y: e.clientY };
+          isLongPressDraggingRef.current = false;
+
+          longPressTimerRef.current = setTimeout(() => {
+              // Long press detected - start canvas drag
+              if (longPressStartPosRef.current) {
+                  isLongPressDraggingRef.current = true;
+                  setSelectionRect(null); // Cancel selection rect
+                  canvas.startCanvasDrag(longPressStartPosRef.current.x, longPressStartPosRef.current.y);
+              }
+          }, 300);
       }
   };
 
   const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
       const { clientX, clientY } = e;
+
+      // Cancel long press if mouse moves more than 5px
+      if (longPressTimerRef.current && longPressStartPosRef.current && !isLongPressDraggingRef.current) {
+          const dx = clientX - longPressStartPosRef.current.x;
+          const dy = clientY - longPressStartPosRef.current.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance > 5) {
+              // Mouse moved too much, cancel long press and allow selection rect
+              clearTimeout(longPressTimerRef.current);
+              longPressTimerRef.current = null;
+              longPressStartPosRef.current = null;
+          }
+      }
+
       if (rafRef.current) return;
       rafRef.current = requestAnimationFrame(() => {
           rafRef.current = null;
@@ -626,6 +667,14 @@ export const App = () => {
   }, [selectionRect, canvas, draggingNodeId, resizingNodeId, initialSize, resizeStartPos]);
 
   const handleGlobalMouseUp = useCallback(() => {
+      // Clear long press timer
+      if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+      }
+      longPressStartPosRef.current = null;
+      isLongPressDraggingRef.current = false;
+
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
       if (selectionRect) {
           const x = Math.min(selectionRect.startX, selectionRect.currentX);
