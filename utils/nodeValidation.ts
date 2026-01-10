@@ -162,15 +162,16 @@ export const NODE_DEPENDENCY_RULES: Record<NodeType, {
     allowedInputs: [
       NodeType.SCRIPT_PLANNER,
       NodeType.SCRIPT_EPISODE,
-      NodeType.PROMPT_INPUT
+      NodeType.PROMPT_INPUT,
+      NodeType.STYLE_PRESET  // NEW: Accept global style preset
     ],
     allowedOutputs: [
       NodeType.IMAGE_GENERATOR,
       NodeType.VIDEO_GENERATOR
     ],
     minInputs: 1,
-    maxInputs: 10, // Allow multiple inputs for character deduplication
-    description: '提取角色并生成角色档案（支持多输入去重）'
+    maxInputs: 10, // Allow multiple inputs for character deduplication and style
+    description: '提取角色并生成角色档案（支持多输入去重和风格设定参考）'
   },
 
   // 剧目分析 - 无输入,可输出到剧目精炼和剧本大纲
@@ -211,7 +212,8 @@ export const NODE_DEPENDENCY_RULES: Record<NodeType, {
     ],
     allowedOutputs: [
       NodeType.IMAGE_GENERATOR,
-      NodeType.VIDEO_GENERATOR
+      NodeType.VIDEO_GENERATOR,
+      NodeType.CHARACTER_NODE  // NEW: Output to character design
     ],
     minInputs: 0,
     maxInputs: 10,

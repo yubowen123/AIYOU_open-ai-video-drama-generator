@@ -865,12 +865,22 @@ export const App = () => {
               const updatedGenerated = generated.map(c => c.name === charName ? { ...c, isSaved: true } : c); // Hack: use isSaved as loading indicator in UI
               handleNodeUpdate(nodeId, { generatedCharacters: updatedGenerated });
 
-              // Fetch context for style using unified helper
-              const { style, genre, setting } = getUpstreamStyleContext(node, nodesRef.current);
+              // Extract style preset from inputs (priority: STYLE_PRESET > upstream context)
+              const inputs = node.inputs.map(i => nodesRef.current.find(n => n.id === i)).filter(Boolean) as AppNode[];
+              const stylePresetNode = inputs.find(n => n.type === NodeType.STYLE_PRESET);
+              let stylePrefix = '';
+
+              if (stylePresetNode?.data.stylePrompt) {
+                  // Use style preset if connected
+                  stylePrefix = stylePresetNode.data.stylePrompt;
+              } else {
+                  // Fallback to unified helper
+                  const { style, genre, setting } = getUpstreamStyleContext(node, nodesRef.current);
+                  stylePrefix = getVisualPromptPrefix(style, genre, setting);
+              }
 
               try {
                   const negativePrompt = "nsfw, text, watermark, label, signature, bad anatomy, deformed, low quality, writing, letters, logo, interface, ui, username, website, chinese characters, info box, stats, descriptions, annotations";
-                  const stylePrefix = getVisualPromptPrefix(style, genre, setting);
                   
                   const viewPrompt = `
                   ${stylePrefix}
@@ -959,7 +969,7 @@ export const App = () => {
           // Reset status and regenerate Expression Sheet ONLY
           const updatedGenerated = generated.map(c => c.name === charName ? { ...c, status: 'GENERATING' as const, error: undefined, isSaved: false } : c);
           handleNodeUpdate(nodeId, { generatedCharacters: updatedGenerated });
-          
+
           const inputs = node.inputs.map(i => nodesRef.current.find(n => n.id === i)).filter(Boolean) as AppNode[];
           const upstreamTexts = inputs.map(n => {
               if (n?.type === NodeType.PROMPT_INPUT) return n.data.prompt;
@@ -971,17 +981,26 @@ export const App = () => {
               if (n?.type === NodeType.SCRIPT_PLANNER) return n.data.scriptOutline;
               return null;
           }).filter(t => t && t.trim().length > 0) as string[];
-          
-          // Use Unified Helper
-          const { style, genre, setting } = getUpstreamStyleContext(node, nodesRef.current);
+
+          // Extract style preset from inputs (priority: STYLE_PRESET > upstream context)
+          const stylePresetNode = inputs.find(n => n.type === NodeType.STYLE_PRESET);
+          let stylePrompt = '';
+
+          if (stylePresetNode?.data.stylePrompt) {
+              // Use style preset if connected
+              stylePrompt = stylePresetNode.data.stylePrompt;
+          } else {
+              // Fallback to unified helper
+              const { style, genre, setting } = getUpstreamStyleContext(node, nodesRef.current);
+              stylePrompt = getVisualPromptPrefix(style, genre, setting);
+          }
 
           const context = upstreamTexts.join('\n');
           const config = node.data.characterConfigs?.[charName] || { method: 'AI_AUTO' };
           const customDesc = config.method === 'AI_CUSTOM' ? config.customPrompt : undefined;
 
           try {
-              // Pass style context to LLM for consistent text description
-              const stylePrompt = getVisualPromptPrefix(style, genre, setting);
+              // Use style prompt from STYLE_PRESET or upstream context
               const profile = await generateCharacterProfile(charName, context, stylePrompt, customDesc);
               profile.status = 'GENERATING'; 
               
@@ -1232,9 +1251,19 @@ export const App = () => {
               const configs = node.data.characterConfigs || {};
               const generatedChars = node.data.generatedCharacters || [];
               const newGeneratedChars = [...generatedChars];
-              
-              // Use Unified Helper
-              const { style, genre, setting } = getUpstreamStyleContext(node, nodesRef.current);
+
+              // Extract style preset from inputs (priority: STYLE_PRESET > upstream context)
+              const stylePresetNode = inputs.find(n => n.type === NodeType.STYLE_PRESET);
+              let stylePrompt = '';
+
+              if (stylePresetNode?.data.stylePrompt) {
+                  // Use style preset if connected
+                  stylePrompt = stylePresetNode.data.stylePrompt;
+              } else {
+                  // Fallback to unified helper
+                  const { style, genre, setting } = getUpstreamStyleContext(node, nodesRef.current);
+                  stylePrompt = getVisualPromptPrefix(style, genre, setting);
+              }
 
               for (const name of names) {
                   const config = configs[name] || { method: 'AI_AUTO' };
@@ -1260,10 +1289,9 @@ export const App = () => {
                   } else {
                       const context = upstreamTexts.join('\n');
                       const customDesc = config.method === 'AI_CUSTOM' ? config.customPrompt : undefined;
-                      
+
                       try {
-                          // Pass style context string for Text Generation to align descriptions
-                          const stylePrompt = getVisualPromptPrefix(style, genre, setting);
+                          // Use style prompt from STYLE_PRESET or upstream context
                           const profile = await generateCharacterProfile(name, context, stylePrompt, customDesc);
                           profile.status = 'GENERATING';
                           
