@@ -1018,21 +1018,89 @@ const NodeComponent: React.FC<NodeProps> = ({
           );
       }
       if (node.type === NodeType.STORYBOARD_IMAGE) {
-          const gridImage = node.data.storyboardGridImage;
+          const gridImages = node.data.storyboardGridImages || (node.data.storyboardGridImage ? [node.data.storyboardGridImage] : []);
+          const currentPage = node.data.storyboardCurrentPage || 0;
+          const totalPages = node.data.storyboardTotalPages || gridImages.length;
+          const hasMultiplePages = gridImages.length > 1;
+          const currentImage = gridImages[currentPage] || null;
+
+          // Pagination handlers
+          const handlePrevPage = () => {
+              if (currentPage > 0) {
+                  onUpdate(node.id, { storyboardCurrentPage: currentPage - 1 });
+              }
+          };
+
+          const handleNextPage = () => {
+              if (currentPage < totalPages - 1) {
+                  onUpdate(node.id, { storyboardCurrentPage: currentPage + 1 });
+              }
+          };
 
           return (
               <div className="w-full h-full flex flex-col overflow-hidden relative bg-[#1c1c1e]">
-                  {gridImage ? (
-                      <div className="flex-1 overflow-hidden p-3 flex items-center justify-center">
-                          <img
-                              ref={mediaRef as any}
-                              src={gridImage}
-                              className="max-w-full max-h-full object-contain cursor-pointer hover:scale-[1.02] transition-transform"
-                              onClick={handleExpand}
-                              draggable={false}
-                              alt="Storyboard Grid"
-                          />
-                      </div>
+                  {currentImage ? (
+                      <>
+                          {/* Image Display */}
+                          <div className="flex-1 overflow-hidden p-3 flex items-center justify-center">
+                              <img
+                                  ref={mediaRef as any}
+                                  src={currentImage}
+                                  className="max-w-full max-h-full object-contain cursor-pointer hover:scale-[1.02] transition-transform"
+                                  onClick={handleExpand}
+                                  draggable={false}
+                                  alt={`Storyboard Grid - Page ${currentPage + 1}`}
+                              />
+                          </div>
+
+                          {/* Pagination Controls */}
+                          {hasMultiplePages && (
+                              <div className="flex items-center justify-between px-3 py-2 border-t border-white/10 bg-black/20">
+                                  <button
+                                      onClick={handlePrevPage}
+                                      disabled={currentPage === 0}
+                                      className={`p-1.5 rounded-lg transition-all ${
+                                          currentPage === 0
+                                              ? 'text-slate-700 cursor-not-allowed'
+                                              : 'text-slate-400 hover:text-white hover:bg-white/10'
+                                      }`}
+                                  >
+                                      <ChevronLeft size={16} />
+                                  </button>
+
+                                  <div className="flex items-center gap-2">
+                                      <span className="text-[10px] font-bold text-white">
+                                          {currentPage + 1}
+                                      </span>
+                                      <span className="text-[10px] text-slate-500">/</span>
+                                      <span className="text-[10px] text-slate-400">
+                                          {totalPages}
+                                      </span>
+                                  </div>
+
+                                  <button
+                                      onClick={handleNextPage}
+                                      disabled={currentPage >= totalPages - 1}
+                                      className={`p-1.5 rounded-lg transition-all ${
+                                          currentPage >= totalPages - 1
+                                              ? 'text-slate-700 cursor-not-allowed'
+                                              : 'text-slate-400 hover:text-white hover:bg-white/10'
+                                      }`}
+                                  >
+                                      <ChevronRight size={16} />
+                                  </button>
+                              </div>
+                          )}
+
+                          {/* Page Indicator */}
+                          {!hasMultiplePages && totalPages === 1 && (
+                              <div className="px-3 py-2 border-t border-white/10 bg-black/20">
+                                  <span className="text-[10px] text-slate-500 text-center block">
+                                      单页分镜
+                                  </span>
+                              </div>
+                          )}
+                      </>
                   ) : (
                       <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-600 p-6 text-center">
                           {isWorking ? <Loader2 size={32} className="animate-spin text-purple-500" /> : <LayoutGrid size={32} className="text-purple-500/50" />}
@@ -1042,6 +1110,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                   <span>💡 输入分镜描述或连接剧本分集节点</span>
                                   <span>🎭 可连接角色设计节点保持角色一致性</span>
                                   <span>🎬 选择九宫格/六宫格布局</span>
+                                  <span>📄 支持多页自动分页</span>
                               </div>
                           )}
                       </div>

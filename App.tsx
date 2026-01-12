@@ -13,10 +13,13 @@ import { CharacterLibrary } from './components/CharacterLibrary';
 import { CharacterDetailModal } from './components/CharacterDetailModal';
 import { SettingsPanel } from './components/SettingsPanel';
 import { DebugPanel } from './components/DebugPanel';
+import { ModelFallbackNotification } from './components/ModelFallbackNotification';
 import { AppNode, NodeType, NodeStatus, Connection, ContextMenuState, Group, Workflow, SmartSequenceItem, CharacterProfile } from './types';
 import { generateImageFromText, generateVideo, analyzeVideo, editImageWithText, planStoryboard, orchestrateVideoPrompt, compileMultiFramePrompt, urlToBase64, extractLastFrame, generateAudio, generateScriptPlanner, generateScriptEpisodes, generateCinematicStoryboard, extractCharactersFromText, generateCharacterProfile, detectTextInImage, analyzeDrama } from './services/geminiService';
 import { getGenerationStrategy } from './services/videoStrategies';
 import { saveToStorage, loadFromStorage } from './services/storage';
+import { getUserPriority, ModelCategory } from './services/modelConfig';
+import { executeWithFallback } from './services/modelFallback';
 import { validateConnection, canExecuteNode } from './utils/nodeValidation';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ConnectionLayer } from './components/ConnectionLayer';
@@ -2217,7 +2220,7 @@ export const App = () => {
                       totalDuration: storyboard.totalDuration
                   });
 
-                  // Convert episodeStoryboard to JSON format for parsing
+                  // Keep the full structured data for detailed prompt generation
                   storyboardContent = JSON.stringify({
                       shots: storyboard.shots.map((shot: any) => ({
                           visualDescription: shot.visualDescription,
@@ -2246,7 +2249,6 @@ export const App = () => {
               if (characterNode?.data.generatedCharacters) {
                   const characters = characterNode.data.generatedCharacters as CharacterProfile[];
                   characters.forEach(char => {
-                      // Prefer threeViewSheet, fallback to expressionSheet
                       if (char.threeViewSheet) {
                           characterReferenceImages.push(char.threeViewSheet);
                       } else if (char.expressionSheet) {
@@ -2261,9 +2263,8 @@ export const App = () => {
                   });
               }
 
-              // Extract shot descriptions from content
-              // Parse both structured (JSON) and unstructured (text) formats
-              let shotDescriptions: string[] = [];
+              // Extract shots with full structured data
+              let extractedShots: any[] = [];
 
               // Try to parse as JSON first (from generateDetailedStoryboard)
               const jsonMatch = storyboardContent.match(/\{[\s\S]*"shots"[\s\S]*\}/);
@@ -2271,119 +2272,252 @@ export const App = () => {
                   try {
                       const parsed = JSON.parse(jsonMatch[0]);
                       if (parsed.shots && Array.isArray(parsed.shots)) {
-                          shotDescriptions = parsed.shots.map((shot: any) =>
-                              `${shot.visualDescription || shot.scene || ''}`
-                          );
+                          extractedShots = parsed.shots;
+                          console.log('[STORYBOARD_IMAGE] Parsed structured shots:', extractedShots.length);
                       }
                   } catch (e) {
                       console.warn('[STORYBOARD_IMAGE] Failed to parse JSON, falling back to text parsing');
                   }
               }
 
-              // Fallback: Parse text descriptions (numbered list or paragraphs)
-              if (shotDescriptions.length === 0) {
-                  // Try numbered list format
+              // Fallback: Parse text descriptions
+              if (extractedShots.length === 0) {
                   const numberedMatches = storyboardContent.match(/^\d+[.、)]\s*(.+)$/gm);
                   if (numberedMatches && numberedMatches.length > 0) {
-                      shotDescriptions = numberedMatches.map(m => m.replace(/^\d+[.、)]\s*/, '').trim());
+                      extractedShots = numberedMatches.map(m => ({
+                          visualDescription: m.replace(/^\d+[.、)]\s*/, '').trim()
+                      }));
                   } else {
-                      // Split by line breaks and filter empty lines
-                      shotDescriptions = storyboardContent.split(/\n+/)
+                      extractedShots = storyboardContent.split(/\n+/)
                           .map(line => line.trim())
-                          .filter(line => line.length > 10); // Minimum meaningful description length
+                          .filter(line => line.length > 10)
+                          .map(desc => ({ visualDescription: desc }));
                   }
               }
 
-              if (shotDescriptions.length === 0) {
+              if (extractedShots.length === 0) {
                   throw new Error("未能从内容中提取分镜描述，请检查格式");
               }
 
-              console.log('[STORYBOARD_IMAGE] Extracted shots:', {
-                  count: shotDescriptions.length,
-                  samples: shotDescriptions.slice(0, 3)
-              });
+              console.log('[STORYBOARD_IMAGE] Total shots to process:', extractedShots.length);
 
               // Get grid configuration
               const gridType = node.data.storyboardGridType || '9';
               const panelOrientation = node.data.storyboardPanelOrientation || '16:9';
-              const panelCount = gridType === '9' ? 9 : 6;
-              const gridLayout = gridType === '9' ? '3x3 grid' : '2x3 grid';
+              const shotsPerGrid = gridType === '9' ? 9 : 6;
+              const gridLayout = gridType === '9' ? '3x3' : '2x3';
 
-              console.log('[STORYBOARD_IMAGE] Grid configuration:', {
-                  gridType,
-                  panelOrientation,
-                  panelCount,
-                  gridLayout
+              // Calculate number of pages needed
+              const numberOfPages = Math.ceil(extractedShots.length / shotsPerGrid);
+
+              console.log('[STORYBOARD_IMAGE] Generation plan:', {
+                  totalShots: extractedShots.length,
+                  shotsPerGrid,
+                  numberOfPages,
+                  gridLayout,
+                  panelOrientation
               });
-
-              // Take only the required number of shots
-              const selectedShots = shotDescriptions.slice(0, panelCount);
-
-              // Pad if less than required
-              while (selectedShots.length < panelCount) {
-                  selectedShots.push('empty frame');
-              }
 
               // Get visual style from upstream
               const { style } = getUpstreamStyleContext(node, nodesRef.current);
               const stylePrefix = getVisualPromptPrefix(style);
 
-              // Build comprehensive grid prompt
-              const panelDescriptions = selectedShots.map((desc, idx) => {
-                  // Truncate long descriptions to avoid overly long prompts
-                  const shortDesc = desc.length > 100 ? desc.substring(0, 100) + '...' : desc;
-                  return `${idx + 1}. ${shortDesc}`;
-              }).join('\n');
+              // Get user-configured image model priority
+              const imageModelPriority = getUserPriority('image' as ModelCategory);
+              const primaryImageModel = imageModelPriority[0] || 'imagen-4.0-generate';
+              console.log('[STORYBOARD_IMAGE] Using image model priority:', imageModelPriority);
 
-              // Simplified and more effective prompt based on comic book generation best practices
-              const gridPrompt = `
-${gridType === '9' ? 'nine panel storyboard' : 'six panel storyboard'}, ${gridType === '9' ? '3x3 grid layout' : '2x3 grid layout'}, comic book style
-${stylePrefix ? stylePrefix + ', ' : ''}professional storyboard panels, ${panelOrientation === '16:9' ? 'landscape panels' : 'portrait panels'}
-clear panel borders, numbered panels 1-${panelCount}
+              // Helper: Build detailed shot prompt with camera language
+              const buildDetailedShotPrompt = (shot: any, index: number, globalIndex: number): string => {
+                  const parts: string[] = [];
 
-Scenes:
+                  // 1. Visual description (most important)
+                  if (shot.visualDescription) {
+                      parts.push(shot.visualDescription);
+                  }
+
+                  // 2. Shot type mapping (镜头类型)
+                  const shotTypeMap: Record<string, string> = {
+                      '特写': 'extreme close-up shot, intimate details visible, tight focus on subject',
+                      '近景': 'close-up shot, upper body and face clearly visible',
+                      '中景': 'medium shot, waist-up composition, balanced framing',
+                      '全景': 'wide shot, full body and surrounding environment',
+                      '远景': 'extreme wide shot, expansive landscape, establishing shot',
+                      '大远景': 'extreme long shot, vast environment, figures small',
+                      '俯视': 'high angle shot, looking down at subject',
+                      '仰视': 'low angle shot, looking up at subject, dramatic perspective',
+                      '鸟瞰': 'bird\'s eye view, top-down perspective, aerial view'
+                  };
+
+                  if (shot.shotType && shotTypeMap[shot.shotType]) {
+                      parts.push(shotTypeMap[shot.shotType]);
+                  }
+
+                  // 3. Camera angle mapping (拍摄角度)
+                  const cameraAngleMap: Record<string, string> = {
+                      '平视': 'eye-level angle, natural perspective',
+                      '俯视': 'high angle, downward view, subject looks smaller',
+                      '仰视': 'low angle, upward view, subject looks powerful',
+                      '侧视': 'side profile angle, 90-degree view',
+                      '背面': 'rear view, from behind'
+                  };
+
+                  if (shot.cameraAngle && cameraAngleMap[shot.cameraAngle]) {
+                      parts.push(cameraAngleMap[shot.cameraAngle]);
+                  }
+
+                  // 4. Scene context
+                  if (shot.scene) {
+                      parts.push(`environment: ${shot.scene}`);
+                  }
+
+                  // 5. Add unique identifier to prevent duplication
+                  parts.push(`[Unique Panel ID: ${globalIndex + 1}]`);
+
+                  return parts.join('. ');
+              };
+
+              // Helper: Generate single grid page
+              const generateGridPage = async (pageIndex: number): Promise<string | null> => {
+                  const startIdx = pageIndex * shotsPerGrid;
+                  const endIdx = Math.min(startIdx + shotsPerGrid, extractedShots.length);
+                  const pageShots = extractedShots.slice(startIdx, endIdx);
+
+                  // Pad last page if needed
+                  while (pageShots.length < shotsPerGrid) {
+                      pageShots.push({
+                          visualDescription: '(empty panel - storyboard end)',
+                          isEmpty: true
+                      });
+                  }
+
+                  // Build detailed panel descriptions with clear numbering and uniqueness
+                  const panelDescriptions = pageShots.map((shot, idx) => {
+                      const globalIndex = startIdx + idx;
+                      if (shot.isEmpty) {
+                          return `Panel ${idx + 1}: [BLANK] - Empty panel at end of storyboard`;
+                      }
+                      const shotPrompt = buildDetailedShotPrompt(shot, idx, globalIndex);
+                      return `Panel ${idx + 1}: ${shotPrompt}`;
+                  }).join('\n\n');
+
+                  // Calculate correct output aspect ratio
+                  // For a 3x3 grid of 16:9 panels, the overall image should maintain 16:9 ratio
+                  // For a 3x3 grid of 9:16 panels, the overall image should maintain 9:16 ratio
+                  const outputAspectRatio = panelOrientation;
+
+                  // Build comprehensive prompt with GitHub best practices
+                  const gridPrompt = `
+Create a professional cinematic storyboard ${gridLayout} grid layout.
+
+OVERALL IMAGE SPECS:
+- Output Aspect Ratio: ${outputAspectRatio} (${panelOrientation === '16:9' ? 'landscape' : 'portrait'})
+- Grid Layout: ${shotsPerGrid} panels arranged in ${gridLayout} formation
+- Each panel maintains ${panelOrientation} aspect ratio
+- Clean black borders separating all panels
+
+QUALITY STANDARDS:
+- Professional film industry storyboard quality
+- High detail, sharp lines, professional illustration
+- Cinematic composition with proper framing
+- Expressive character poses and emotions
+- Dynamic lighting and shading
+- Clear foreground/background separation
+
+CRITICAL NEGATIVE CONSTRAINTS (MUST FOLLOW):
+- NO text, NO speech bubbles, NO dialogue boxes
+- NO subtitles, NO captions, NO watermarks
+- NO numbers or labels inside panels
+- NO written content, NO letters, NO typography
+- Pure visual storytelling only
+- Visual narrative without words
+
+${stylePrefix ? `ART STYLE: ${stylePrefix}\n` : ''}
+
+${characterReferenceImages.length > 0 ? `CHARACTER CONSISTENCY: Maintain character appearance across all panels based on reference images\n` : ''}
+
+PANEL BREAKDOWN (each panel MUST be visually distinct):
 ${panelDescriptions}
 
-${characterReferenceImages.length > 0 ? 'maintain character consistency across all panels' : ''}
-cinematic composition, sequential storytelling
-`;
+COMPOSITION REQUIREMENTS:
+- Each panel MUST depict a DIFFERENT scene/angle/moment
+- NO repetition of content between panels
+- Each panel should have unique visual elements
+- Maintain narrative flow across the ${gridLayout} grid
+- Professional color grading throughout
+- Environmental details and props clearly visible
+`.trim();
 
-              console.log('[STORYBOARD_IMAGE] Generating grid image with prompt length:', gridPrompt.length);
-              console.log('[STORYBOARD_IMAGE] Character references:', characterReferenceImages.length);
-              console.log('[STORYBOARD_IMAGE] Grid configuration:', { gridType, panelOrientation, outputAspectRatio });
-
-              // Determine output aspect ratio based on grid configuration
-              const outputAspectRatio = panelOrientation;
-
-              try {
-                  const imgs = await generateImageFromText(
-                      gridPrompt,
-                      'gemini-2.5-flash-image',
-                      characterReferenceImages,
-                      { aspectRatio: outputAspectRatio, count: 1 },
-                      { nodeId: id, nodeType: node.type }
-                  );
-
-                  if (imgs && imgs.length > 0) {
-                      handleNodeUpdate(id, {
-                          storyboardGridImage: imgs[0],
-                          storyboardGridType: gridType,
-                          storyboardPanelOrientation: panelOrientation
-                      });
-                      console.log('[STORYBOARD_IMAGE] Grid image generated successfully');
-                  } else {
-                      throw new Error('Failed to generate storyboard grid image');
-                  }
-              } catch (error: any) {
-                  console.error('[STORYBOARD_IMAGE] Generation failed:', error);
-                  console.error('[STORYBOARD_IMAGE] Error details:', {
-                      message: error.message,
-                      stack: error.stack,
+                  console.log(`[STORYBOARD_IMAGE] Generating page ${pageIndex + 1}/${numberOfPages}:`, {
+                      shotRange: `${startIdx + 1}-${endIdx}`,
                       promptLength: gridPrompt.length,
-                      hasCharacterRefs: characterReferenceImages.length > 0
+                      aspectRatio: outputAspectRatio
                   });
-                  throw error;
+
+                  try {
+                      // All models use generateContent API
+                      console.log(`[STORYBOARD_IMAGE] Generating with model: ${primaryImageModel}`);
+
+                      const imgs = await generateImageFromText(
+                          gridPrompt,
+                          primaryImageModel,
+                          characterReferenceImages,
+                          { aspectRatio: outputAspectRatio, count: 1 },
+                          { nodeId: id, nodeType: node.type }
+                      );
+
+                      if (imgs && imgs.length > 0) {
+                          console.log(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generated successfully with model: ${primaryImageModel}`);
+                          return imgs[0];
+                      } else {
+                          console.error(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generation failed - no images returned`);
+                          return null;
+                      }
+                  } catch (error: any) {
+                      console.error(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generation error with model ${primaryImageModel}:`, error.message);
+                      return null;
+                  }
+              };
+
+              // Generate all pages
+              const generatedGrids: string[] = [];
+              const generationPromises: Promise<string | null>[] = [];
+
+              for (let pageIdx = 0; pageIdx < numberOfPages; pageIdx++) {
+                  generationPromises.push(generateGridPage(pageIdx));
               }
+
+              // Wait for all pages to generate
+              const results = await Promise.all(generationPromises);
+
+              // Filter out failed generations
+              results.forEach(result => {
+                  if (result) {
+                      generatedGrids.push(result);
+                  }
+              });
+
+              console.log('[STORYBOARD_IMAGE] Generation complete:', {
+                  totalPagesRequested: numberOfPages,
+                  totalPagesGenerated: generatedGrids.length,
+                  success: generatedGrids.length === numberOfPages
+              });
+
+              if (generatedGrids.length === 0) {
+                  throw new Error("分镜图生成失败，请重试");
+              }
+
+              // Save results
+              handleNodeUpdate(id, {
+                  storyboardGridImages: generatedGrids,
+                  storyboardGridImage: generatedGrids[0], // For backward compatibility
+                  storyboardGridType: gridType,
+                  storyboardPanelOrientation: panelOrientation,
+                  storyboardCurrentPage: 0,
+                  storyboardTotalPages: generatedGrids.length
+              });
+
+              console.log('[STORYBOARD_IMAGE] All data saved successfully');
 
           } else if (node.type === NodeType.VIDEO_ANALYZER) {
              const vid = node.data.videoUri || inputs.find(n => n?.data.videoUri)?.data.videoUri;
@@ -2791,6 +2925,9 @@ cinematic composition, sequential storytelling
             isOpen={isDebugOpen}
             onClose={() => setIsDebugOpen(false)}
           />
+
+          {/* 模型降级通知 */}
+          <ModelFallbackNotification />
 
           <SidebarDock
               onAddNode={addNode}

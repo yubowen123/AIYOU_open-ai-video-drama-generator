@@ -415,10 +415,10 @@ export const generateImageFromText = async (
     options: { aspectRatio?: string, resolution?: string, count?: number } = {}
 ): Promise<string[]> => {
     const ai = getClient();
-    
-    // Fallback/Correction for model names
-    const effectiveModel = model.includes('imagen') ? 'imagen-3.0-generate-002' : 'gemini-2.5-flash-image';
-    
+
+    // Use the actual model ID provided - no fallback needed
+    const effectiveModel = model;
+
     // Prepare Contents
     const parts: Part[] = [];
     

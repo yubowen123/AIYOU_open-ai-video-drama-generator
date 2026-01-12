@@ -171,9 +171,12 @@ export interface AppNode {
     episodeStoryboard?: EpisodeStoryboard; // Detailed storyboard breakdown
 
     // Storyboard Image Grid (for STORYBOARD_IMAGE nodes)
-    storyboardGridImage?: string; // Single image containing grid layout (9-panel or 6-panel)
+    storyboardGridImages?: string[]; // Array of grid images (supports multiple pages)
+    storyboardGridImage?: string; // Deprecated: use storyboardGridImages instead (kept for backward compatibility)
     storyboardGridType?: '9' | '6'; // Grid layout type: 9-panel (3x3) or 6-panel (2x3)
     storyboardPanelOrientation?: '16:9' | '9:16'; // Panel orientation: landscape or portrait
+    storyboardCurrentPage?: number; // Current page index (0-based)
+    storyboardTotalPages?: number; // Total number of pages
 
     // Drama Analyzer Specifics
     dramaName?: string; // 剧名

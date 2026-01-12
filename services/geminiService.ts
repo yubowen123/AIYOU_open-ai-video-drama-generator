@@ -582,8 +582,8 @@ export const generateImageFromText = async (
         async () => {
             const ai = getClient();
 
-            // Fallback/Correction for model names
-            const effectiveModel = model.includes('imagen') ? 'imagen-3.0-generate-002' : 'gemini-2.5-flash-image';
+            // Use the actual model ID provided - no fallback needed
+            const effectiveModel = model;
 
             // Prepare Contents
             const parts: Part[] = [];
@@ -595,15 +595,38 @@ export const generateImageFromText = async (
                 parts.push({ inlineData: { data: cleanBase64, mimeType } });
             }
 
-            parts.push({ text: prompt });
+            // Prepend aspect ratio requirement to prompt if specified
+            let enhancedPrompt = prompt;
+            if (options.aspectRatio) {
+                const ratioMap: Record<string, string> = {
+                    '16:9': 'landscape orientation (16:9 aspect ratio, width greater than height)',
+                    '9:16': 'portrait orientation (9:16 aspect ratio, height greater than width)',
+                    '4:3': 'landscape orientation (4:3 aspect ratio)',
+                    '3:4': 'portrait orientation (3:4 aspect ratio)',
+                    '1:1': 'square orientation (1:1 aspect ratio, equal width and height)',
+                    '21:9': 'ultrawide cinematic orientation (21:9 aspect ratio)',
+                };
+                const ratioDesc = ratioMap[options.aspectRatio] || options.aspectRatio;
+                enhancedPrompt = `IMPORTANT: Generate the image in ${ratioDesc}.\n\n${prompt}`;
+            }
+
+            parts.push({ text: enhancedPrompt });
 
             try {
+                // Build generation config with aspect ratio support
+                const generationConfig: any = {};
+
+                // Add image generation config if aspect ratio is specified
+                if (options.aspectRatio) {
+                    generationConfig.imageGenerationConfig = {
+                        aspectRatio: options.aspectRatio
+                    };
+                }
+
                 const response = await ai.models.generateContent({
                     model: effectiveModel,
                     contents: { parts },
-                    config: {
-                        // responseMimeType: 'image/jpeg', // Not supported for Gemini models yet in this SDK version context
-                    }
+                    generationConfig
                 });
 
                 // Parse Response for Images
