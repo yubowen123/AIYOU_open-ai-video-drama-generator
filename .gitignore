@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+npm-cache
+.DS_Store
+npm-cache/

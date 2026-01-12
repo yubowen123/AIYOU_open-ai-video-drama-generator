@@ -1371,79 +1371,9 @@ const NodeComponent: React.FC<NodeProps> = ({
           );
       }
       if (node.type === NodeType.STORYBOARD_SPLITTER) {
-          // Import at the top of file:
-          // import { splitMultipleStoryboardImages, exportSplitImagesAsZip } from '../utils/imageSplitter';
-          // import JSZip from 'jszip';  // Make sure to install: npm install jszip
-          // import { saveAs } from 'file-saver';  // Make sure to install: npm install file-saver
-
           const splitShots = node.data.splitShots || [];
-          const selectedSourceNodes = node.data.selectedSourceNodes || node.inputs || [];
           const isSplitting = node.data.isSplitting || false;
-
-          // Get connected STORYBOARD_IMAGE nodes
-          const connectedStoryboardNodes = inputs.filter(n => n.type === NodeType.STORYBOARD_IMAGE);
-
-          // Handler: Toggle source node selection
-          const handleToggleSourceNode = (nodeId: string) => {
-              const current = selectedSourceNodes || [];
-              const updated = current.includes(nodeId)
-                  ? current.filter(id => id !== nodeId)
-                  : [...current, nodeId];
-              onUpdate(node.id, { selectedSourceNodes: updated });
-          };
-
-          // Handler: Select all / Deselect all
-          const handleToggleAll = () => {
-              if (selectedSourceNodes.length === connectedStoryboardNodes.length) {
-                  // Deselect all
-                  onUpdate(node.id, { selectedSourceNodes: [] });
-              } else {
-                  // Select all
-                  onUpdate(node.id, { selectedSourceNodes: connectedStoryboardNodes.map(n => n.id) });
-              }
-          };
-
-          // Handler: Start splitting
-          const handleStartSplit = async () => {
-              if (selectedSourceNodes.length === 0) return;
-
-              const nodesToSplit = inputs.filter(n => selectedSourceNodes.includes(n.id));
-
-              onUpdate(node.id, { isSplitting: true });
-
-              try {
-                  const { splitMultipleStoryboardImages } = await import('../utils/imageSplitter');
-                  const allSplitShots = await splitMultipleStoryboardImages(
-                      nodesToSplit,
-                      (current, total, currentNode) => {
-                          console.log(`正在切割 ${current}/${total}: ${currentNode}`);
-                      }
-                  );
-
-                  onUpdate(node.id, {
-                      splitShots: allSplitShots,
-                      isSplitting: false
-                  });
-              } catch (error) {
-                  console.error('切割失败:', error);
-                  onUpdate(node.id, {
-                      error: error instanceof Error ? error.message : String(error),
-                      isSplitting: false
-                  });
-              }
-          };
-
-          // Handler: Export images
-          const handleExportImages = async () => {
-              if (splitShots.length === 0) return;
-
-              try {
-                  const { exportSplitImagesAsZip } = await import('../utils/imageSplitter');
-                  await exportSplitImagesAsZip(splitShots);
-              } catch (error) {
-                  console.error('导出失败:', error);
-              }
-          };
+          const connectedStoryboardNodes = allNodes.filter(n => node.inputs.includes(n.id) && n.type === NodeType.STORYBOARD_IMAGE);
 
           return (
               <div className="w-full h-full flex flex-col overflow-hidden relative bg-[#1c1c1e]">
@@ -1574,117 +1504,12 @@ const NodeComponent: React.FC<NodeProps> = ({
                               {!isSplitting && connectedStoryboardNodes.length === 0 && (
                                   <div className="flex flex-col gap-1 text-[10px] text-slate-500 max-w-[220px]">
                                       <span>💡 连接分镜图设计节点</span>
-                                      <span>✂️ 选择要切割的图片</span>
+                                      <span>✂️ 鼠标移入底部面板选择要切割的图片</span>
                                       <span>📦 切割后可导出图片包</span>
                                   </div>
                               )}
                           </div>
                       )}
-                  </div>
-
-                  {/* Operation Area */}
-                  <div className="border-t border-white/10 p-4 bg-black/20">
-                      {/* Connected Nodes List */}
-                      {connectedStoryboardNodes.length > 0 && (
-                          <div className="mb-4">
-                              <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center gap-2">
-                                      <Link size={12} className="text-slate-400" />
-                                      <span className="text-xs font-bold text-slate-400">
-                                          已连接的分镜图节点 ({connectedStoryboardNodes.length})
-                                      </span>
-                                  </div>
-                                  <button
-                                      onClick={handleToggleAll}
-                                      className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
-                                  >
-                                      {selectedSourceNodes.length === connectedStoryboardNodes.length
-                                          ? '取消全选'
-                                          : '全选'}
-                                  </button>
-                              </div>
-
-                              <div className="space-y-2 max-h-[140px] overflow-y-auto custom-scrollbar pr-2">
-                                  {connectedStoryboardNodes.map((sbNode) => {
-                                      const gridImages = sbNode.data.storyboardGridImages || [];
-                                      const gridType = sbNode.data.storyboardGridType || '9';
-                                      const isSelected = selectedSourceNodes.includes(sbNode.id);
-
-                                      return (
-                                          <div
-                                              key={sbNode.id}
-                                              className={`flex items-center gap-3 p-2 rounded-lg border transition-all cursor-pointer ${
-                                                  isSelected
-                                                      ? 'bg-blue-500/10 border-blue-500/30'
-                                                      : 'bg-black/40 border-white/10 hover:bg-black/60'
-                                              }`}
-                                              onClick={() => handleToggleSourceNode(sbNode.id)}
-                                          >
-                                              <input
-                                                  type="checkbox"
-                                                  checked={isSelected}
-                                                  onChange={() => handleToggleSourceNode(sbNode.id)}
-                                                  className="w-4 h-4 rounded border-white/20 bg-black/60 text-blue-500 focus:ring-2 focus:ring-blue-500/50"
-                                                  onClick={(e) => e.stopPropagation()}
-                                              />
-
-                                              {gridImages.length > 0 && (
-                                                  <img
-                                                      src={gridImages[0]}
-                                                      alt={sbNode.title}
-                                                      className="w-12 h-12 rounded object-cover border border-white/10"
-                                                  />
-                                              )}
-
-                                              <div className="flex-1 min-w-0">
-                                                  <div className="text-xs font-medium text-white truncate">
-                                                      {sbNode.title}
-                                                  </div>
-                                                  <div className="text-[10px] text-slate-500">
-                                                      {gridImages.length}页 · {gridType === '9' ? '九宫格' : '六宫格'}
-                                                  </div>
-                                              </div>
-                                          </div>
-                                      );
-                                  })}
-                              </div>
-                          </div>
-                      )}
-
-                      {/* Action Buttons */}
-                      <div className="flex items-center gap-3">
-                          {splitShots.length > 0 && (
-                              <button
-                                  onClick={handleExportImages}
-                                  className="flex-1 px-4 py-2 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-white/10"
-                              >
-                                  <Download size={14} className="inline mr-1" />
-                                  导出图片包
-                              </button>
-                          )}
-
-                          <button
-                              onClick={handleStartSplit}
-                              disabled={selectedSourceNodes.length === 0 || isSplitting}
-                              className={`flex-[2] px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-                                  isSplitting
-                                      ? 'bg-blue-500/20 text-blue-300'
-                                      : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-blue-500/20'
-                              }`}
-                          >
-                              {isSplitting ? (
-                                  <>
-                                      <Loader2 size={14} className="animate-spin" />
-                                      正在切割...
-                                  </>
-                              ) : (
-                                  <>
-                                      <Scissors size={14} />
-                                      开始拆分
-                                  </>
-                              )}
-                          </button>
-                      </div>
                   </div>
               </div>
           );
@@ -2428,6 +2253,180 @@ const NodeComponent: React.FC<NodeProps> = ({
                              </>
                          )}
                      </button>
+                 </div>
+             </div>
+         );
+     }
+
+     // Special handling for STORYBOARD_SPLITTER
+     if (node.type === NodeType.STORYBOARD_SPLITTER) {
+         const splitShots = node.data.splitShots || [];
+         const selectedSourceNodes = node.data.selectedSourceNodes || node.inputs || [];
+         const isSplitting = node.data.isSplitting || false;
+         const connectedStoryboardNodes = allNodes.filter(n => node.inputs.includes(n.id) && n.type === NodeType.STORYBOARD_IMAGE);
+
+         // Handler: Toggle source node selection
+         const handleToggleSourceNode = (nodeId: string) => {
+             const current = selectedSourceNodes || [];
+             const updated = current.includes(nodeId)
+                 ? current.filter(id => id !== nodeId)
+                 : [...current, nodeId];
+             onUpdate(node.id, { selectedSourceNodes: updated });
+         };
+
+         // Handler: Select all / Deselect all
+         const handleToggleAll = () => {
+             if (selectedSourceNodes.length === connectedStoryboardNodes.length) {
+                 onUpdate(node.id, { selectedSourceNodes: [] });
+             } else {
+                 onUpdate(node.id, { selectedSourceNodes: connectedStoryboardNodes.map(n => n.id) });
+             }
+         };
+
+         // Handler: Start splitting
+         const handleStartSplit = async () => {
+             if (selectedSourceNodes.length === 0) return;
+             const nodesToSplit = allNodes.filter(n => selectedSourceNodes.includes(n.id));
+             onUpdate(node.id, { isSplitting: true });
+
+             try {
+                 const { splitMultipleStoryboardImages } = await import('../utils/imageSplitter');
+                 const allSplitShots = await splitMultipleStoryboardImages(
+                     nodesToSplit,
+                     (current, total, currentNode) => {
+                         console.log(`正在切割 ${current}/${total}: ${currentNode}`);
+                     }
+                 );
+                 onUpdate(node.id, { splitShots: allSplitShots, isSplitting: false });
+             } catch (error) {
+                 console.error('切割失败:', error);
+                 onUpdate(node.id, {
+                     error: error instanceof Error ? error.message : String(error),
+                     isSplitting: false
+                 });
+             }
+         };
+
+         // Handler: Export images
+         const handleExportImages = async () => {
+             if (splitShots.length === 0) return;
+             try {
+                 const { exportSplitImagesAsZip } = await import('../utils/imageSplitter');
+                 await exportSplitImagesAsZip(splitShots);
+             } catch (error) {
+                 console.error('导出失败:', error);
+             }
+         };
+
+         return (
+             <div className={`absolute top-full left-1/2 -translate-x-1/2 w-[98%] pt-2 z-50 flex flex-col items-center justify-start transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-[-10px] scale-95 pointer-events-none'}`}>
+                 <div className={`w-full rounded-[20px] p-3 flex flex-col gap-3 ${GLASS_PANEL} relative z-[100] max-h-[320px] overflow-hidden`} onMouseDown={e => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+                     {/* Connected Nodes List */}
+                     {connectedStoryboardNodes.length > 0 && (
+                         <div className="flex flex-col gap-2">
+                             <div className="flex items-center justify-between">
+                                 <div className="flex items-center gap-2">
+                                     <Link size={12} className="text-slate-400" />
+                                     <span className="text-xs font-bold text-slate-400">
+                                         已连接的分镜图节点 ({connectedStoryboardNodes.length})
+                                     </span>
+                                 </div>
+                                 <button
+                                     onClick={handleToggleAll}
+                                     className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+                                 >
+                                     {selectedSourceNodes.length === connectedStoryboardNodes.length
+                                         ? '取消全选'
+                                         : '全选'}
+                                 </button>
+                             </div>
+
+                             <div className="space-y-2 overflow-y-auto custom-scrollbar pr-1" style={{ maxHeight: '180px' }}>
+                                 {connectedStoryboardNodes.map((sbNode) => {
+                                     const gridImages = sbNode.data.storyboardGridImages || [];
+                                     const gridType = sbNode.data.storyboardGridType || '9';
+                                     const isSelected = selectedSourceNodes.includes(sbNode.id);
+
+                                     return (
+                                         <div
+                                             key={sbNode.id}
+                                             className={`p-3 rounded-lg border transition-all ${
+                                                 isSelected
+                                                     ? 'bg-blue-500/10 border-blue-500/30'
+                                                     : 'bg-black/40 border-white/10 hover:bg-black/60'
+                                             }`}
+                                         >
+                                             <div className="flex items-center gap-3 mb-2">
+                                                 <input
+                                                     type="checkbox"
+                                                     checked={isSelected}
+                                                     onChange={() => handleToggleSourceNode(sbNode.id)}
+                                                     className="w-4 h-4 rounded border-white/20 bg-black/60 text-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                                                 />
+                                                 <div className="flex-1 min-w-0">
+                                                     <div className="text-xs font-bold text-white truncate">
+                                                         {sbNode.title}
+                                                     </div>
+                                                     <div className="text-[10px] text-slate-500">
+                                                         {gridImages.length}页 · {gridType === '9' ? '九宫格' : '六宫格'}
+                                                     </div>
+                                                 </div>
+                                             </div>
+
+                                             {/* 显示所有网格图 - 每个图单独显示 */}
+                                             {gridImages.length > 0 && (
+                                                 <div className="grid grid-cols-4 gap-1 pl-7">
+                                                     {gridImages.map((img, idx) => (
+                                                         <img
+                                                             key={idx}
+                                                             src={img}
+                                                             alt={`${sbNode.title} 第${idx + 1}页`}
+                                                             className="w-full aspect-square rounded object-cover border border-white/10 hover:border-blue-500/50 transition-colors cursor-pointer"
+                                                         />
+                                                     ))}
+                                                 </div>
+                                             )}
+                                         </div>
+                                     );
+                                 })}
+                             </div>
+                         </div>
+                     )}
+
+                     {/* Action Buttons */}
+                     <div className="flex items-center gap-3">
+                         {splitShots.length > 0 && (
+                             <button
+                                 onClick={handleExportImages}
+                                 className="flex-1 px-4 py-2 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-white/10"
+                             >
+                                 <Download size={14} className="inline mr-1" />
+                                 导出图片包
+                             </button>
+                         )}
+
+                         <button
+                             onClick={handleStartSplit}
+                             disabled={selectedSourceNodes.length === 0 || isSplitting}
+                             className={`flex-[2] px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                                 isSplitting
+                                     ? 'bg-blue-500/20 text-blue-300'
+                                     : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-blue-500/20'
+                             }`}
+                         >
+                             {isSplitting ? (
+                                 <>
+                                     <Loader2 size={14} className="animate-spin" />
+                                     正在切割...
+                                 </>
+                             ) : (
+                                 <>
+                                     <Scissors size={14} />
+                                     开始拆分
+                                 </>
+                             )}
+                         </button>
+                     </div>
                  </div>
              </div>
          );

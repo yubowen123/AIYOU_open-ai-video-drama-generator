@@ -9,12 +9,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "lucide-react": "^0.555.0",
     "@google/genai": "^1.30.0",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.555.0",
+    "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react": "^19.2.0"
+    "swr": "^2.3.8",
+    "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "@sentry/react": "^10.32.1",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",

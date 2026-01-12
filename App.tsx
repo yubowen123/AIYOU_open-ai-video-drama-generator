@@ -20,6 +20,7 @@ import { generateImageWithFallback } from './services/geminiServiceWithFallback'
 import { getGenerationStrategy } from './services/videoStrategies';
 import { saveToStorage, loadFromStorage } from './services/storage';
 import { getUserPriority, ModelCategory, getDefaultModel } from './services/modelConfig';
+import { saveImageNodeOutput, saveVideoNodeOutput, saveAudioNodeOutput, saveStoryboardGridOutput } from './utils/storageHelper';
 import { executeWithFallback } from './services/modelFallback';
 import { validateConnection, canExecuteNode } from './utils/nodeValidation';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -357,6 +358,7 @@ export const App = () => {
           case NodeType.SCRIPT_EPISODE: return t.nodes.scriptEpisode;
           case NodeType.STORYBOARD_GENERATOR: return t.nodes.storyboardGenerator;
           case NodeType.STORYBOARD_IMAGE: return '分镜图设计';
+          case NodeType.STORYBOARD_SPLITTER: return '分镜图拆解';
           case NodeType.CHARACTER_NODE: return t.nodes.characterNode;
           case NodeType.DRAMA_ANALYZER: return '剧目分析';
           case NodeType.DRAMA_REFINED: return '剧目精炼';
@@ -1027,20 +1029,31 @@ export const App = () => {
                   
                   const viewPrompt = `
                   ${stylePrefix}
-                  Character Three-View Reference Sheet (Front, Side, Back).
-                  Subject: ${char.appearance}.
-                  Attributes: ${char.basicStats}.
-                  Full body standing pose, neutral expression.
-                  Clean white background.
-                  
-                  IMPORTANT REQUIREMENTS:
-                  - PURE IMAGE ONLY.
-                  - NO TEXT, NO LABELS, NO WRITING.
-                  - NO "FRONT VIEW" or "SIDE VIEW" labels.
-                  - NO info boxes or character stats.
-                  - Reference the character in the input image strictly. Maintain facial features, hair color, and clothing style.
-                  
-                  Negative: ${negativePrompt}.
+
+                  CHARACTER THREE-VIEW GENERATION TASK:
+                  Generate a character three-view reference sheet (front, side, back views).
+
+                  Character Description:
+                  ${char.appearance}
+
+                  Attributes: ${char.basicStats}
+
+                  COMPOSITION:
+                  - Create a vertical layout with 3 views: Front View, Side View (profile), Back View
+                  - Full body standing pose, neutral expression
+                  - Clean white or neutral background
+                  - Each view should clearly show the character from the specified angle
+
+                  CRITICAL REQUIREMENTS:
+                  1. CONSISTENT CHARACTER DESIGN - All three views must show the SAME character with consistent facial features, hair style, body proportions, and clothing
+                  2. NO TEXT, NO LABELS - Pure image only, no "Front View" or "Side View" text labels, no Chinese characters, no English text
+                  3. PROPER ANATOMY - Ensure correct body proportions and natural stance for each view angle
+                  4. NEUTRAL EXPRESSION - Use a calm, neutral face expression across all views
+                  5. CLEAR ALIGNMENT - Front, side, and back views should be vertically aligned and proportionally consistent
+
+                  ${char.expressionSheet ? 'REFERENCE IMAGE: Use the expression sheet as visual reference for face and clothing details.' : ''}
+
+                  Negative Prompt: ${negativePrompt}, text, labels, writing, letters, watermark, signature, bad anatomy, deformed, low quality, chinese characters, english text, interface elements, stats, info boxes
                   `;
                   
                   // Use Expression Sheet as Input Image reference if available
@@ -1055,9 +1068,9 @@ export const App = () => {
                   while (hasText && attempt < MAX_ATTEMPTS) {
                       if (attempt > 0) {
                           const retryPrompt = viewPrompt + " NO TEXT. NO LABELS. CLEAR BACKGROUND.";
-                          viewImages = await generateImageFromText(retryPrompt, 'gemini-2.5-flash-image', inputImages, { aspectRatio: '3:4', count: 1 });
+                          viewImages = await generateImageFromText(retryPrompt, 'gemini-2.5-flash-image', inputImages, { aspectRatio: '16:9', count: 1 });
                       } else {
-                          viewImages = await generateImageFromText(viewPrompt, 'gemini-2.5-flash-image', inputImages, { aspectRatio: '3:4', count: 1 });
+                          viewImages = await generateImageFromText(viewPrompt, 'gemini-2.5-flash-image', inputImages, { aspectRatio: '16:9', count: 1 });
                       }
 
                       if (viewImages.length > 0) {
@@ -1110,7 +1123,20 @@ export const App = () => {
       
       else if (action === 'RETRY') {
           // RETRY: Regenerate character profile info only (no images)
-          const updatedGenerated = generated.map(c => c.name === charName ? { ...c, status: 'GENERATING' as const, error: undefined } : c);
+          let updatedGenerated = [...generated];
+
+          // Find or create character entry
+          let charIdx = updatedGenerated.findIndex(c => c.name === charName);
+
+          // If character doesn't exist in array, add it first
+          if (charIdx < 0) {
+              const newChar = { id: `${nodeId}-${charName}`, name: charName, status: 'GENERATING' as const } as any;
+              updatedGenerated.push(newChar);
+              charIdx = updatedGenerated.length - 1;
+          } else {
+              updatedGenerated[charIdx] = { ...updatedGenerated[charIdx], status: 'GENERATING' as const, error: undefined };
+          }
+
           handleNodeUpdate(nodeId, { generatedCharacters: updatedGenerated });
 
           const inputs = node.inputs.map(i => nodesRef.current.find(n => n.id === i)).filter(Boolean) as AppNode[];
@@ -1147,20 +1173,41 @@ export const App = () => {
                   { nodeId: nodeId, nodeType: node.type }
               );
 
+              // Re-fetch from nodesRef to get latest state after async API call
               const finalList = [...(nodesRef.current.find(n => n.id === nodeId)?.data.generatedCharacters || [])];
               const fIdx = finalList.findIndex(c => c.name === charName);
+
               if (fIdx >= 0) {
                   // Phase 1 complete
+                  // Preserve existing images (expressionSheet, threeViewSheet)
+                  const existingChar = finalList[fIdx];
                   finalList[fIdx] = {
                       ...profile,
+                      // Preserve existing image data
+                      expressionSheet: existingChar?.expressionSheet,
+                      threeViewSheet: existingChar?.threeViewSheet,
                       status: 'SUCCESS' as const
                   };
+              } else {
+                  // Character not in list - add directly with profile data
+                  console.warn('[RETRY] Character not found in final list, adding new entry');
+                  finalList.push({
+                      ...profile,
+                      id: `${nodeId}-${charName}`,
+                      name: charName,
+                      status: 'SUCCESS' as const
+                  });
               }
               handleNodeUpdate(nodeId, { generatedCharacters: finalList });
           } catch (e: any) {
               const failList = [...(nodesRef.current.find(n => n.id === nodeId)?.data.generatedCharacters || [])];
               const failIdx = failList.findIndex(c => c.name === charName);
-              if (failIdx >= 0) failList[failIdx] = { ...failList[failIdx], status: 'ERROR', error: e.message };
+              if (failIdx >= 0) {
+                  failList[failIdx] = { ...failList[failIdx], status: 'ERROR', error: e.message };
+              } else {
+                  // Character not in list, add it with error status
+                  failList.push({ id: `${nodeId}-${charName}`, name: charName, status: 'ERROR' as const, error: e.message } as any);
+              }
               handleNodeUpdate(nodeId, { generatedCharacters: failList });
           }
       }
@@ -1357,8 +1404,6 @@ export const App = () => {
               CHARACTER THREE-VIEW GENERATION TASK:
               Generate a character three-view reference sheet (front, side, back views).
 
-              REFERENCE IMAGE: A 9-grid expression sheet is provided as input. Use the FRONT VIEW (center/top face) from this expression sheet as the visual reference.
-
               Character Description:
               ${latestChar.appearance}
 
@@ -1371,13 +1416,15 @@ export const App = () => {
               - Each view should clearly show the character from the specified angle
 
               CRITICAL REQUIREMENTS:
-              1. USE THE EXPRESSION SHEET AS VISUAL REFERENCE - Extract the character's face, hair style, clothing, and body proportions from the provided 9-grid image
-              2. MAINTAIN CONSISTENCY - The three-view should look like the SAME character from the expression sheet
-              3. NO TEXT, NO LABELS - Pure image only, no "Front View" or "Side View" text labels
-              4. PROPER ANATOMY - Ensure correct body proportions and natural stance
-              5. NEUTRAL EXPRESSION - Use a calm, neutral face expression (same as the reference)
+              1. CONSISTENT CHARACTER DESIGN - All three views must show the SAME character with consistent facial features, hair style, body proportions, and clothing
+              2. NO TEXT, NO LABELS - Pure image only, no "Front View" or "Side View" text labels, no Chinese characters, no English text
+              3. PROPER ANATOMY - Ensure correct body proportions and natural stance for each view angle
+              4. NEUTRAL EXPRESSION - Use a calm, neutral face expression across all views
+              5. CLEAR ALIGNMENT - Front, side, and back views should be vertically aligned and proportionally consistent
 
-              Negative Prompt: ${negativePrompt}, text, labels, writing, letters, watermark, signature, bad anatomy, deformed, low quality
+              ${latestChar.expressionSheet ? 'REFERENCE IMAGE: Use the expression sheet as visual reference for face and clothing details.' : ''}
+
+              Negative Prompt: ${negativePrompt}, text, labels, writing, letters, watermark, signature, bad anatomy, deformed, low quality, chinese characters, english text, interface elements, stats, info boxes
               `;
 
               const inputImages = latestChar.expressionSheet ? [latestChar.expressionSheet] : [];
@@ -1400,7 +1447,7 @@ export const App = () => {
                           retryPrompt,
                           initialModel,
                           inputImages,
-                          { aspectRatio: '3:4', count: 1 },
+                          { aspectRatio: '16:9', count: 1 },
                           { nodeId: nodeId, nodeType: node.type }
                       );
                   } else {
@@ -1408,7 +1455,7 @@ export const App = () => {
                           viewPrompt,
                           initialModel,
                           inputImages,
-                          { aspectRatio: '3:4', count: 1 },
+                          { aspectRatio: '16:9', count: 1 },
                           { nodeId: nodeId, nodeType: node.type }
                       );
                   }
@@ -1517,8 +1564,11 @@ export const App = () => {
                   );
 
                   const idx = generated.findIndex(c => c.name === charName);
+                  const existingChar = generated[idx];
                   generated[idx] = {
                       ...profile,
+                      // Preserve existing image data
+                      threeViewSheet: existingChar?.threeViewSheet,
                       status: 'GENERATING' as const,
                       roleType: 'supporting'
                   };
@@ -1529,19 +1579,29 @@ export const App = () => {
 
                   const viewPrompt = `
                   ${stylePrompt}
-                  Character Three-View Reference Sheet (Front, Side, Back).
-                  Subject: ${profile.appearance}.
-                  Attributes: ${profile.basicStats}.
-                  Full body standing pose, neutral expression.
-                  Clean white background.
 
-                  IMPORTANT REQUIREMENTS:
-                  - PURE IMAGE ONLY.
-                  - NO TEXT, NO LABELS, NO WRITING.
-                  - NO "FRONT VIEW" or "SIDE VIEW" labels.
-                  - NO info boxes or character stats.
+                  CHARACTER THREE-VIEW GENERATION TASK:
+                  Generate a character three-view reference sheet (front, side, back views).
 
-                  Negative: ${negativePrompt}.
+                  Character Description:
+                  ${profile.appearance}
+
+                  Attributes: ${profile.basicStats}
+
+                  COMPOSITION:
+                  - Create a vertical layout with 3 views: Front View, Side View (profile), Back View
+                  - Full body standing pose, neutral expression
+                  - Clean white or neutral background
+                  - Each view should clearly show the character from the specified angle
+
+                  CRITICAL REQUIREMENTS:
+                  1. CONSISTENT CHARACTER DESIGN - All three views must show the SAME character with consistent facial features, hair style, body proportions, and clothing
+                  2. NO TEXT, NO LABELS - Pure image only, no "Front View" or "Side View" text labels, no Chinese characters, no English text
+                  3. PROPER ANATOMY - Ensure correct body proportions and natural stance for each view angle
+                  4. NEUTRAL EXPRESSION - Use a calm, neutral face expression across all views
+                  5. CLEAR ALIGNMENT - Front, side, and back views should be vertically aligned and proportionally consistent
+
+                  Negative Prompt: ${negativePrompt}, text, labels, writing, letters, watermark, signature, bad anatomy, deformed, low quality, chinese characters, english text, interface elements, stats, info boxes
                   `;
 
                   let viewImages: string[] = [];
@@ -1556,7 +1616,7 @@ export const App = () => {
                               retryPrompt,
                               'gemini-2.5-flash-image',
                               [],
-                              { aspectRatio: '3:4', count: 1 },
+                              { aspectRatio: '16:9', count: 1 },
                               { nodeId: nodeId, nodeType: node.type }
                           );
                       } else {
@@ -1564,7 +1624,7 @@ export const App = () => {
                               viewPrompt,
                               'gemini-2.5-flash-image',
                               [],
-                              { aspectRatio: '3:4', count: 1 },
+                              { aspectRatio: '16:9', count: 1 },
                               { nodeId: nodeId, nodeType: node.type }
                           );
                       }
@@ -1599,8 +1659,12 @@ export const App = () => {
                   );
 
                   const idx = generated.findIndex(c => c.name === charName);
+                  const existingChar = generated[idx];
                   generated[idx] = {
                       ...profile,
+                      // Preserve existing image data
+                      expressionSheet: existingChar?.expressionSheet,
+                      threeViewSheet: existingChar?.threeViewSheet,
                       status: 'SUCCESS' as const,
                       roleType: 'main'
                   };
@@ -1888,10 +1952,23 @@ export const App = () => {
               for (const name of names) {
                   const config = configs[name] || { method: 'AI_AUTO' };
 
-                  // Skip if already generated successfully
-                  if (newGeneratedChars.find(c => c.name === name && c.status === 'SUCCESS')) continue;
+                  // Skip if already generated successfully or is currently being processed
+                  const existingChar = newGeneratedChars.find(c => c.name === name);
+                  if (existingChar && (existingChar.status === 'SUCCESS' || existingChar.isGeneratingExpression || existingChar.isGeneratingThreeView)) {
+                      console.log('[CHARACTER_NODE] Skipping character:', name, 'status:', existingChar.status);
+                      continue;
+                  }
 
-                  let charProfile = newGeneratedChars.find(c => c.name === name);
+                  // Only regenerate if explicitly in ERROR state or doesn't exist
+                  if (existingChar && existingChar.status === 'ERROR') {
+                      console.log('[CHARACTER_NODE] Regenerating ERROR character:', name);
+                  } else if (existingChar && existingChar.status !== 'PENDING') {
+                      // Skip if character exists and is not in an error state
+                      console.log('[CHARACTER_NODE] Skipping existing character:', name, 'status:', existingChar.status);
+                      continue;
+                  }
+
+                  let charProfile = existingChar;
                   if (!charProfile) {
                       charProfile = { id: '', name, status: 'GENERATING' } as any;
                       newGeneratedChars.push(charProfile!);
@@ -1928,8 +2005,11 @@ export const App = () => {
                           );
 
                           const idx = newGeneratedChars.findIndex(c => c.name === name);
+                          const existingChar = newGeneratedChars[idx];
                           newGeneratedChars[idx] = {
                               ...profile,
+                              // Preserve existing image data
+                              threeViewSheet: existingChar?.threeViewSheet,
                               status: 'GENERATING' as const,
                               roleType: 'supporting'
                           };
@@ -1942,19 +2022,29 @@ export const App = () => {
 
                           const viewPrompt = `
                           ${stylePrompt}
-                          Character Three-View Reference Sheet (Front, Side, Back).
-                          Subject: ${profile.appearance}.
-                          Attributes: ${profile.basicStats}.
-                          Full body standing pose, neutral expression.
-                          Clean white background.
 
-                          IMPORTANT REQUIREMENTS:
-                          - PURE IMAGE ONLY.
-                          - NO TEXT, NO LABELS, NO WRITING.
-                          - NO "FRONT VIEW" or "SIDE VIEW" labels.
-                          - NO info boxes or character stats.
+                          CHARACTER THREE-VIEW GENERATION TASK:
+                          Generate a character three-view reference sheet (front, side, back views).
 
-                          Negative: ${negativePrompt}.
+                          Character Description:
+                          ${profile.appearance}
+
+                          Attributes: ${profile.basicStats}
+
+                          COMPOSITION:
+                          - Create a vertical layout with 3 views: Front View, Side View (profile), Back View
+                          - Full body standing pose, neutral expression
+                          - Clean white or neutral background
+                          - Each view should clearly show the character from the specified angle
+
+                          CRITICAL REQUIREMENTS:
+                          1. CONSISTENT CHARACTER DESIGN - All three views must show the SAME character with consistent facial features, hair style, body proportions, and clothing
+                          2. NO TEXT, NO LABELS - Pure image only, no "Front View" or "Side View" text labels, no Chinese characters, no English text
+                          3. PROPER ANATOMY - Ensure correct body proportions and natural stance for each view angle
+                          4. NEUTRAL EXPRESSION - Use a calm, neutral face expression across all views
+                          5. CLEAR ALIGNMENT - Front, side, and back views should be vertically aligned and proportionally consistent
+
+                          Negative Prompt: ${negativePrompt}, text, labels, writing, letters, watermark, signature, bad anatomy, deformed, low quality, chinese characters, english text, interface elements, stats, info boxes
                           `;
 
                           let viewImages: string[] = [];
@@ -1969,7 +2059,7 @@ export const App = () => {
                                       retryPrompt,
                                       'gemini-2.5-flash-image',
                                       [],
-                                      { aspectRatio: '3:4', count: 1 },
+                                      { aspectRatio: '16:9', count: 1 },
                                       { nodeId: id, nodeType: node.type }
                                   );
                               } else {
@@ -1977,7 +2067,7 @@ export const App = () => {
                                       viewPrompt,
                                       'gemini-2.5-flash-image',
                                       [],
-                                      { aspectRatio: '3:4', count: 1 },
+                                      { aspectRatio: '16:9', count: 1 },
                                       { nodeId: id, nodeType: node.type }
                                   );
                               }
@@ -2027,8 +2117,13 @@ export const App = () => {
 
                           const idx = newGeneratedChars.findIndex(c => c.name === name);
                           // ✅ Phase 1 complete - user can review info
+                          // Preserve existing images (expressionSheet, threeViewSheet)
+                          const existingChar = newGeneratedChars[idx];
                           newGeneratedChars[idx] = {
                               ...profile,
+                              // Preserve existing image data
+                              expressionSheet: existingChar?.expressionSheet,
+                              threeViewSheet: existingChar?.threeViewSheet,
                               status: 'SUCCESS' as const,
                               roleType: 'main',
                               isGeneratingExpression: false, // Explicitly set
@@ -2256,6 +2351,8 @@ export const App = () => {
                   { nodeId: id, nodeType: node.type }
               );
               handleNodeUpdate(id, { image: res[0], images: res });
+              // Save to local storage
+              await saveImageNodeOutput(id, res, 'IMAGE_GENERATOR');
 
           } else if (node.type === NodeType.VIDEO_GENERATOR) {
               // Extract style preset from inputs
@@ -2279,15 +2376,18 @@ export const App = () => {
                   { nodeId: id, nodeType: node.type }
               );
               if (res.isFallbackImage) {
-                   handleNodeUpdate(id, { 
-                       image: res.uri, 
-                       videoUri: undefined, 
+                   handleNodeUpdate(id, {
+                       image: res.uri,
+                       videoUri: undefined,
                        videoMetadata: undefined,
-                       error: "Region restricted: Generated preview image instead.", 
-                       status: NodeStatus.SUCCESS 
+                       error: "Region restricted: Generated preview image instead.",
+                       status: NodeStatus.SUCCESS
                    });
               } else {
                    handleNodeUpdate(id, { videoUri: res.uri, videoMetadata: res.videoMetadata, videoUris: res.uris });
+                   // Save to local storage
+                   const videoUris = res.uris || [res.uri];
+                   await saveVideoNodeOutput(id, videoUris, 'VIDEO_GENERATOR');
               }
 
           } else if (node.type === NodeType.AUDIO_GENERATOR) {
@@ -2298,6 +2398,8 @@ export const App = () => {
 
               const audioUri = await generateAudio(finalPrompt);
               handleNodeUpdate(id, { audioUri: audioUri });
+              // Save to local storage
+              await saveAudioNodeOutput(id, audioUri, 'AUDIO_GENERATOR');
 
           } else if (node.type === NodeType.STORYBOARD_GENERATOR) {
               const episodeContent = prompt; 
@@ -2678,6 +2780,9 @@ COMPOSITION REQUIREMENTS:
                           storyboardRegeneratePage: undefined
                       });
 
+                      // Save to local storage
+                      await saveStoryboardGridOutput(id, updatedGrids, 'STORYBOARD_IMAGE');
+
                       console.log('[STORYBOARD_IMAGE] Page regeneration complete');
                   } else {
                       throw new Error("分镜重新生成失败，请重试");
@@ -2720,6 +2825,9 @@ COMPOSITION REQUIREMENTS:
                       storyboardTotalPages: generatedGrids.length,
                       storyboardShots: extractedShots // Save shots data for editing
                   });
+
+                  // Save to local storage
+                  await saveStoryboardGridOutput(id, generatedGrids, 'STORYBOARD_IMAGE');
 
                   console.log('[STORYBOARD_IMAGE] All data saved successfully');
               }

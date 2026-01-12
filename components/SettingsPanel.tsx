@@ -18,6 +18,7 @@ import {
   getModelHealth,
   resetModelStats
 } from '../services/modelFallback';
+import { StorageSettingsPanel } from './StorageSettingsPanel';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -59,7 +60,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
   const [isValidating, setIsValidating] = useState(false);
   const [validationStatus, setValidationStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
-  const [activeTab, setActiveTab] = useState<'basic' | 'models'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'models' | 'storage'>('basic');
   const [isSaved, setIsSaved] = useState(false);
 
   // 模型优先级配置
@@ -313,6 +314,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
           >
             模型优先级
           </button>
+          <button
+            onClick={() => setActiveTab('storage')}
+            className={`flex-1 py-3 px-4 text-xs font-bold transition-all ${
+              activeTab === 'storage'
+                ? 'text-cyan-400 border-b-2 border-cyan-400 bg-white/5'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            存储设置
+          </button>
         </div>
 
         {/* Content */}
@@ -381,7 +392,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                 </p>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'models' ? (
             <div className="p-6 space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
@@ -533,6 +544,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                 </div>
               </div>
             </div>
+          ) : (
+            <StorageSettingsPanel
+              getCurrentWorkspaceId={() => 'default'}
+            />
           )}
         </div>
 
