@@ -15,7 +15,7 @@ const getApiKey = (): string | null => {
   return null;
 };
 
-const getClient = () => {
+export const getClient = () => {
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY_NOT_CONFIGURED");
@@ -468,7 +468,7 @@ const DETAILED_STORYBOARD_INSTRUCTION = `
 [
   {
     "shotNumber": 1,
-    "duration": 3,
+    "duration": 2,
     "scene": "教室 - 白天 - 靠窗最后一排",
     "characters": ["林霄"],
     "shotType": "特写 (Close-up)",
@@ -483,22 +483,72 @@ const DETAILED_STORYBOARD_INSTRUCTION = `
 ]
 
 **拆分要求（必须严格遵守）：**
-1. **每个分镜时长**：严格控制在 3-5 秒之间，不得超出此范围
-2. **分镜数量计算**：根据总时长和单镜时长计算
-   - 公式：分镜数量 = 总时长 / 平均镜头时长(3.5-4秒)
-   - 例如：60秒 → 15-20个分镜
-   - 例如：120秒 → 30-40个分镜
-3. **时间精确**：所有分镜的时长总和必须等于目标总时长（误差不超过±1秒）
+
+**1. 时长控制（关键）**
+- 每个分镜时长：严格控制在 **1-4 秒** 之间
+- 平均镜头时长：2-3秒（保持快节奏）
+- 不得出现超过4秒的长镜头
+- 不得出现少于1秒的碎片化镜头
+
+**2. 分镜数量计算**
+根据总时长智能计算分镜数量：
+- **1分钟内容（60秒）**：15-60个分镜
+  - 最少：15个分镜（平均4秒/镜）
+  - 最多：60个分镜（平均1秒/镜）
+  - 推荐：20-30个分镜（平均2-3秒/镜）
+- **2分钟内容（120秒）**：30-120个分镜
+  - 最少：30个分镜
+  - 最多：120个分镜
+  - 推荐：40-60个分镜
+
+**3. 时间精确**
+所有分镜的时长总和必须等于目标总时长（误差不超过±1秒）
+
+**4. 剧情结构智能拆分（核心要求）**
+根据内容类型动态调整镜头节奏：
+
+**关键情节/高潮场景**：
+- 使用更多短镜头（1-2秒）
+- 快速切换，营造紧张感
+- 强化戏剧冲突
+- 例如：对峙、冲突、意外发生、情感爆发时刻
+
+**情感戏/对话场景**：
+- 使用中等时长镜头（2-3秒）
+- 适度推拉，跟随情绪
+- 展现角色反应和微表情
+- 例如：对话、思考、内心戏
+
+**环境描写/转场**：
+- 使用较长镜头（3-4秒）
+- 建立空间感
+- 缓和节奏
+- 例如：环境空镜、场景切换
+
+**动作场面**：
+- 使用极短镜头（1秒）
+- 快速剪辑
+- 强化动感
+- 例如：追逐、打斗、突发动作
+
+**5. 内容结构识别**
+必须识别并优先处理以下结构：
+- 【场景】标记：场景切换处必须有分镜点
+- 【画面】标记：画面描述重点处
+- 对话：每个角色发言应有独立镜头（1-2秒）
+- 动作：每个关键动作分解为1-2秒镜头
+- 情绪：情绪变化点应有镜头切换
 
 **内容要求：**
-1. **专业术语**：使用专业的影视术语
+
+1. **专业术语**：
    - 镜头类型：特写(CU)、中景(MS)、全景(WS)、主观镜头(POV)、过肩(OTS)等
    - 拍摄角度：平视、仰角、俯角、第一人称、侧面、顶视、荷兰角等
    - 运镜方式：固定镜头、推镜、拉镜、摇镜、跟拍、环绕、快速甩镜、手持等
 
 2. **画面描述详细**：
    - 必须包含具体的人物动作、表情、环境细节
-   - 描述要有画面感，能够直接指导生成
+   - 描述要有画面感，能够直接指导AI生成
 
 3. **场景信息完整**：
    - 格式："地点 - 时间 - 具体位置"
@@ -511,17 +561,42 @@ const DETAILED_STORYBOARD_INSTRUCTION = `
 5. **连贯性**：
    - 分镜之间要有逻辑衔接
    - 服务于整体叙事节奏
+   - 镜头组接要符合视听语言规律
 
 6. **对白处理**：
    - 如果有对白，标注角色名和对白内容
    - 区分正常对白、内心独白(Voice Over)、旁白等
    - 如果无对白，写"无"
 
+**拆分策略示例：**
+
+*示例1：对话场景（15秒）*
+- 镜头1：角色A说话（2秒）
+- 镜头2：角色B倾听反应（2秒）
+- 镜头3：角色B说话（2秒）
+- 镜头4：角色A表情变化（2秒）
+- 镜头5：两人过肩对话（3秒）
+- 镜头6：环境氛围（2秒）
+- 镜头7：角色A决定性表情（2秒）
+= 总共7个镜头，15秒
+
+*示例2：动作场景（10秒）*
+- 镜头1：动作起始（1秒）
+- 镜头2：动作过程（1秒）
+- 镜头3：特写冲击（1秒）
+- 镜头4：角色反应（2秒）
+- 镜头5：环境变化（2秒）
+- 镜头6：结果展现（3秒）
+= 总共6个镜头，10秒
+
 **重要提示：**
 - 输出必须是纯 JSON 数组，不要包含任何其他文字
 - 每个分镜对象的所有字段都必须填写
-- duration 字段必须是数字类型
+- duration 字段必须是数字类型（1-4之间）
 - characters 字段必须是字符串数组
+- 优先保证剧情节奏，而非机械均分时长
+- 关键时刻多用短镜头强化冲击力
+- 过渡时刻可用较长镜头缓和节奏
 `;
 
 // --- API Functions ---
@@ -582,9 +657,69 @@ export const generateImageFromText = async (
         async () => {
             const ai = getClient();
 
-            // Use the actual model ID provided - no fallback needed
+            // Use the actual model ID provided
             const effectiveModel = model;
 
+            // Detect if this is an Imagen model (which uses generateImages API)
+            const isImagenModel = effectiveModel.includes('imagen-');
+
+            console.log(`[generateImageFromText] Using ${isImagenModel ? 'Imagen (generateImages)' : 'Gemini (generateContent)'} API for model: ${effectiveModel}`);
+
+            // ============================================
+            // PATH 1: Imagen Models - use generateImages API
+            // ============================================
+            if (isImagenModel) {
+                try {
+                    // Build generateImages request
+                    const imagenConfig: any = {
+                        model: effectiveModel,
+                        prompt: prompt
+                    };
+
+                    // Add aspect ratio if specified
+                    if (options.aspectRatio) {
+                        imagenConfig.aspectRatio = options.aspectRatio;
+                    }
+
+                    // Add number of images if specified
+                    if (options.count && options.count > 1) {
+                        imagenConfig.numberOfImages = options.count;
+                    }
+
+                    // Note: Imagen API doesn't support inputImages (image-to-image)
+                    if (inputImages.length > 0) {
+                        console.warn('[generateImageFromText] Imagen models do not support image-to-image. Input images will be ignored.');
+                    }
+
+                    const result = await ai.models.generateImages(imagenConfig);
+
+                    // Parse Imagen response
+                    const images: string[] = [];
+                    if (result.generatedImages) {
+                        for (const img of result.generatedImages) {
+                            if (img.image && img.image.imageBytes) {
+                                const base64 = `data:${img.image.mimeType || 'image/png'};base64,${img.image.imageBytes}`;
+                                images.push(base64);
+                            }
+                        }
+                    }
+
+                    if (images.length === 0) {
+                        throw new Error("No images generated from Imagen API.");
+                    }
+
+                    console.log(`[generateImageFromText] Imagen generated ${images.length} images`);
+                    return images;
+
+                } catch (e: any) {
+                    console.error("[generateImageFromText] Imagen API Error:", e);
+                    throw new Error(getErrorMessage(e));
+                }
+            }
+
+            // ============================================
+            // PATH 2: Gemini Models - use generateContent API
+            // ============================================
             // Prepare Contents
             const parts: Part[] = [];
 
@@ -644,6 +779,7 @@ export const generateImageFromText = async (
                     throw new Error("No images generated. Safety filter might have been triggered.");
                 }
 
+                console.log(`[generateImageFromText] Gemini generated ${images.length} images`);
                 return images;
             } catch (e: any) {
                 console.error("Image Gen Error:", e);
@@ -1021,10 +1157,30 @@ export const generateDetailedStoryboard = async (
                 const rawShots = JSON.parse(text);
                 console.log('[generateDetailedStoryboard] Parsed shots count:', rawShots.length);
 
+                // Validate and fix shot durations (must be 1-4 seconds)
                 let currentTime = 0;
+                let fixedDurationCount = 0;
+                let invalidDurationCount = 0;
+
                 const shots: import('../types').DetailedStoryboardShot[] = rawShots.map((rawShot: any, index: number) => {
+                    let duration = rawShot.duration || 3;
+
+                    // Validate and clamp duration to 1-4 seconds
+                    if (duration < 1) {
+                        console.warn(`[generateDetailedStoryboard] Shot ${index + 1} duration ${duration}s too short, setting to 1s`);
+                        duration = 1;
+                        fixedDurationCount++;
+                    } else if (duration > 4) {
+                        console.warn(`[generateDetailedStoryboard] Shot ${index + 1} duration ${duration}s too long, setting to 4s`);
+                        duration = 4;
+                        fixedDurationCount++;
+                    }
+
+                    if (duration !== rawShot.duration) {
+                        invalidDurationCount++;
+                    }
+
                     const startTime = currentTime;
-                    const duration = rawShot.duration || 4;
                     const endTime = currentTime + duration;
                     currentTime = endTime;
 
@@ -1046,7 +1202,40 @@ export const generateDetailedStoryboard = async (
                     };
                 });
 
-                console.log('[generateDetailedStoryboard] Successfully generated', shots.length, 'shots');
+                // Calculate statistics
+                const actualTotalDuration = shots.reduce((sum, shot) => sum + shot.duration, 0);
+                const avgDuration = actualTotalDuration / shots.length;
+                const minDuration = Math.min(...shots.map(s => s.duration));
+                const maxDuration = Math.max(...shots.map(s => s.duration));
+
+                console.log('[generateDetailedStoryboard] ===== 分镜生成统计 =====');
+                console.log('[generateDetailedStoryboard] 目标总时长:', totalDuration, '秒');
+                console.log('[generateDetailedStoryboard] 实际总时长:', actualTotalDuration, '秒');
+                console.log('[generateDetailedStoryboard] 分镜数量:', shots.length, '个');
+                console.log('[generateDetailedStoryboard] 平均时长:', avgDuration.toFixed(2), '秒');
+                console.log('[generateDetailedStoryboard] 最短时长:', minDuration, '秒');
+                console.log('[generateDetailedStoryboard] 最长时长:', maxDuration, '秒');
+                console.log('[generateDetailedStoryboard] 时长修正:', fixedDurationCount, '处');
+                console.log('[generateDetailedStoryboard] 时长违规:', invalidDurationCount, '处');
+                console.log('[generateDetailedStoryboard] ========================');
+
+                // Warn if total duration is significantly off
+                if (Math.abs(actualTotalDuration - totalDuration) > 5) {
+                    console.warn(`[generateDetailedStoryboard] Duration mismatch! Target: ${totalDuration}s, Actual: ${actualTotalDuration}s, Difference: ${actualTotalDuration - totalDuration}s`);
+                }
+
+                // Validate shot count is within expected range
+                const minExpectedShots = Math.floor(totalDuration / 4); // Maximum 4s per shot
+                const maxExpectedShots = totalDuration; // Minimum 1s per shot
+
+                if (shots.length < minExpectedShots) {
+                    console.warn(`[generateDetailedStoryboard] Shot count too low! Expected at least ${minExpectedShots}, got ${shots.length}`);
+                } else if (shots.length > maxExpectedShots) {
+                    console.warn(`[generateDetailedStoryboard] Shot count too high! Expected at most ${maxExpectedShots}, got ${shots.length}`);
+                } else {
+                    console.log(`[generateDetailedStoryboard] ✅ Shot count within expected range: ${minExpectedShots}-${maxExpectedShots}`);
+                }
+
                 return shots;
             } catch (e) {
                 console.error("[generateDetailedStoryboard] Error:", e);

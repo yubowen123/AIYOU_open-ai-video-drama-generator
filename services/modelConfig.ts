@@ -19,69 +19,70 @@ export interface ModelInfo {
   isDefault?: boolean;
 }
 
-// 图片生成模型 - 按效果和可用性排序
-// 所有模型都通过 generateContent API 调用
+// 图片生成模型 - 仅支持图生图的 Gemini 系列
+// 所有模型都使用 generateContent API，支持 image-to-image
+// Imagen 系列已隐藏（不支持图生图，不适合角色生成）
 export const IMAGE_MODELS: ModelInfo[] = [
   {
-    id: 'imagen-4.0-ultra-generate',
-    name: 'Imagen 4.0 Ultra',
+    id: 'gemini-2.5-flash-image',
+    name: 'Gemini 2.5 Flash (Nano Banana)',
     category: 'image',
     priority: 1,
-    quality: 10,
-    speed: 4,
-    cost: 2,
-    capabilities: ['最高质量', '细节丰富', '专业级', '4K支持', 'generateContent API'],
-    description: '最高质量的图像生成，适合专业场景',
-    tags: ['ultra', 'highest-quality', 'professional', 'imagen'],
-    isDefault: true
-  },
-  {
-    id: 'imagen-4.0-generate',
-    name: 'Imagen 4.0',
-    category: 'image',
-    priority: 2,
-    quality: 9,
-    speed: 6,
-    cost: 5,
-    capabilities: ['高质量', '平衡性能', '生产环境', 'generateContent API'],
-    description: '高质量图像生成，生产环境推荐',
-    tags: ['high-quality', 'production', 'imagen']
-  },
-  {
-    id: 'gemini-3-pro-image',
-    name: 'Gemini 3 Pro Image (Nano Banana Pro)',
-    category: 'image',
-    priority: 3,
-    quality: 9,
-    speed: 7,
-    cost: 4,
-    capabilities: ['最高质量', '多模态理解', '推理增强', 'generateContent API'],
-    description: 'Gemini 3 Pro 图像生成，强大的多模态理解能力',
-    tags: ['pro', 'high-quality', 'multimodal', 'generateContent']
-  },
-  {
-    id: 'imagen-4.0-fast-generate',
-    name: 'Imagen 4.0 Fast',
-    category: 'image',
-    priority: 4,
-    quality: 7,
-    speed: 9,
-    cost: 7,
-    capabilities: ['快速生成', '实时预览', '批量处理', 'generateContent API'],
-    description: '快速生成，适合预览和迭代',
-    tags: ['fast', 'preview', 'iteration', 'imagen']
-  },
-  {
-    id: 'gemini-2.5-flash-image',
-    name: 'Gemini 2.5 Flash Image (Nano Banana)',
-    category: 'image',
-    priority: 5,
     quality: 8,
     speed: 9,
     cost: 8,
-    capabilities: ['原生支持', '快速响应', 'generateContent API', 'aspectRatio 支持', 'SynthID 水印'],
-    description: 'Gemini 2.5 原生图像生成，支持 aspectRatio 参数，包含 SynthID 数字水印',
-    tags: ['native', 'fast', 'generateContent', 'synthid']
+    capabilities: ['快速响应', 'aspectRatio 支持', 'SynthID 水印', '支持图生图'],
+    description: '快速稳定，支持 aspectRatio 参数，包含 SynthID 数字水印',
+    tags: ['native', 'fast', 'generateContent', 'synthid'],
+    isDefault: true
+  },
+  {
+    id: 'gemini-3-pro-image-preview',
+    name: 'Gemini 3 Pro (Nano Banana Pro)',
+    category: 'image',
+    priority: 2,
+    quality: 10,
+    speed: 7,
+    cost: 5,
+    capabilities: ['最高质量', '多模态理解', '推理增强', '支持图生图'],
+    description: '最高质量，强大的多模态理解能力',
+    tags: ['pro', 'high-quality', 'multimodal', 'generateContent']
+  },
+  {
+    id: 'gemini-2.5-flash-image-preview',
+    name: 'Gemini 2.5 Flash Preview',
+    category: 'image',
+    priority: 3,
+    quality: 8,
+    speed: 9,
+    cost: 8,
+    capabilities: ['预览版', '快速响应', '支持图生图'],
+    description: 'Gemini 2.5 Flash 预览版',
+    tags: ['preview', 'fast', 'generateContent']
+  },
+  {
+    id: 'gemini-2.0-flash-exp-image-generation',
+    name: 'Gemini 2.0 Flash Experimental',
+    category: 'image',
+    priority: 4,
+    quality: 7,
+    speed: 8,
+    cost: 9,
+    capabilities: ['实验性', '支持图生图'],
+    description: '实验性图像生成',
+    tags: ['experimental', 'fast', 'generateContent']
+  },
+  {
+    id: 'nano-banana-pro-preview',
+    name: 'Nano Banana Pro',
+    category: 'image',
+    priority: 5,
+    quality: 10,
+    speed: 7,
+    cost: 5,
+    capabilities: ['最高质量', '多模态理解', '支持图生图'],
+    description: '与 gemini-3-pro-image-preview 相同',
+    tags: ['pro', 'high-quality', 'multimodal', 'generateContent']
   }
 ];
 

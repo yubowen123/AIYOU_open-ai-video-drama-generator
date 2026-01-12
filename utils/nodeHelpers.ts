@@ -13,7 +13,8 @@ import {
   BookOpen,
   Film,
   Sparkles,
-  Palette
+  Palette,
+  Grid
 } from 'lucide-react';
 
 /**
@@ -34,6 +35,8 @@ export function getNodeIcon(type: NodeType) {
     [NodeType.SCRIPT_PLANNER]: ScrollText,
     [NodeType.SCRIPT_EPISODE]: BookOpen,
     [NodeType.STORYBOARD_GENERATOR]: Clapperboard,
+    [NodeType.STORYBOARD_IMAGE]: Clapperboard,
+    [NodeType.STORYBOARD_SPLITTER]: Grid,
     [NodeType.CHARACTER_NODE]: User,
     [NodeType.DRAMA_ANALYZER]: Film,
     [NodeType.DRAMA_REFINED]: Sparkles,
@@ -57,6 +60,8 @@ export function getNodeColor(type: NodeType): string {
     [NodeType.SCRIPT_PLANNER]: '#3b82f6',
     [NodeType.SCRIPT_EPISODE]: '#14b8a6',
     [NodeType.STORYBOARD_GENERATOR]: '#a855f7',
+    [NodeType.STORYBOARD_IMAGE]: '#a855f7',
+    [NodeType.STORYBOARD_SPLITTER]: '#3b82f6',  // Blue color for analysis/processing
     [NodeType.CHARACTER_NODE]: '#f97316',
     [NodeType.DRAMA_ANALYZER]: '#7c3aed',
     [NodeType.DRAMA_REFINED]: '#06b6d4',
@@ -83,6 +88,8 @@ export function getApproxNodeHeight(node: AppNode): number {
     [NodeType.SCRIPT_PLANNER]: 480,
     [NodeType.SCRIPT_EPISODE]: 420,
     [NodeType.STORYBOARD_GENERATOR]: 500,
+    [NodeType.STORYBOARD_IMAGE]: 600,
+    [NodeType.STORYBOARD_SPLITTER]: 700,  // Taller for list display
     [NodeType.CHARACTER_NODE]: 520,
     [NodeType.DRAMA_ANALYZER]: 600,
     [NodeType.DRAMA_REFINED]: 400,
@@ -106,6 +113,10 @@ export function getApproxNodeHeight(node: AppNode): number {
 
   if (node.data.generatedCharacters && node.data.generatedCharacters.length > 0) {
     height += node.data.generatedCharacters.length * 60; // 每个角色增加高度
+  }
+
+  if (node.data.splitShots && node.data.splitShots.length > 0) {
+    height += node.data.splitShots.length * 30; // 每个拆解的分镜增加高度
   }
 
   return height;

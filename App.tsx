@@ -16,9 +16,10 @@ import { DebugPanel } from './components/DebugPanel';
 import { ModelFallbackNotification } from './components/ModelFallbackNotification';
 import { AppNode, NodeType, NodeStatus, Connection, ContextMenuState, Group, Workflow, SmartSequenceItem, CharacterProfile } from './types';
 import { generateImageFromText, generateVideo, analyzeVideo, editImageWithText, planStoryboard, orchestrateVideoPrompt, compileMultiFramePrompt, urlToBase64, extractLastFrame, generateAudio, generateScriptPlanner, generateScriptEpisodes, generateCinematicStoryboard, extractCharactersFromText, generateCharacterProfile, detectTextInImage, analyzeDrama } from './services/geminiService';
+import { generateImageWithFallback } from './services/geminiServiceWithFallback';
 import { getGenerationStrategy } from './services/videoStrategies';
 import { saveToStorage, loadFromStorage } from './services/storage';
-import { getUserPriority, ModelCategory } from './services/modelConfig';
+import { getUserPriority, ModelCategory, getDefaultModel } from './services/modelConfig';
 import { executeWithFallback } from './services/modelFallback';
 import { validateConnection, canExecuteNode } from './utils/nodeValidation';
 import { WelcomeScreen } from './components/WelcomeScreen';
@@ -805,6 +806,20 @@ export const App = () => {
       setNodes(prev => prev.map(n => {
           if (n.id === id) {
               const updated = { ...n, data: { ...n.data, ...data }, title: title || n.title };
+
+              // Debug log for character updates
+              if (data.generatedCharacters) {
+                  console.log('[handleNodeUpdate] Updating generatedCharacters:', {
+                      nodeId: id,
+                      count: data.generatedCharacters.length,
+                      characters: data.generatedCharacters.map((c: any) => ({
+                          name: c.name,
+                          hasExpression: !!c.expressionSheet,
+                          hasThreeView: !!c.threeViewSheet
+                      }))
+                  });
+              }
+
               if (size) { if (size.width) updated.width = size.width; if (size.height) updated.height = size.height; }
               if (data.image) handleAssetGenerated('image', data.image, updated.title);
               if (data.videoUri) handleAssetGenerated('video', data.videoUri, updated.title);
@@ -1155,8 +1170,11 @@ export const App = () => {
           let char = generated.find(c => c.name === charName);
           if (!char) return;
 
-          // Mark as generating
-          const updatedGenerated = generated.map(c => c.name === charName ? { ...c, isGeneratingExpression: true } : c);
+          // Mark as generating - IMPORTANT: Get FRESH data from nodesRef to avoid stale state
+          const freshNode = nodesRef.current.find(n => n.id === nodeId);
+          const freshGenerated = freshNode?.data.generatedCharacters || [];
+          let updatedGenerated = [...freshGenerated];
+          updatedGenerated = updatedGenerated.map(c => c.name === charName ? { ...c, isGeneratingExpression: true } : c);
           handleNodeUpdate(nodeId, { generatedCharacters: updatedGenerated });
 
           const inputs = node.inputs.map(i => nodesRef.current.find(n => n.id === i)).filter(Boolean) as AppNode[];
@@ -1169,6 +1187,10 @@ export const App = () => {
               const { style, genre, setting } = getUpstreamStyleContext(node, nodesRef.current);
               stylePrompt = getVisualPromptPrefix(style, genre, setting);
           }
+
+          // Re-fetch char from updatedGenerated to get latest state
+          const latestChar = updatedGenerated.find(c => c.name === charName);
+          if (!latestChar) return;
 
           try {
               const negativePrompt = "nsfw, text, watermark, label, signature, bad anatomy, deformed, low quality, writing, letters, logo, interface, ui";
@@ -1190,7 +1212,7 @@ export const App = () => {
 
               Character facial expressions reference sheet, 3x3 grid layout showing 9 different facial expressions (joy, anger, sorrow, surprise, fear, disgust, neutral, thinking, tired).
 
-              Character Face Description: ${char.appearance}.
+              Character Face Description: ${latestChar.appearance}.
 
               CRITICAL CONSTRAINTS:
               - Close-up portrait shots ONLY (head and shoulders)
@@ -1203,32 +1225,57 @@ export const App = () => {
               Negative Prompt: ${negativePrompt}${styleNegative}, full body, standing, legs, feet, full-length portrait, wide shot, environmental background
               `;
 
-              const exprImages = await generateImageFromText(
+              // Use user-configured model priority for image generation
+              const userPriority = getUserPriority('image');
+              const initialModel = userPriority[0] || getDefaultModel('image');
+
+              console.log('[GENERATE_EXPRESSION] Using model priority:', userPriority);
+
+              const exprImages = await generateImageWithFallback(
                   exprPrompt,
-                  'gemini-2.5-flash-image',
+                  initialModel,
                   [],
                   { aspectRatio: '1:1', count: 1 },
                   { nodeId: nodeId, nodeType: node.type }
               );
 
+              console.log('[GENERATE_EXPRESSION] Image generation complete:', {
+                  charName,
+                  imageCount: exprImages?.length || 0,
+                  firstImageLength: exprImages?.[0]?.length || 0
+              });
+
               if (!exprImages || exprImages.length === 0) {
                   throw new Error('表情图生成失败：API未返回图片数据');
               }
 
-              // Update character with expression sheet
-              const finalList = [...(nodesRef.current.find(n => n.id === nodeId)?.data.generatedCharacters || [])];
-              const fIdx = finalList.findIndex(c => c.name === charName);
+              // Update character with expression sheet - use the local updatedGenerated array
+              const fIdx = updatedGenerated.findIndex(c => c.name === charName);
               if (fIdx >= 0) {
-                  finalList[fIdx] = { ...finalList[fIdx], expressionSheet: exprImages[0], isGeneratingExpression: false };
+                  // CRITICAL: Explicitly set all generating states to false
+                  const currentChar = updatedGenerated[fIdx];
+                  updatedGenerated[fIdx] = {
+                      ...currentChar,
+                      expressionSheet: exprImages[0],
+                      isGeneratingExpression: false,
+                      isGeneratingThreeView: false // Also ensure this is false
+                  };
+                  console.log('[GENERATE_EXPRESSION] Updating character with expression sheet:', {
+                      name: updatedGenerated[fIdx].name,
+                      hasExpression: !!updatedGenerated[fIdx].expressionSheet,
+                      hasThreeView: !!updatedGenerated[fIdx].threeViewSheet,
+                      isGeneratingExpression: updatedGenerated[fIdx].isGeneratingExpression,
+                      isGeneratingThreeView: updatedGenerated[fIdx].isGeneratingThreeView
+                  });
               }
-              handleNodeUpdate(nodeId, { generatedCharacters: finalList });
+              handleNodeUpdate(nodeId, { generatedCharacters: updatedGenerated });
           } catch (e: any) {
-              const failList = [...(nodesRef.current.find(n => n.id === nodeId)?.data.generatedCharacters || [])];
-              const failIdx = failList.findIndex(c => c.name === charName);
+              // Use the local updatedGenerated array for error handling
+              const failIdx = updatedGenerated.findIndex(c => c.name === charName);
               if (failIdx >= 0) {
-                  failList[failIdx] = { ...failList[failIdx], isGeneratingExpression: false, expressionError: e.message };
+                  updatedGenerated[failIdx] = { ...updatedGenerated[failIdx], isGeneratingExpression: false, expressionError: e.message };
               }
-              handleNodeUpdate(nodeId, { generatedCharacters: failList });
+              handleNodeUpdate(nodeId, { generatedCharacters: updatedGenerated });
           }
       }
 
@@ -1237,8 +1284,28 @@ export const App = () => {
           let char = generated.find(c => c.name === charName);
           if (!char) return;
 
-          // Mark as generating
-          const updatedGenerated = generated.map(c => c.name === charName ? { ...c, isGeneratingThreeView: true } : c);
+          console.log('[GENERATE_THREE_VIEW] Starting three-view generation:', {
+              charName,
+              hasExpressionSheet: !!char.expressionSheet,
+              isGeneratingExpression: char.isGeneratingExpression,
+              currentThreeView: !!char.threeViewSheet
+          });
+
+          // Mark as generating - IMPORTANT: Get FRESH data from nodesRef to avoid stale state
+          const freshNode = nodesRef.current.find(n => n.id === nodeId);
+          const freshGenerated = freshNode?.data.generatedCharacters || [];
+          let updatedGenerated = [...freshGenerated];
+
+          updatedGenerated = updatedGenerated.map(c => {
+              if (c.name === charName) {
+                  console.log('[GENERATE_THREE_VIEW] Marking as generating, preserving:', {
+                      hasExpressionSheet: !!c.expressionSheet,
+                      isGeneratingExpression: c.isGeneratingExpression
+                  });
+                  return { ...c, isGeneratingThreeView: true };
+              }
+              return c;
+          });
           handleNodeUpdate(nodeId, { generatedCharacters: updatedGenerated });
 
           const inputs = node.inputs.map(i => nodesRef.current.find(n => n.id === i)).filter(Boolean) as AppNode[];
@@ -1252,28 +1319,74 @@ export const App = () => {
               stylePrefix = getVisualPromptPrefix(style, genre, setting);
           }
 
+          // Re-fetch char from updatedGenerated to get latest state
+          const latestChar = updatedGenerated.find(c => c.name === charName);
+          if (!latestChar) return;
+
+          // CRITICAL: Require expression sheet to exist before generating three-view
+          if (!latestChar.expressionSheet) {
+              const error = '请先生成九宫格表情图，再生成三视图。三视图基于九宫格表情图生成。';
+              console.log('[GENERATE_THREE_VIEW] Blocked:', error);
+              alert(error); // User-friendly notification
+
+              // Update UI to show error state
+              const failIdx = updatedGenerated.findIndex(c => c.name === charName);
+              if (failIdx >= 0) {
+                  updatedGenerated[failIdx] = {
+                      ...updatedGenerated[failIdx],
+                      isGeneratingThreeView: false,
+                      threeViewError: error
+                  };
+              }
+              handleNodeUpdate(nodeId, { generatedCharacters: updatedGenerated });
+              return;
+          }
+
+          console.log('[GENERATE_THREE_VIEW] Starting with expression sheet as reference:', {
+              charName,
+              hasExpressionSheet: !!latestChar.expressionSheet,
+              expressionLength: latestChar.expressionSheet?.length || 0
+          });
+
           try {
               const negativePrompt = "nsfw, text, watermark, label, signature, bad anatomy, deformed, low quality, writing, letters, logo, interface, ui, username, website, chinese characters, info box, stats, descriptions, annotations";
 
               const viewPrompt = `
               ${stylePrefix}
-              Character Three-View Reference Sheet (Front, Side, Back).
-              Subject: ${char.appearance}.
-              Attributes: ${char.basicStats}.
-              Full body standing pose, neutral expression.
-              Clean white background.
 
-              IMPORTANT REQUIREMENTS:
-              - PURE IMAGE ONLY.
-              - NO TEXT, NO LABELS, NO WRITING.
-              - NO "FRONT VIEW" or "SIDE VIEW" labels.
-              - NO info boxes or character stats.
-              - Reference the character in the input image strictly. Maintain facial features, hair color, and clothing style.
+              CHARACTER THREE-VIEW GENERATION TASK:
+              Generate a character three-view reference sheet (front, side, back views).
 
-              Negative: ${negativePrompt}.
+              REFERENCE IMAGE: A 9-grid expression sheet is provided as input. Use the FRONT VIEW (center/top face) from this expression sheet as the visual reference.
+
+              Character Description:
+              ${latestChar.appearance}
+
+              Attributes: ${latestChar.basicStats}
+
+              COMPOSITION:
+              - Create a vertical layout with 3 views: Front View, Side View (profile), Back View
+              - Full body standing pose, neutral expression
+              - Clean white or neutral background
+              - Each view should clearly show the character from the specified angle
+
+              CRITICAL REQUIREMENTS:
+              1. USE THE EXPRESSION SHEET AS VISUAL REFERENCE - Extract the character's face, hair style, clothing, and body proportions from the provided 9-grid image
+              2. MAINTAIN CONSISTENCY - The three-view should look like the SAME character from the expression sheet
+              3. NO TEXT, NO LABELS - Pure image only, no "Front View" or "Side View" text labels
+              4. PROPER ANATOMY - Ensure correct body proportions and natural stance
+              5. NEUTRAL EXPRESSION - Use a calm, neutral face expression (same as the reference)
+
+              Negative Prompt: ${negativePrompt}, text, labels, writing, letters, watermark, signature, bad anatomy, deformed, low quality
               `;
 
-              const inputImages = char.expressionSheet ? [char.expressionSheet] : [];
+              const inputImages = latestChar.expressionSheet ? [latestChar.expressionSheet] : [];
+
+              // Use user-configured model priority for image generation
+              const userPriority = getUserPriority('image');
+              const initialModel = userPriority[0] || getDefaultModel('image');
+
+              console.log('[GENERATE_THREE_VIEW] Using model priority:', userPriority);
 
               let viewImages: string[] = [];
               let hasText = true;
@@ -1283,17 +1396,17 @@ export const App = () => {
               while (hasText && attempt < MAX_ATTEMPTS) {
                   if (attempt > 0) {
                       const retryPrompt = viewPrompt + " NO TEXT. NO LABELS. CLEAR BACKGROUND.";
-                      viewImages = await generateImageFromText(
+                      viewImages = await generateImageWithFallback(
                           retryPrompt,
-                          'gemini-2.5-flash-image',
+                          initialModel,
                           inputImages,
                           { aspectRatio: '3:4', count: 1 },
                           { nodeId: nodeId, nodeType: node.type }
                       );
                   } else {
-                      viewImages = await generateImageFromText(
+                      viewImages = await generateImageWithFallback(
                           viewPrompt,
-                          'gemini-2.5-flash-image',
+                          initialModel,
                           inputImages,
                           { aspectRatio: '3:4', count: 1 },
                           { nodeId: nodeId, nodeType: node.type }
@@ -1309,20 +1422,40 @@ export const App = () => {
                   attempt++;
               }
 
-              // Update character with three-view sheet
-              const finalList = [...(nodesRef.current.find(n => n.id === nodeId)?.data.generatedCharacters || [])];
-              const fIdx = finalList.findIndex(c => c.name === charName);
+              console.log('[GENERATE_THREE_VIEW] Image generation complete:', {
+                  charName,
+                  imageCount: viewImages?.length || 0,
+                  firstImageLength: viewImages?.[0]?.length || 0,
+                  attempts: attempt
+              });
+
+              // Update character with three-view sheet - use the local updatedGenerated array
+              const fIdx = updatedGenerated.findIndex(c => c.name === charName);
               if (fIdx >= 0) {
-                  finalList[fIdx] = { ...finalList[fIdx], threeViewSheet: viewImages[0], isGeneratingThreeView: false };
+                  // CRITICAL: Explicitly preserve isGeneratingExpression = false to prevent UI bug
+                  const currentChar = updatedGenerated[fIdx];
+                  updatedGenerated[fIdx] = {
+                      ...currentChar,
+                      threeViewSheet: viewImages[0],
+                      isGeneratingThreeView: false,
+                      isGeneratingExpression: false // Explicitly set to false to prevent "generating" state in UI
+                  };
+                  console.log('[GENERATE_THREE_VIEW] Updating character with three-view sheet:', {
+                      name: updatedGenerated[fIdx].name,
+                      hasThreeView: !!updatedGenerated[fIdx].threeViewSheet,
+                      hasExpressionSheet: !!updatedGenerated[fIdx].expressionSheet,
+                      isGeneratingExpression: updatedGenerated[fIdx].isGeneratingExpression,
+                      isGeneratingThreeView: updatedGenerated[fIdx].isGeneratingThreeView
+                  });
               }
-              handleNodeUpdate(nodeId, { generatedCharacters: finalList });
+              handleNodeUpdate(nodeId, { generatedCharacters: updatedGenerated });
           } catch (e: any) {
-              const failList = [...(nodesRef.current.find(n => n.id === nodeId)?.data.generatedCharacters || [])];
-              const failIdx = failList.findIndex(c => c.name === charName);
+              // Use the local updatedGenerated array for error handling
+              const failIdx = updatedGenerated.findIndex(c => c.name === charName);
               if (failIdx >= 0) {
-                  failList[failIdx] = { ...failList[failIdx], isGeneratingThreeView: false, threeViewError: e.message };
+                  updatedGenerated[failIdx] = { ...updatedGenerated[failIdx], isGeneratingThreeView: false, threeViewError: e.message };
               }
-              handleNodeUpdate(nodeId, { generatedCharacters: failList });
+              handleNodeUpdate(nodeId, { generatedCharacters: updatedGenerated });
           }
       }
 
@@ -1863,7 +1996,9 @@ export const App = () => {
                           newGeneratedChars[finalIdx] = {
                               ...newGeneratedChars[finalIdx],
                               threeViewSheet: viewImages[0],
-                              status: 'SUCCESS' as const
+                              status: 'SUCCESS' as const,
+                              isGeneratingExpression: false, // Explicitly set
+                              isGeneratingThreeView: false  // Explicitly set
                           };
 
                           console.log('[CHARACTER_NODE] Supporting character complete (profile + three-view):', {
@@ -1895,7 +2030,9 @@ export const App = () => {
                           newGeneratedChars[idx] = {
                               ...profile,
                               status: 'SUCCESS' as const,
-                              roleType: 'main'
+                              roleType: 'main',
+                              isGeneratingExpression: false, // Explicitly set
+                              isGeneratingThreeView: false  // Explicitly set
                           };
                           console.log('[CHARACTER_NODE] Profile generated successfully:', {
                               name,
@@ -2208,90 +2345,79 @@ export const App = () => {
               await Promise.all(updatedShots.map((_, i) => processShotImage(i)));
 
           } else if (node.type === NodeType.STORYBOARD_IMAGE) {
-              // Get storyboard content from input or connected nodes
-              let storyboardContent = prompt.trim();
+              // Check if this is a panel or page regeneration request
+              const regeneratePanelIndex = node.data.storyboardRegeneratePanel;
+              const regeneratePageIndex = node.data.storyboardRegeneratePage;
+              const isRegeneratingPanel = typeof regeneratePanelIndex === 'number';
+              const isRegeneratingPage = typeof regeneratePageIndex === 'number';
+              const isRegenerating = isRegeneratingPanel || isRegeneratingPage;
 
-              // Check if there's a connected PROMPT_INPUT node with episodeStoryboard data
-              const promptInputNode = inputs.find(n => n.type === NodeType.PROMPT_INPUT);
-              if (promptInputNode?.data.episodeStoryboard) {
-                  const storyboard = promptInputNode.data.episodeStoryboard;
-                  console.log('[STORYBOARD_IMAGE] Found episodeStoryboard from PROMPT_INPUT:', {
-                      shotCount: storyboard.shots?.length || 0,
-                      totalDuration: storyboard.totalDuration
-                  });
+              // Get existing shots data or fetch from input
+              let extractedShots: any[] = node.data.storyboardShots || [];
 
-                  // Keep the full structured data for detailed prompt generation
-                  storyboardContent = JSON.stringify({
-                      shots: storyboard.shots.map((shot: any) => ({
-                          visualDescription: shot.visualDescription,
-                          scene: shot.scene,
-                          shotType: shot.shotType,
-                          cameraAngle: shot.cameraAngle,
-                          cameraMovement: shot.cameraMovement
-                      }))
-                  });
-              }
+              if (!isRegenerating || extractedShots.length === 0) {
+                  // Normal generation or no existing shots - get from input
+                  let storyboardContent = prompt.trim();
 
-              if (!storyboardContent) {
-                  throw new Error("请输入分镜描述或连接剧本分集子节点");
-              }
+                  // Check if there's a connected PROMPT_INPUT node with episodeStoryboard data
+                  const promptInputNode = inputs.find(n => n.type === NodeType.PROMPT_INPUT);
+                  if (promptInputNode?.data.episodeStoryboard) {
+                      const storyboard = promptInputNode.data.episodeStoryboard;
+                      console.log('[STORYBOARD_IMAGE] Found episodeStoryboard from PROMPT_INPUT:', {
+                          shotCount: storyboard.shots?.length || 0,
+                          totalDuration: storyboard.totalDuration
+                      });
 
-              console.log('[STORYBOARD_IMAGE] Processing content:', {
-                  contentLength: storyboardContent.length,
-                  inputCount: inputs.length,
-                  hasEpisodeStoryboard: !!promptInputNode?.data.episodeStoryboard
-              });
-
-              // Extract character reference images from upstream CHARACTER_NODE
-              const characterReferenceImages: string[] = [];
-              const characterNode = inputs.find(n => n.type === NodeType.CHARACTER_NODE);
-
-              if (characterNode?.data.generatedCharacters) {
-                  const characters = characterNode.data.generatedCharacters as CharacterProfile[];
-                  characters.forEach(char => {
-                      if (char.threeViewSheet) {
-                          characterReferenceImages.push(char.threeViewSheet);
-                      } else if (char.expressionSheet) {
-                          characterReferenceImages.push(char.expressionSheet);
-                      }
-                  });
-
-                  console.log('[STORYBOARD_IMAGE] Found character references:', {
-                      characterCount: characters.length,
-                      referenceImageCount: characterReferenceImages.length,
-                      characterNames: characters.map(c => c.name)
-                  });
-              }
-
-              // Extract shots with full structured data
-              let extractedShots: any[] = [];
-
-              // Try to parse as JSON first (from generateDetailedStoryboard)
-              const jsonMatch = storyboardContent.match(/\{[\s\S]*"shots"[\s\S]*\}/);
-              if (jsonMatch) {
-                  try {
-                      const parsed = JSON.parse(jsonMatch[0]);
-                      if (parsed.shots && Array.isArray(parsed.shots)) {
-                          extractedShots = parsed.shots;
-                          console.log('[STORYBOARD_IMAGE] Parsed structured shots:', extractedShots.length);
-                      }
-                  } catch (e) {
-                      console.warn('[STORYBOARD_IMAGE] Failed to parse JSON, falling back to text parsing');
+                      // Keep the full structured data for detailed prompt generation
+                      storyboardContent = JSON.stringify({
+                          shots: storyboard.shots.map((shot: any) => ({
+                              visualDescription: shot.visualDescription,
+                              scene: shot.scene,
+                              shotType: shot.shotType,
+                              cameraAngle: shot.cameraAngle,
+                              cameraMovement: shot.cameraMovement
+                          }))
+                      });
                   }
-              }
 
-              // Fallback: Parse text descriptions
-              if (extractedShots.length === 0) {
-                  const numberedMatches = storyboardContent.match(/^\d+[.、)]\s*(.+)$/gm);
-                  if (numberedMatches && numberedMatches.length > 0) {
-                      extractedShots = numberedMatches.map(m => ({
-                          visualDescription: m.replace(/^\d+[.、)]\s*/, '').trim()
-                      }));
-                  } else {
-                      extractedShots = storyboardContent.split(/\n+/)
-                          .map(line => line.trim())
-                          .filter(line => line.length > 10)
-                          .map(desc => ({ visualDescription: desc }));
+                  if (!storyboardContent) {
+                      throw new Error("请输入分镜描述或连接剧本分集子节点");
+                  }
+
+                  console.log('[STORYBOARD_IMAGE] Processing content:', {
+                      contentLength: storyboardContent.length,
+                      inputCount: inputs.length,
+                      hasEpisodeStoryboard: !!promptInputNode?.data.episodeStoryboard
+                  });
+
+                  // Extract shots with full structured data
+                  // Try to parse as JSON first (from generateDetailedStoryboard)
+                  const jsonMatch = storyboardContent.match(/\{[\s\S]*"shots"[\s\S]*\}/);
+                  if (jsonMatch) {
+                      try {
+                          const parsed = JSON.parse(jsonMatch[0]);
+                          if (parsed.shots && Array.isArray(parsed.shots)) {
+                              extractedShots = parsed.shots;
+                              console.log('[STORYBOARD_IMAGE] Parsed structured shots:', extractedShots.length);
+                          }
+                      } catch (e) {
+                          console.warn('[STORYBOARD_IMAGE] Failed to parse JSON, falling back to text parsing');
+                      }
+                  }
+
+                  // Fallback: Parse text descriptions
+                  if (extractedShots.length === 0) {
+                      const numberedMatches = storyboardContent.match(/^\d+[.、)]\s*(.+)$/gm);
+                      if (numberedMatches && numberedMatches.length > 0) {
+                          extractedShots = numberedMatches.map(m => ({
+                              visualDescription: m.replace(/^\d+[.、)]\s*/, '').trim()
+                          }));
+                      } else {
+                          extractedShots = storyboardContent.split(/\n+/)
+                              .map(line => line.trim())
+                              .filter(line => line.length > 10)
+                              .map(desc => ({ visualDescription: desc }));
+                      }
                   }
               }
 
@@ -2315,7 +2441,8 @@ export const App = () => {
                   shotsPerGrid,
                   numberOfPages,
                   gridLayout,
-                  panelOrientation
+                  panelOrientation,
+                  isRegenerating
               });
 
               // Get visual style from upstream
@@ -2324,8 +2451,29 @@ export const App = () => {
 
               // Get user-configured image model priority
               const imageModelPriority = getUserPriority('image' as ModelCategory);
-              const primaryImageModel = imageModelPriority[0] || 'imagen-4.0-generate';
+              const primaryImageModel = imageModelPriority[0] || getDefaultModel('image');
               console.log('[STORYBOARD_IMAGE] Using image model priority:', imageModelPriority);
+
+              // Extract character reference images from upstream CHARACTER_NODE (for all cases)
+              const characterReferenceImages: string[] = [];
+              const characterNode = inputs.find(n => n.type === NodeType.CHARACTER_NODE);
+
+              if (characterNode?.data.generatedCharacters) {
+                  const characters = characterNode.data.generatedCharacters as CharacterProfile[];
+                  characters.forEach(char => {
+                      if (char.threeViewSheet) {
+                          characterReferenceImages.push(char.threeViewSheet);
+                      } else if (char.expressionSheet) {
+                          characterReferenceImages.push(char.expressionSheet);
+                      }
+                  });
+
+                  console.log('[STORYBOARD_IMAGE] Character references:', {
+                      characterCount: characters.length,
+                      referenceImageCount: characterReferenceImages.length,
+                      characterNames: characters.map(c => c.name)
+                  });
+              }
 
               // Helper: Build detailed shot prompt with camera language
               const buildDetailedShotPrompt = (shot: any, index: number, globalIndex: number): string => {
@@ -2406,35 +2554,47 @@ export const App = () => {
                   // For a 3x3 grid of 9:16 panels, the overall image should maintain 9:16 ratio
                   const outputAspectRatio = panelOrientation;
 
-                  // Build comprehensive prompt with GitHub best practices
+                  // Build comprehensive prompt with 4K resolution and subtle panel numbers
                   const gridPrompt = `
-Create a professional cinematic storyboard ${gridLayout} grid layout.
+Create a professional cinematic storyboard ${gridLayout} grid layout at 4K resolution.
 
 OVERALL IMAGE SPECS:
+- Resolution: 3840x${panelOrientation === '16:9' ? '2160' : '5120'} (4K UHD)
 - Output Aspect Ratio: ${outputAspectRatio} (${panelOrientation === '16:9' ? 'landscape' : 'portrait'})
 - Grid Layout: ${shotsPerGrid} panels arranged in ${gridLayout} formation
 - Each panel maintains ${panelOrientation} aspect ratio
-- Clean black borders separating all panels
+- Panel borders: EXACTLY 4 pixels wide black lines (NOT percentage-based, ABSOLUTE FIXED SIZE)
+- CRITICAL: All panel borders must be PERFECTLY UNIFORM - absolutely NO thickness variation allowed
+- Every dividing line must have EXACTLY the same 4-pixel width
+- NO variation in border thickness - all borders must be identical
 
 QUALITY STANDARDS:
 - Professional film industry storyboard quality
+- 4K UHD resolution (3840 pixels wide)
 - High detail, sharp lines, professional illustration
 - Cinematic composition with proper framing
 - Expressive character poses and emotions
 - Dynamic lighting and shading
 - Clear foreground/background separation
+- Crisp edges, no blurring or artifacts
+- CRITICAL: Maintain 100% visual style consistency across ALL panels
+- ALL characters must look identical across all panels (same face, hair, clothes, body type)
+- Same color palette, same art style, same lighting quality throughout
 
 CRITICAL NEGATIVE CONSTRAINTS (MUST FOLLOW):
 - NO text, NO speech bubbles, NO dialogue boxes
 - NO subtitles, NO captions, NO watermarks
-- NO numbers or labels inside panels
-- NO written content, NO letters, NO typography
-- Pure visual storytelling only
-- Visual narrative without words
+- NO letters, NO numbers, NO typography, NO panel numbers
+- NO markings or labels of any kind
+- NO variation in panel border thickness - all borders must be EXACTLY 4 pixels
+- NO inconsistent or varying border widths
+- NO style variations between panels
+- NO character appearance changes
+- Visual narrative without any text or numbers
 
 ${stylePrefix ? `ART STYLE: ${stylePrefix}\n` : ''}
 
-${characterReferenceImages.length > 0 ? `CHARACTER CONSISTENCY: Maintain character appearance across all panels based on reference images\n` : ''}
+${characterReferenceImages.length > 0 ? `CHARACTER CONSISTENCY: Use provided reference images to ensure ALL characters look EXACTLY THE SAME across all panels - same face, hair, clothes, body proportions, and style. Maintain visual consistency rigorously.\n` : ''}
 
 PANEL BREAKDOWN (each panel MUST be visually distinct):
 ${panelDescriptions}
@@ -2455,10 +2615,10 @@ COMPOSITION REQUIREMENTS:
                   });
 
                   try {
-                      // All models use generateContent API
-                      console.log(`[STORYBOARD_IMAGE] Generating with model: ${primaryImageModel}`);
+                      // Use user-configured model priority with fallback
+                      console.log(`[STORYBOARD_IMAGE] Generating page ${pageIndex + 1}/${numberOfPages} with model: ${primaryImageModel}`);
 
-                      const imgs = await generateImageFromText(
+                      const imgs = await generateImageWithFallback(
                           gridPrompt,
                           primaryImageModel,
                           characterReferenceImages,
@@ -2467,57 +2627,102 @@ COMPOSITION REQUIREMENTS:
                       );
 
                       if (imgs && imgs.length > 0) {
-                          console.log(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generated successfully with model: ${primaryImageModel}`);
+                          console.log(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generated successfully`);
                           return imgs[0];
                       } else {
                           console.error(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generation failed - no images returned`);
                           return null;
                       }
                   } catch (error: any) {
-                      console.error(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generation error with model ${primaryImageModel}:`, error.message);
+                      console.error(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generation error:`, error.message);
                       return null;
                   }
               };
 
-              // Generate all pages
+              // Generate all pages or regenerate specific page
               const generatedGrids: string[] = [];
-              const generationPromises: Promise<string | null>[] = [];
+              let finalCurrentPage = 0;
 
-              for (let pageIdx = 0; pageIdx < numberOfPages; pageIdx++) {
-                  generationPromises.push(generateGridPage(pageIdx));
-              }
+              if (isRegenerating) {
+                  // Regenerate specific page (either single panel or entire page)
+                  let targetPageIndex: number;
 
-              // Wait for all pages to generate
-              const results = await Promise.all(generationPromises);
-
-              // Filter out failed generations
-              results.forEach(result => {
-                  if (result) {
-                      generatedGrids.push(result);
+                  if (isRegeneratingPage) {
+                      targetPageIndex = regeneratePageIndex;
+                      console.log(`[STORYBOARD_IMAGE] Regenerating entire page ${targetPageIndex + 1}`);
+                  } else {
+                      targetPageIndex = Math.floor(regeneratePanelIndex / shotsPerGrid);
+                      console.log(`[STORYBOARD_IMAGE] Regenerating page ${targetPageIndex + 1} for panel ${regeneratePanelIndex + 1}`);
                   }
-              });
 
-              console.log('[STORYBOARD_IMAGE] Generation complete:', {
-                  totalPagesRequested: numberOfPages,
-                  totalPagesGenerated: generatedGrids.length,
-                  success: generatedGrids.length === numberOfPages
-              });
+                  // Keep existing grids, regenerate only the target page
+                  const existingGrids = node.data.storyboardGridImages || [];
 
-              if (generatedGrids.length === 0) {
-                  throw new Error("分镜图生成失败，请重试");
+                  // Generate the target page
+                  const regeneratedImage = await generateGridPage(targetPageIndex);
+
+                  if (regeneratedImage) {
+                      // Replace the target page in the existing grids
+                      const updatedGrids = [...existingGrids];
+                      updatedGrids[targetPageIndex] = regeneratedImage;
+
+                      handleNodeUpdate(id, {
+                          storyboardGridImages: updatedGrids,
+                          storyboardGridImage: updatedGrids[0],
+                          storyboardGridType: gridType,
+                          storyboardPanelOrientation: panelOrientation,
+                          storyboardCurrentPage: targetPageIndex,
+                          storyboardTotalPages: updatedGrids.length,
+                          storyboardShots: extractedShots,
+                          storyboardRegeneratePanel: undefined, // Clear both flags
+                          storyboardRegeneratePage: undefined
+                      });
+
+                      console.log('[STORYBOARD_IMAGE] Page regeneration complete');
+                  } else {
+                      throw new Error("分镜重新生成失败，请重试");
+                  }
+              } else {
+                  // Normal generation - generate all pages
+                  const generationPromises: Promise<string | null>[] = [];
+
+                  for (let pageIdx = 0; pageIdx < numberOfPages; pageIdx++) {
+                      generationPromises.push(generateGridPage(pageIdx));
+                  }
+
+                  // Wait for all pages to generate
+                  const results = await Promise.all(generationPromises);
+
+                  // Filter out failed generations
+                  results.forEach(result => {
+                      if (result) {
+                          generatedGrids.push(result);
+                      }
+                  });
+
+                  console.log('[STORYBOARD_IMAGE] Generation complete:', {
+                      totalPagesRequested: numberOfPages,
+                      totalPagesGenerated: generatedGrids.length,
+                      success: generatedGrids.length === numberOfPages
+                  });
+
+                  if (generatedGrids.length === 0) {
+                      throw new Error("分镜图生成失败，请重试");
+                  }
+
+                  // Save results
+                  handleNodeUpdate(id, {
+                      storyboardGridImages: generatedGrids,
+                      storyboardGridImage: generatedGrids[0], // For backward compatibility
+                      storyboardGridType: gridType,
+                      storyboardPanelOrientation: panelOrientation,
+                      storyboardCurrentPage: 0,
+                      storyboardTotalPages: generatedGrids.length,
+                      storyboardShots: extractedShots // Save shots data for editing
+                  });
+
+                  console.log('[STORYBOARD_IMAGE] All data saved successfully');
               }
-
-              // Save results
-              handleNodeUpdate(id, {
-                  storyboardGridImages: generatedGrids,
-                  storyboardGridImage: generatedGrids[0], // For backward compatibility
-                  storyboardGridType: gridType,
-                  storyboardPanelOrientation: panelOrientation,
-                  storyboardCurrentPage: 0,
-                  storyboardTotalPages: generatedGrids.length
-              });
-
-              console.log('[STORYBOARD_IMAGE] All data saved successfully');
 
           } else if (node.type === NodeType.VIDEO_ANALYZER) {
              const vid = node.data.videoUri || inputs.find(n => n?.data.videoUri)?.data.videoUri;

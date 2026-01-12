@@ -1,6 +1,6 @@
 
 import { AppNode, NodeStatus, NodeType, StoryboardShot, CharacterProfile } from '../types';
-import { RefreshCw, Play, Image as ImageIcon, Video as VideoIcon, Type, AlertCircle, CheckCircle, Plus, Maximize2, Download, MoreHorizontal, Wand2, Scaling, FileSearch, Edit, Loader2, Layers, Trash2, X, Upload, Scissors, Film, MousePointerClick, Crop as CropIcon, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, GripHorizontal, Link, Copy, Monitor, Music, Pause, Volume2, Mic2, BookOpen, ScrollText, Clapperboard, LayoutGrid, Box, User, Users, Save, RotateCcw, Eye, List, Sparkles, ZoomIn, ZoomOut, Minus, Circle, Square, Maximize, Move, RotateCw, TrendingUp, TrendingDown, ArrowRight, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight, Palette } from 'lucide-react';
+import { RefreshCw, Play, Image as ImageIcon, Video as VideoIcon, Type, AlertCircle, CheckCircle, Plus, Maximize2, Download, MoreHorizontal, Wand2, Scaling, FileSearch, Edit, Loader2, Layers, Trash2, X, Upload, Scissors, Film, MousePointerClick, Crop as CropIcon, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, GripHorizontal, Link, Copy, Monitor, Music, Pause, Volume2, Mic2, BookOpen, ScrollText, Clapperboard, LayoutGrid, Box, User, Users, Save, RotateCcw, Eye, List, Sparkles, ZoomIn, ZoomOut, Minus, Circle, Square, Maximize, Move, RotateCw, TrendingUp, TrendingDown, ArrowRight, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight, Palette, Grid } from 'lucide-react';
 import { VideoModeSelector, SceneDirectorOverlay } from './VideoNodeModules';
 import React, { memo, useRef, useState, useEffect, useCallback } from 'react';
 
@@ -1023,6 +1023,14 @@ const NodeComponent: React.FC<NodeProps> = ({
           const totalPages = node.data.storyboardTotalPages || gridImages.length;
           const hasMultiplePages = gridImages.length > 1;
           const currentImage = gridImages[currentPage] || null;
+          const gridType = node.data.storyboardGridType || '9';
+          const shotsPerGrid = gridType === '9' ? 9 : 6;
+
+          // Get shots data for this page
+          const allShots = node.data.storyboardShots || [];
+          const startIdx = currentPage * shotsPerGrid;
+          const endIdx = Math.min(startIdx + shotsPerGrid, allShots.length);
+          const currentPageShots = allShots.slice(startIdx, endIdx);
 
           // Pagination handlers
           const handlePrevPage = () => {
@@ -1037,68 +1045,312 @@ const NodeComponent: React.FC<NodeProps> = ({
               }
           };
 
+          // View mode: 'normal' | 'preview' | 'edit'
+          const [viewMode, setViewMode] = useState<'normal' | 'preview' | 'edit'>('normal');
+          const [editingShots, setEditingShots] = useState<any[]>([]);
+          const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+          const handleOpenPreview = () => {
+              setViewMode('preview');
+          };
+
+          const handleClosePreview = () => {
+              setViewMode('normal');
+          };
+
+          const handleOpenEdit = () => {
+              setEditingShots(currentPageShots.map(shot => ({
+                  ...shot,
+                  visualDescription: shot.visualDescription || shot.scene || ''
+              })));
+              setViewMode('edit');
+          };
+
+          const handleSaveEdit = () => {
+              // Update all shots and trigger regeneration
+              const updatedShots = [...allShots];
+              editingShots.forEach((shot, idx) => {
+                  updatedShots[startIdx + idx] = {
+                      ...updatedShots[startIdx + idx],
+                      visualDescription: shot.visualDescription
+                  };
+              });
+
+              onUpdate(node.id, {
+                  storyboardShots: updatedShots,
+                  storyboardRegeneratePage: currentPage // Regenerate entire page
+              });
+
+              setViewMode('normal');
+          };
+
+          const handleCancelEdit = () => {
+              setViewMode('normal');
+          };
+
+          const handleContextMenu = (e: React.MouseEvent) => {
+              e.preventDefault();
+              setContextMenu({ x: e.clientX, y: e.clientY });
+          };
+
+          const handleCloseContextMenu = () => {
+              setContextMenu(null);
+          };
+
+          const handleDownloadImage = async () => {
+              if (!currentImage) return;
+
+              try {
+                  const response = await fetch(currentImage);
+                  const blob = await response.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `分镜-第${currentPage + 1}页-${Date.now()}.png`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  window.URL.revokeObjectURL(url);
+              } catch (error) {
+                  console.error('下载图片失败:', error);
+              }
+
+              setContextMenu(null);
+          };
+
           return (
-              <div className="w-full h-full flex flex-col overflow-hidden relative bg-[#1c1c1e]">
+              <div
+                  className="w-full h-full flex flex-col overflow-hidden relative bg-[#1c1c1e]"
+                  onClick={handleCloseContextMenu}
+              >
                   {currentImage ? (
                       <>
-                          {/* Image Display */}
-                          <div className="flex-1 overflow-hidden p-3 flex items-center justify-center">
-                              <img
-                                  ref={mediaRef as any}
-                                  src={currentImage}
-                                  className="max-w-full max-h-full object-contain cursor-pointer hover:scale-[1.02] transition-transform"
-                                  onClick={handleExpand}
-                                  draggable={false}
-                                  alt={`Storyboard Grid - Page ${currentPage + 1}`}
-                              />
-                          </div>
-
-                          {/* Pagination Controls */}
-                          {hasMultiplePages && (
-                              <div className="flex items-center justify-between px-3 py-2 border-t border-white/10 bg-black/20">
-                                  <button
-                                      onClick={handlePrevPage}
-                                      disabled={currentPage === 0}
-                                      className={`p-1.5 rounded-lg transition-all ${
-                                          currentPage === 0
-                                              ? 'text-slate-700 cursor-not-allowed'
-                                              : 'text-slate-400 hover:text-white hover:bg-white/10'
-                                      }`}
-                                  >
-                                      <ChevronLeft size={16} />
-                                  </button>
-
-                                  <div className="flex items-center gap-2">
-                                      <span className="text-[10px] font-bold text-white">
-                                          {currentPage + 1}
-                                      </span>
-                                      <span className="text-[10px] text-slate-500">/</span>
-                                      <span className="text-[10px] text-slate-400">
-                                          {totalPages}
-                                      </span>
+                          {/* Edit Mode */}
+                          {viewMode === 'edit' && (
+                              <div className="w-full h-full flex flex-col bg-[#1c1c1e]">
+                                  {/* Header */}
+                                  <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
+                                      <div className="flex items-center gap-3">
+                                          <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+                                              <Edit size={20} className="text-purple-300" />
+                                          </div>
+                                          <div>
+                                              <h3 className="text-base font-bold text-white">编辑分镜描述</h3>
+                                              <p className="text-xs text-slate-400">
+                                                  第 {currentPage + 1} 页 · 修改后重新生成
+                                              </p>
+                                          </div>
+                                      </div>
+                                      <button
+                                          onClick={handleCancelEdit}
+                                          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                                      >
+                                          <X size={20} className="text-slate-400" />
+                                      </button>
                                   </div>
 
-                                  <button
-                                      onClick={handleNextPage}
-                                      disabled={currentPage >= totalPages - 1}
-                                      className={`p-1.5 rounded-lg transition-all ${
-                                          currentPage >= totalPages - 1
-                                              ? 'text-slate-700 cursor-not-allowed'
-                                              : 'text-slate-400 hover:text-white hover:bg-white/10'
-                                      }`}
-                                  >
-                                      <ChevronRight size={16} />
-                                  </button>
+                                  {/* Shots List - Scrollable */}
+                                  <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
+                                      {editingShots.map((shot, idx) => (
+                                          <div key={idx} className="bg-black/40 border border-white/10 rounded-lg p-4">
+                                              <div className="flex items-start gap-3">
+                                                  <div className="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center flex-shrink-0">
+                                                      <span className="text-sm font-bold text-purple-300">
+                                                          {startIdx + idx + 1}
+                                                      </span>
+                                                  </div>
+                                                  <div className="flex-1 min-w-0">
+                                                      <label className="block text-xs font-bold text-slate-400 mb-2">
+                                                          分镜 {startIdx + idx + 1}
+                                                      </label>
+                                                      <textarea
+                                                          value={shot.visualDescription}
+                                                          onChange={(e) => {
+                                                              const newShots = [...editingShots];
+                                                              newShots[idx].visualDescription = e.target.value;
+                                                              setEditingShots(newShots);
+                                                          }}
+                                                          className="w-full bg-black/60 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all resize-none"
+                                                          rows={3}
+                                                          placeholder={`输入分镜 ${startIdx + idx + 1} 的描述...`}
+                                                      />
+                                                      {shot.scene && (
+                                                          <div className="mt-2 text-[10px] text-slate-500">
+                                                              场景: {shot.scene}
+                                                          </div>
+                                                      )}
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      ))}
+                                  </div>
+
+                                  {/* Action Buttons */}
+                                  <div className="flex items-center justify-end gap-3 px-4 py-3 border-t border-white/10 flex-shrink-0 bg-black/20">
+                                      <button
+                                          onClick={handleCancelEdit}
+                                          className="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+                                      >
+                                          取消
+                                      </button>
+                                      <button
+                                          onClick={handleSaveEdit}
+                                          disabled={isWorking}
+                                          className="px-5 py-2 rounded-lg text-sm font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                      >
+                                          {isWorking ? (
+                                              <>
+                                                  <Loader2 size={14} className="animate-spin" />
+                                                  生成中...
+                                              </>
+                                          ) : (
+                                              <>
+                                                  <Sparkles size={14} />
+                                                  重新生成
+                                              </>
+                                          )}
+                                      </button>
+                                  </div>
                               </div>
                           )}
 
-                          {/* Page Indicator */}
-                          {!hasMultiplePages && totalPages === 1 && (
-                              <div className="px-3 py-2 border-t border-white/10 bg-black/20">
-                                  <span className="text-[10px] text-slate-500 text-center block">
-                                      单页分镜
-                                  </span>
-                              </div>
+                          {/* Preview Mode or Normal Mode */}
+                          {viewMode !== 'edit' && (
+                              <>
+                                  {/* Image Display */}
+                                  <div
+                                      className={`flex-1 overflow-hidden relative flex items-center justify-center transition-all ${
+                                          viewMode === 'preview' ? 'fixed inset-0 bg-black/95 z-[9999] p-8' : 'p-3'
+                                      }`}
+                                  >
+                                      <img
+                                          ref={mediaRef as any}
+                                          src={currentImage}
+                                          className="max-w-full max-h-full object-contain cursor-default"
+                                          onContextMenu={handleContextMenu}
+                                          draggable={false}
+                                          alt={`Storyboard Grid - Page ${currentPage + 1}`}
+                                      />
+
+                                      {/* Preview Mode Controls */}
+                                      {viewMode === 'preview' && (
+                                          <>
+                                              {/* Close Button - Top Left */}
+                                              <button
+                                                  onClick={handleClosePreview}
+                                                  className="absolute top-6 left-6 p-2 bg-black/60 backdrop-blur-sm rounded-lg hover:bg-black/80 transition-colors border border-white/10"
+                                                  title="关闭预览 (ESC)"
+                                              >
+                                                  <X size={24} className="text-white" />
+                                              </button>
+
+                                              {/* Edit Button - Top Right */}
+                                              {!isWorking && (
+                                                  <button
+                                                      onClick={handleOpenEdit}
+                                                      className="absolute top-6 right-6 flex items-center gap-2 px-4 py-2 bg-black/60 backdrop-blur-sm rounded-lg hover:bg-black/80 transition-colors border border-white/10"
+                                                      title="编辑分镜描述"
+                                                  >
+                                                      <Edit size={18} className="text-white" />
+                                                      <span className="text-sm font-medium text-white">编辑</span>
+                                                  </button>
+                                              )}
+                                          </>
+                                      )}
+
+                                      {/* Normal Mode - Preview Button */}
+                                      {viewMode === 'normal' && !isWorking && (
+                                          <button
+                                              onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleOpenPreview();
+                                              }}
+                                              className="absolute top-5 right-5 p-2 bg-black/60 backdrop-blur-sm rounded-lg hover:bg-black/80 transition-colors border border-white/10"
+                                              title="查看大图"
+                                          >
+                                              <Maximize2 size={18} className="text-white" />
+                                          </button>
+                                      )}
+
+                                      {/* Context Menu */}
+                                      {contextMenu && (
+                                          <div
+                                              className="fixed z-[10000] bg-[#2c2c2e] border border-white/10 rounded-lg shadow-2xl min-w-[180px] overflow-hidden"
+                                              style={{
+                                                  left: `${contextMenu.x}px`,
+                                                  top: `${contextMenu.y}px`,
+                                              }}
+                                              onClick={(e) => e.stopPropagation()}
+                                          >
+                                              <button
+                                                  onClick={handleDownloadImage}
+                                                  className="w-full px-4 py-3 flex items-center gap-3 text-sm text-white hover:bg-white/5 transition-colors text-left"
+                                              >
+                                                  <Download size={16} className="text-slate-400" />
+                                                  <span>下载图片</span>
+                                              </button>
+                                          </div>
+                                      )}
+                                  </div>
+
+                                  {/* Control Bar - Only show in normal mode */}
+                                  {viewMode === 'normal' && (
+                                      <div className="flex items-center justify-between px-3 py-2 border-t border-white/10 bg-black/20">
+                                          {/* Pagination Controls */}
+                                          <div className="flex items-center gap-2">
+                                              {hasMultiplePages && (
+                                                  <>
+                                                      <button
+                                                          onClick={handlePrevPage}
+                                                          disabled={currentPage === 0}
+                                                          className={`p-1.5 rounded-lg transition-all ${
+                                                              currentPage === 0
+                                                                  ? 'text-slate-700 cursor-not-allowed'
+                                                                  : 'text-slate-400 hover:text-white hover:bg-white/10'
+                                                          }`}
+                                                      >
+                                                          <ChevronLeft size={16} />
+                                                      </button>
+                                                      <div className="flex items-center gap-1">
+                                                          <span className="text-[10px] font-bold text-white">
+                                                              {currentPage + 1}
+                                                          </span>
+                                                          <span className="text-[10px] text-slate-500">/</span>
+                                                          <span className="text-[10px] text-slate-400">
+                                                              {totalPages}
+                                                          </span>
+                                                      </div>
+                                                      <button
+                                                          onClick={handleNextPage}
+                                                          disabled={currentPage >= totalPages - 1}
+                                                          className={`p-1.5 rounded-lg transition-all ${
+                                                              currentPage >= totalPages - 1
+                                                                  ? 'text-slate-700 cursor-not-allowed'
+                                                                  : 'text-slate-400 hover:text-white hover:bg-white/10'
+                                                          }`}
+                                                      >
+                                                          <ChevronRight size={16} />
+                                                      </button>
+                                                  </>
+                                              )}
+                                              {!hasMultiplePages && (
+                                                  <span className="text-[10px] text-slate-500">单页分镜</span>
+                                              )}
+                                          </div>
+
+                                          {/* Edit Button */}
+                                          {!isWorking && (
+                                              <button
+                                                      onClick={handleOpenEdit}
+                                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all border border-white/10 hover:border-purple-500/30"
+                                              >
+                                                  <Edit size={12} />
+                                                  编辑描述
+                                              </button>
+                                          )}
+                                      </div>
+                                  )}
+                              </>
                           )}
                       </>
                   ) : (
@@ -1115,6 +1367,325 @@ const NodeComponent: React.FC<NodeProps> = ({
                           )}
                       </div>
                   )}
+              </div>
+          );
+      }
+      if (node.type === NodeType.STORYBOARD_SPLITTER) {
+          // Import at the top of file:
+          // import { splitMultipleStoryboardImages, exportSplitImagesAsZip } from '../utils/imageSplitter';
+          // import JSZip from 'jszip';  // Make sure to install: npm install jszip
+          // import { saveAs } from 'file-saver';  // Make sure to install: npm install file-saver
+
+          const splitShots = node.data.splitShots || [];
+          const selectedSourceNodes = node.data.selectedSourceNodes || node.inputs || [];
+          const isSplitting = node.data.isSplitting || false;
+
+          // Get connected STORYBOARD_IMAGE nodes
+          const connectedStoryboardNodes = inputs.filter(n => n.type === NodeType.STORYBOARD_IMAGE);
+
+          // Handler: Toggle source node selection
+          const handleToggleSourceNode = (nodeId: string) => {
+              const current = selectedSourceNodes || [];
+              const updated = current.includes(nodeId)
+                  ? current.filter(id => id !== nodeId)
+                  : [...current, nodeId];
+              onUpdate(node.id, { selectedSourceNodes: updated });
+          };
+
+          // Handler: Select all / Deselect all
+          const handleToggleAll = () => {
+              if (selectedSourceNodes.length === connectedStoryboardNodes.length) {
+                  // Deselect all
+                  onUpdate(node.id, { selectedSourceNodes: [] });
+              } else {
+                  // Select all
+                  onUpdate(node.id, { selectedSourceNodes: connectedStoryboardNodes.map(n => n.id) });
+              }
+          };
+
+          // Handler: Start splitting
+          const handleStartSplit = async () => {
+              if (selectedSourceNodes.length === 0) return;
+
+              const nodesToSplit = inputs.filter(n => selectedSourceNodes.includes(n.id));
+
+              onUpdate(node.id, { isSplitting: true });
+
+              try {
+                  const { splitMultipleStoryboardImages } = await import('../utils/imageSplitter');
+                  const allSplitShots = await splitMultipleStoryboardImages(
+                      nodesToSplit,
+                      (current, total, currentNode) => {
+                          console.log(`正在切割 ${current}/${total}: ${currentNode}`);
+                      }
+                  );
+
+                  onUpdate(node.id, {
+                      splitShots: allSplitShots,
+                      isSplitting: false
+                  });
+              } catch (error) {
+                  console.error('切割失败:', error);
+                  onUpdate(node.id, {
+                      error: error instanceof Error ? error.message : String(error),
+                      isSplitting: false
+                  });
+              }
+          };
+
+          // Handler: Export images
+          const handleExportImages = async () => {
+              if (splitShots.length === 0) return;
+
+              try {
+                  const { exportSplitImagesAsZip } = await import('../utils/imageSplitter');
+                  await exportSplitImagesAsZip(splitShots);
+              } catch (error) {
+                  console.error('导出失败:', error);
+              }
+          };
+
+          return (
+              <div className="w-full h-full flex flex-col overflow-hidden relative bg-[#1c1c1e]">
+                  {/* Content Area - Split Results List */}
+                  <div className="flex-1 overflow-y-auto custom-scrollbar">
+                      {splitShots.length > 0 ? (
+                          <div className="p-4 space-y-3">
+                              {splitShots.map((shot) => (
+                                  <div key={shot.id} className="bg-black/40 border border-white/10 rounded-lg p-4">
+                                      <div className="flex items-start gap-4">
+                                          {/* Left: Image */}
+                                          <div className="flex-shrink-0">
+                                              <img
+                                                  src={shot.splitImage}
+                                                  alt={`分镜 ${shot.shotNumber}`}
+                                                  className="w-[200px] rounded-lg border border-white/10 cursor-pointer hover:border-blue-500/50 transition-colors"
+                                                  onClick={() => onExpand?.({
+                                                      type: 'image',
+                                                      src: shot.splitImage,
+                                                      rect: new DOMRect(),
+                                                      images: splitShots.map(s => s.splitImage),
+                                                      initialIndex: shot.shotNumber - 1
+                                                  })}
+                                              />
+                                          </div>
+
+                                          {/* Right: Info */}
+                                          <div className="flex-1 min-w-0">
+                                              {/* Header */}
+                                              <div className="flex items-center gap-2 mb-3">
+                                                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+                                                      <span className="text-sm font-bold text-blue-300">
+                                                          {shot.shotNumber}
+                                                      </span>
+                                                  </div>
+                                                  <h3 className="text-base font-bold text-white">分镜 {shot.shotNumber}</h3>
+                                              </div>
+
+                                              {/* Details */}
+                                              <div className="space-y-2">
+                                                  {shot.scene && (
+                                                      <div>
+                                                          <span className="text-[10px] font-bold text-slate-500 uppercase">场景</span>
+                                                          <p className="text-xs text-slate-300">{shot.scene}</p>
+                                                      </div>
+                                                  )}
+
+                                                  {shot.characters && shot.characters.length > 0 && (
+                                                      <div>
+                                                          <span className="text-[10px] font-bold text-slate-500 uppercase">角色</span>
+                                                          <p className="text-xs text-slate-300">{shot.characters.join(', ')}</p>
+                                                      </div>
+                                                  )}
+
+                                                  {shot.visualDescription && (
+                                                      <div>
+                                                          <span className="text-[10px] font-bold text-slate-500 uppercase">画面</span>
+                                                          <p className="text-xs text-slate-300">{shot.visualDescription}</p>
+                                                      </div>
+                                                  )}
+
+                                                  {shot.dialogue && (
+                                                      <div>
+                                                          <span className="text-[10px] font-bold text-slate-500 uppercase">对话</span>
+                                                          <p className="text-xs text-slate-300">{shot.dialogue}</p>
+                                                      </div>
+                                                  )}
+
+                                                  <div className="grid grid-cols-2 gap-2">
+                                                      {shot.shotType && (
+                                                          <div>
+                                                              <span className="text-[10px] font-bold text-slate-500 uppercase">镜头类型</span>
+                                                              <p className="text-xs text-slate-300">{shot.shotType}</p>
+                                                          </div>
+                                                      )}
+                                                      {shot.cameraAngle && (
+                                                          <div>
+                                                              <span className="text-[10px] font-bold text-slate-500 uppercase">拍摄角度</span>
+                                                              <p className="text-xs text-slate-300">{shot.cameraAngle}</p>
+                                                          </div>
+                                                  )}
+                                                  </div>
+
+                                                  <div className="grid grid-cols-2 gap-2">
+                                                      {shot.cameraMovement && (
+                                                          <div>
+                                                              <span className="text-[10px] font-bold text-slate-500 uppercase">镜头运动</span>
+                                                              <p className="text-xs text-slate-300">{shot.cameraMovement}</p>
+                                                          </div>
+                                                  )}
+                                                      {shot.duration && (
+                                                          <div>
+                                                              <span className="text-[10px] font-bold text-slate-500 uppercase">时长</span>
+                                                              <p className="text-xs text-slate-300">{shot.duration}s</p>
+                                                          </div>
+                                                  )}
+                                                  </div>
+
+                                                  {shot.visualEffects && (
+                                                      <div>
+                                                          <span className="text-[10px] font-bold text-slate-500 uppercase">视觉特效</span>
+                                                          <p className="text-xs text-slate-300">{shot.visualEffects}</p>
+                                                      </div>
+                                                  )}
+
+                                                  {shot.audioEffects && (
+                                                      <div>
+                                                          <span className="text-[10px] font-bold text-slate-500 uppercase">音效</span>
+                                                          <p className="text-xs text-slate-300">{shot.audioEffects}</p>
+                                                      </div>
+                                                  )}
+                                              </div>
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      ) : (
+                          <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-600 p-6 text-center">
+                              {isSplitting ? (
+                                  <Loader2 size={32} className="animate-spin text-blue-500" />
+                              ) : (
+                                  <Grid size={32} className="text-blue-500/50" />
+                              )}
+                              <span className="text-xs font-medium">
+                                  {isSplitting ? "正在切割分镜图..." : "等待切割分镜图..."}
+                              </span>
+                              {!isSplitting && connectedStoryboardNodes.length === 0 && (
+                                  <div className="flex flex-col gap-1 text-[10px] text-slate-500 max-w-[220px]">
+                                      <span>💡 连接分镜图设计节点</span>
+                                      <span>✂️ 选择要切割的图片</span>
+                                      <span>📦 切割后可导出图片包</span>
+                                  </div>
+                              )}
+                          </div>
+                      )}
+                  </div>
+
+                  {/* Operation Area */}
+                  <div className="border-t border-white/10 p-4 bg-black/20">
+                      {/* Connected Nodes List */}
+                      {connectedStoryboardNodes.length > 0 && (
+                          <div className="mb-4">
+                              <div className="flex items-center justify-between mb-3">
+                                  <div className="flex items-center gap-2">
+                                      <Link size={12} className="text-slate-400" />
+                                      <span className="text-xs font-bold text-slate-400">
+                                          已连接的分镜图节点 ({connectedStoryboardNodes.length})
+                                      </span>
+                                  </div>
+                                  <button
+                                      onClick={handleToggleAll}
+                                      className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors"
+                                  >
+                                      {selectedSourceNodes.length === connectedStoryboardNodes.length
+                                          ? '取消全选'
+                                          : '全选'}
+                                  </button>
+                              </div>
+
+                              <div className="space-y-2 max-h-[140px] overflow-y-auto custom-scrollbar pr-2">
+                                  {connectedStoryboardNodes.map((sbNode) => {
+                                      const gridImages = sbNode.data.storyboardGridImages || [];
+                                      const gridType = sbNode.data.storyboardGridType || '9';
+                                      const isSelected = selectedSourceNodes.includes(sbNode.id);
+
+                                      return (
+                                          <div
+                                              key={sbNode.id}
+                                              className={`flex items-center gap-3 p-2 rounded-lg border transition-all cursor-pointer ${
+                                                  isSelected
+                                                      ? 'bg-blue-500/10 border-blue-500/30'
+                                                      : 'bg-black/40 border-white/10 hover:bg-black/60'
+                                              }`}
+                                              onClick={() => handleToggleSourceNode(sbNode.id)}
+                                          >
+                                              <input
+                                                  type="checkbox"
+                                                  checked={isSelected}
+                                                  onChange={() => handleToggleSourceNode(sbNode.id)}
+                                                  className="w-4 h-4 rounded border-white/20 bg-black/60 text-blue-500 focus:ring-2 focus:ring-blue-500/50"
+                                                  onClick={(e) => e.stopPropagation()}
+                                              />
+
+                                              {gridImages.length > 0 && (
+                                                  <img
+                                                      src={gridImages[0]}
+                                                      alt={sbNode.title}
+                                                      className="w-12 h-12 rounded object-cover border border-white/10"
+                                                  />
+                                              )}
+
+                                              <div className="flex-1 min-w-0">
+                                                  <div className="text-xs font-medium text-white truncate">
+                                                      {sbNode.title}
+                                                  </div>
+                                                  <div className="text-[10px] text-slate-500">
+                                                      {gridImages.length}页 · {gridType === '9' ? '九宫格' : '六宫格'}
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-3">
+                          {splitShots.length > 0 && (
+                              <button
+                                  onClick={handleExportImages}
+                                  className="flex-1 px-4 py-2 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-white/10"
+                              >
+                                  <Download size={14} className="inline mr-1" />
+                                  导出图片包
+                              </button>
+                          )}
+
+                          <button
+                              onClick={handleStartSplit}
+                              disabled={selectedSourceNodes.length === 0 || isSplitting}
+                              className={`flex-[2] px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                                  isSplitting
+                                      ? 'bg-blue-500/20 text-blue-300'
+                                      : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-blue-500/20'
+                              }`}
+                          >
+                              {isSplitting ? (
+                                  <>
+                                      <Loader2 size={14} className="animate-spin" />
+                                      正在切割...
+                                  </>
+                              ) : (
+                                  <>
+                                      <Scissors size={14} />
+                                      开始拆分
+                                  </>
+                              )}
+                          </button>
+                      </div>
+                  </div>
               </div>
           );
       }
@@ -1216,7 +1787,11 @@ const NodeComponent: React.FC<NodeProps> = ({
                                           isFailed,
                                           shouldShowCard: !isProcessing && !isFailed,
                                           hasProfession: !!profile.profession,
-                                          hasPersonality: !!profile.personality
+                                          hasPersonality: !!profile.personality,
+                                          hasExpressionSheet: !!profile.expressionSheet,
+                                          hasThreeViewSheet: !!profile.threeViewSheet,
+                                          expressionLength: profile.expressionSheet?.length || 0,
+                                          threeViewLength: profile.threeViewSheet?.length || 0
                                       });
                                   }
 

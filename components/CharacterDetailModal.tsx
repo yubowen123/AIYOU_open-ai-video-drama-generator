@@ -22,13 +22,31 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
 }) => {
     // Get latest character data from allNodes
     const latestCharacter = useMemo(() => {
-        if (!character || !nodeId || !allNodes) return character;
+        if (!character || !nodeId || !allNodes) {
+            console.log('[CharacterDetailModal] useMemo: Missing props', { hasCharacter: !!character, hasNodeId: !!nodeId, hasAllNodes: !!allNodes });
+            return character;
+        }
 
         const node = allNodes.find(n => n.id === nodeId);
-        if (!node) return character;
+        if (!node) {
+            console.log('[CharacterDetailModal] useMemo: Node not found', { nodeId });
+            return character;
+        }
 
         const generatedChars = node.data.generatedCharacters || [];
         const updated = generatedChars.find(c => c.name === character.name);
+
+        console.log('[CharacterDetailModal] useMemo: Data update', {
+            characterName: character.name,
+            totalGenerated: generatedChars.length,
+            foundUpdated: !!updated,
+            hasExpressionSheet: updated?.expressionSheet,
+            hasThreeViewSheet: updated?.threeViewSheet,
+            isGeneratingExpression: updated?.isGeneratingExpression,
+            isGeneratingThreeView: updated?.isGeneratingThreeView,
+            expressionLength: updated?.expressionSheet?.length || 0,
+            threeViewLength: updated?.threeViewSheet?.length || 0
+        });
 
         return updated || character;
     }, [character, nodeId, allNodes]);
@@ -95,13 +113,18 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
                                 {nodeId && onGenerateThreeView && (
                                     <button
                                         onClick={() => onGenerateThreeView(nodeId, latestCharacter.name)}
-                                        disabled={isGeneratingThreeView}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed text-white text-[10px] font-bold rounded-lg transition-all"
+                                        disabled={isGeneratingThreeView || !latestCharacter.expressionSheet}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50 text-white text-[10px] font-bold rounded-lg transition-all"
                                     >
                                         {isGeneratingThreeView ? (
                                             <>
                                                 <Loader2 size={12} className="animate-spin" />
                                                 <span>生成中...</span>
+                                            </>
+                                        ) : !latestCharacter.expressionSheet ? (
+                                            <>
+                                                <RefreshCw size={12} />
+                                                <span>需先生成九宫格</span>
                                             </>
                                         ) : (
                                             <>

@@ -186,11 +186,23 @@ export const NODE_DEPENDENCY_RULES: Record<NodeType, {
     ],
     allowedOutputs: [
       NodeType.IMAGE_GENERATOR,
-      NodeType.VIDEO_GENERATOR
+      NodeType.VIDEO_GENERATOR,
+      NodeType.STORYBOARD_SPLITTER  // Output to storyboard splitter
     ],
     minInputs: 1,
     maxInputs: 10,  // prompt + episode + multiple characters + style
     description: '生成九宫格分镜图，支持角色一致性参考'
+  },
+
+  // 分镜图拆解 - 接收分镜图设计输入,拆分为单个分镜图
+  [NodeType.STORYBOARD_SPLITTER]: {
+    allowedInputs: [
+      NodeType.STORYBOARD_IMAGE
+    ],
+    allowedOutputs: [],  // Terminal node - only for display and export
+    minInputs: 1,
+    maxInputs: 5,  // Can split up to 5 storyboard image nodes
+    description: '拆解九宫格/六宫格分镜图为单个分镜，显示图片和详细描述'
   },
 
   // 剧目分析 - 无输入,可输出到剧目精炼和剧本大纲
@@ -442,6 +454,15 @@ export function canExecuteNode(
       }
       break;
 
+    case NodeType.STORYBOARD_SPLITTER:
+      if (inputCount === 0) {
+        return {
+          valid: false,
+          error: '请连接至少一个分镜图设计节点'
+        };
+      }
+      break;
+
     case NodeType.CHARACTER_NODE:
       if (inputCount === 0) {
         return {
@@ -494,6 +515,7 @@ function getNodeDisplayName(type: NodeType): string {
     [NodeType.SCRIPT_EPISODE]: '剧本分集',
     [NodeType.STORYBOARD_GENERATOR]: '分镜生成',
     [NodeType.STORYBOARD_IMAGE]: '分镜图设计',
+    [NodeType.STORYBOARD_SPLITTER]: '分镜图拆解',
     [NodeType.CHARACTER_NODE]: '角色设计',
     [NodeType.DRAMA_ANALYZER]: '剧目分析',
     [NodeType.DRAMA_REFINED]: '剧目精炼',

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Model Test</title>
+    <script type="module">
+        // Import GoogleGenAI from CDN
+        import { GoogleGenAI } from "https://cdn.jsdelivr.net/npm/@google/genai/+esm";
+
+        // Get API key from user input
+        const apiKey = prompt("请输入你的 Gemini API Key:");
+        if (!apiKey) {
+            alert("需要 API Key 才能继续测试");
+            throw new Error("No API Key provided");
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
+
+        // Test function
+        async function testModel(modelId, testName) {
+            console.log(`\n========== 测试 ${testName} ==========`);
+            console.log(`模型 ID: ${modelId}`);
+
+            const testPrompt = "A simple red apple on a white background";
+
+            try {
+                console.log("发送请求...");
+                const response = await ai.models.generateContent({
+                    model: modelId,
+                    contents: {
+                        parts: [{ text: testPrompt }]
+                    },
+                    generationConfig: {
+                        imageGenerationConfig: {
+                            aspectRatio: "1:1"
+                        }
+                    }
+                });
+
+                console.log("✅ 请求成功!");
+
+                // Check for images
+                if (response.candidates?.[0]?.content?.parts) {
+                    let imageCount = 0;
+                    for (const part of response.candidates[0].content.parts) {
+                        if (part.inlineData && part.inlineData.data) {
+                            imageCount++;
+                        }
+                    }
+                    console.log(`✅ 生成了 ${imageCount} 张图片`);
+
+                    // Display image
+                    if (imageCount > 0) {
+                        const imageData = response.candidates[0].content.parts.find(p => p.inlineData)?.inlineData.data;
+                        const mimeType = response.candidates[0].content.parts.find(p => p.inlineData)?.inlineData.mimeType || 'image/png';
+                        const img = document.createElement('img');
+                        img.src = `data:${mimeType};base64,${imageData}`;
+                        img.style.maxWidth = '300px';
+                        img.style.margin = '10px';
+                        img.style.border = '2px solid green';
+
+                        const div = document.createElement('div');
+                        div.innerHTML = `<h3>${testName} - 成功</h3>`;
+                        div.appendChild(img);
+                        document.body.appendChild(div);
+                    }
+                } else {
+                    console.log("⚠️ 响应中没有图片数据");
+                    console.log("完整响应:", JSON.stringify(response, null, 2));
+                }
+
+                return { success: true, model: modelId };
+
+            } catch (error) {
+                console.error("❌ 请求失败!");
+                console.error("错误信息:", error.message || error);
+                console.error("完整错误:", JSON.stringify(error, null, 2));
+
+                // Display error
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <h3>${testName} - 失败</h3>
+                    <p style="color: red;"><strong>模型:</strong> ${modelId}</p>
+                    <p style="color: red;"><strong>错误:</strong> ${error.message || JSON.stringify(error)}</p>
+                    <hr>
+                `;
+                document.body.appendChild(div);
+
+                return { success: false, model: modelId, error: error.message || error };
+            }
+        }
+
+        // Run tests
+        async function runTests() {
+            document.body.innerHTML = '<h1>图片模型测试</h1><p>测试中...请查看控制台</p>';
+
+            const models = [
+                { id: 'gemini-2.5-flash-image', name: 'Gemini 2.5 Flash Image' },
+                { id: 'gemini-3-pro-image', name: 'Gemini 3 Pro Image' },
+                { id: 'imagen-4.0-generate', name: 'Imagen 4.0' },
+                { id: 'imagen-4.0-fast-generate', name: 'Imagen 4.0 Fast' },
+                { id: 'imagen-4.0-ultra-generate', name: 'Imagen 4.0 Ultra' }
+            ];
+
+            const results = [];
+
+            for (const model of models) {
+                const result = await testModel(model.id, model.name);
+                results.push(result);
+                // Add delay between tests
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+
+            // Summary
+            console.log("\n========== 测试总结 ==========");
+            const successCount = results.filter(r => r.success).length;
+            console.log(`成功: ${successCount}/${results.length}`);
+
+            const summaryDiv = document.createElement('div');
+            summaryDiv.innerHTML = `
+                <h2>测试总结</h2>
+                <p><strong>成功:</strong> ${successCount}/${results.length}</p>
+                <ul>
+                    ${results.map(r => `
+                        <li style="color: ${r.success ? 'green' : 'red'}">
+                            ${r.model}: ${r.success ? '✅ 成功' : '❌ 失败'}
+                            ${!r.success ? `<br><small>${r.error}</small>` : ''}
+                        </li>
+                    `).join('')}
+                </ul>
+            `;
+            document.body.appendChild(summaryDiv);
+        }
+
+        // Start tests
+        runTests().catch(console.error);
+    </script>
+</head>
+<body>
+</body>
+</html>

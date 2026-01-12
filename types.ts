@@ -10,6 +10,7 @@ export enum NodeType {
   SCRIPT_EPISODE = 'SCRIPT_EPISODE',
   STORYBOARD_GENERATOR = 'STORYBOARD_GENERATOR',
   STORYBOARD_IMAGE = 'STORYBOARD_IMAGE',
+  STORYBOARD_SPLITTER = 'STORYBOARD_SPLITTER',
   CHARACTER_NODE = 'CHARACTER_NODE',
   DRAMA_ANALYZER = 'DRAMA_ANALYZER',
   DRAMA_REFINED = 'DRAMA_REFINED',
@@ -73,6 +74,30 @@ export interface EpisodeStoryboard {
     totalShots: number;
     shots: DetailedStoryboardShot[];
     visualStyle: string;
+}
+
+// Split storyboard shot with image and detailed description
+export interface SplitStoryboardShot {
+    id: string;
+    shotNumber: number;
+    sourceNodeId: string; // Which STORYBOARD_IMAGE node this came from
+    sourcePage: number; // Which page this came from (0-based)
+    panelIndex: number; // Which panel in the grid (0-8 for 9-grid, 0-5 for 6-grid)
+    splitImage: string; // Base64 of the split individual panel image
+
+    // From DetailedStoryboardShot
+    scene: string;
+    characters: string[];
+    shotType: string;
+    cameraAngle: string;
+    cameraMovement: string;
+    visualDescription: string;
+    dialogue: string;
+    visualEffects: string;
+    audioEffects: string;
+    startTime: number;
+    endTime: number;
+    duration: number;
 }
 
 export interface CharacterProfile {
@@ -177,6 +202,11 @@ export interface AppNode {
     storyboardPanelOrientation?: '16:9' | '9:16'; // Panel orientation: landscape or portrait
     storyboardCurrentPage?: number; // Current page index (0-based)
     storyboardTotalPages?: number; // Total number of pages
+
+    // Storyboard Splitter Specifics
+    selectedSourceNodes?: string[]; // IDs of selected STORYBOARD_IMAGE nodes to split
+    splitShots?: SplitStoryboardShot[]; // Array of all split shots with images and descriptions
+    isSplitting?: boolean; // Whether currently splitting images
 
     // Drama Analyzer Specifics
     dramaName?: string; // 剧名

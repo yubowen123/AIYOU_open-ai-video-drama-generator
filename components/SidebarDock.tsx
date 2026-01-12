@@ -5,7 +5,7 @@ import {
     Plus, RotateCcw, History, MessageSquare, FolderHeart, X,
     ImageIcon, Video as VideoIcon, Film, Save, FolderPlus,
     Edit, Trash2, Box, ScanFace, Brush, Type, Workflow as WorkflowIcon,
-    Clapperboard, Mic2, Settings, BookOpen, ScrollText, User, Search, Sparkles, Palette, Bug, LayoutGrid
+    Clapperboard, Mic2, Settings, BookOpen, ScrollText, User, Search, Sparkles, Palette, Bug, LayoutGrid, Grid
 } from 'lucide-react';
 import { NodeType, Workflow } from '../types';
 
@@ -61,6 +61,7 @@ const getNodeNameCN = (t: string) => {
         case NodeType.SCRIPT_EPISODE: return '剧本分集';
         case NodeType.STORYBOARD_GENERATOR: return '分镜生成';
         case NodeType.STORYBOARD_IMAGE: return '分镜图设计';
+        case NodeType.STORYBOARD_SPLITTER: return '分镜图拆解';
         case NodeType.CHARACTER_NODE: return '角色设计';
         case NodeType.DRAMA_ANALYZER: return '剧目分析';
         case NodeType.DRAMA_REFINED: return '剧目精炼';
@@ -81,6 +82,7 @@ const getNodeIcon = (t: string) => {
         case NodeType.SCRIPT_EPISODE: return ScrollText;
         case NodeType.STORYBOARD_GENERATOR: return Clapperboard;
         case NodeType.STORYBOARD_IMAGE: return LayoutGrid;
+        case NodeType.STORYBOARD_SPLITTER: return Grid;
         case NodeType.CHARACTER_NODE: return User;
         case NodeType.DRAMA_ANALYZER: return Search;
         case NodeType.DRAMA_REFINED: return Sparkles;
@@ -306,7 +308,7 @@ export const SidebarDock: React.FC<SidebarDockProps> = ({
                     </span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-2">
-                    {[NodeType.PROMPT_INPUT, NodeType.IMAGE_GENERATOR, NodeType.VIDEO_GENERATOR, NodeType.AUDIO_GENERATOR, NodeType.SCRIPT_PLANNER, NodeType.SCRIPT_EPISODE, NodeType.CHARACTER_NODE, NodeType.STYLE_PRESET, NodeType.STORYBOARD_GENERATOR, NodeType.STORYBOARD_IMAGE, NodeType.DRAMA_ANALYZER, NodeType.VIDEO_ANALYZER, NodeType.IMAGE_EDITOR].map(t => {
+                    {[NodeType.PROMPT_INPUT, NodeType.IMAGE_GENERATOR, NodeType.VIDEO_GENERATOR, NodeType.AUDIO_GENERATOR, NodeType.SCRIPT_PLANNER, NodeType.SCRIPT_EPISODE, NodeType.CHARACTER_NODE, NodeType.STYLE_PRESET, NodeType.STORYBOARD_GENERATOR, NodeType.STORYBOARD_IMAGE, NodeType.STORYBOARD_SPLITTER, NodeType.DRAMA_ANALYZER, NodeType.VIDEO_ANALYZER, NodeType.IMAGE_EDITOR].map(t => {
                         const ItemIcon = getNodeIcon(t);
                         return (
                             <button 
