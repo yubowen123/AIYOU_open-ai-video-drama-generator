@@ -5,6 +5,8 @@
 
 import { SoraTaskGroup, SplitStoryboardShot } from '../types';
 import { getSoraApiKey, getSoraModelById } from './soraConfigService';
+import { getUserDefaultModel } from './modelConfig';
+import { logAPICall } from './apiLogger';
 
 export interface SoraSubmitResult {
   id: string;
@@ -95,7 +97,7 @@ ${shotDescriptions}
     const { generateText } = await import('./geminiService');
     const enhancedPrompt = await generateText(
       systemPrompt + '\n\n' + userPrompt,
-      'gemini-2.5-flash'
+      getUserDefaultModel('text')
     );
 
     return enhancedPrompt;
@@ -113,7 +115,8 @@ export async function submitSoraTask(
   soraPrompt: string,
   modelId: string,
   referenceImageUrl?: string,
-  isStoryMode: boolean = true
+  isStoryMode: boolean = true,
+  context?: { nodeId?: string; nodeType?: string }
 ): Promise<SoraSubmitResult> {
   const apiKey = getSoraApiKey();
   if (!apiKey) {
@@ -127,47 +130,42 @@ export async function submitSoraTask(
 
   const requestBody = {
     prompt: soraPrompt,
-    model: 'sora-2-yijia',
-    size: apiKey, // 文档要求传 API Key
+    model: modelId,
+    size: apiKey,
     input_reference: referenceImageUrl,
     is_story: isStoryMode ? '1' : undefined
   };
 
-  console.log('[Sora Service] Submitting task:', {
-    model: model.name,
-    duration: model.duration,
-    hasReferenceImage: !!referenceImageUrl,
-    isStoryMode
-  });
+  return logAPICall(
+    'submitSoraTask',
+    async () => {
+      const response = await fetch('https://ai.yijiarj.cn/v1/videos', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-  try {
-    const response = await fetch('https://ai.yijiarj.cn/v1/videos', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Sora API 错误: ${response.status} - ${errorText}`);
+      }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Sora API 错误: ${response.status} - ${errorText}`);
-    }
-
-    const result: SoraSubmitResult = await response.json();
-
-    console.log('[Sora Service] Task submitted:', {
-      taskId: result.id,
-      status: result.status,
-      progress: result.progress
-    });
-
-    return result;
-  } catch (error: any) {
-    console.error('[Sora Service] Submit task failed:', error);
-    throw error;
-  }
+      const result: SoraSubmitResult = await response.json();
+      return result;
+    },
+    {
+      model: model.name,
+      duration: model.duration,
+      hasReferenceImage: !!referenceImageUrl,
+      isStoryMode,
+      promptLength: soraPrompt.length,
+      promptPreview: soraPrompt.substring(0, 200) + (soraPrompt.length > 200 ? '...' : '')
+    },
+    context
+  );
 }
 
 /**
@@ -175,44 +173,55 @@ export async function submitSoraTask(
  */
 export async function checkSoraTaskStatus(
   taskId: string,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  context?: { nodeId?: string; nodeType?: string }
 ): Promise<SoraVideoResult> {
   const apiKey = getSoraApiKey();
   if (!apiKey) {
     throw new Error('请先在设置中配置 Sora 2 API Key');
   }
 
-  const response = await fetch(`https://ai.yijiarj.cn/v1/videos/${taskId}`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    }
-  });
+  return logAPICall(
+    'checkSoraTaskStatus',
+    async () => {
+      const response = await fetch(`https://ai.yijiarj.cn/v1/videos/${taskId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Sora API 错误: ${response.status} - ${errorText}`);
-  }
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Sora API 错误: ${response.status} - ${errorText}`);
+      }
 
-  const data: any = await response.json();
+      const data: any = await response.json();
 
-  // 更新进度
-  if (onProgress && data.progress !== undefined) {
-    onProgress(data.progress);
-  }
+      // 更新进度
+      if (onProgress && data.progress !== undefined) {
+        onProgress(data.progress);
+      }
 
-  return {
-    taskId: data.id,
-    status: data.status,
-    progress: data.progress,
-    videoUrl: data.url,
-    videoUrlWatermarked: data.size,
-    duration: data.seconds,
-    quality: data.quality,
-    isCompliant: data.quality === 'standard',
-    violationReason: data.quality !== 'standard' ? data.quality : undefined
-  };
+      return {
+        taskId: data.id,
+        status: data.status,
+        progress: data.progress,
+        videoUrl: data.url,
+        videoUrlWatermarked: data.size,
+        duration: data.seconds,
+        quality: data.quality,
+        isCompliant: data.quality === 'standard',
+        violationReason: data.quality !== 'standard' ? data.quality : undefined
+      };
+    },
+    {
+      taskId,
+      hasProgressCallback: !!onProgress
+    },
+    context
+  );
 }
 
 /**
@@ -221,13 +230,14 @@ export async function checkSoraTaskStatus(
 export async function pollSoraTaskUntilComplete(
   taskId: string,
   onProgress?: (progress: number) => void,
-  pollingInterval: number = 5000 // 5秒
+  pollingInterval: number = 5000,
+  context?: { nodeId?: string; nodeType?: string }
 ): Promise<SoraVideoResult> {
   let attempts = 0;
   const maxAttempts = 120; // 最多轮询 120 次（10分钟）
 
   while (attempts < maxAttempts) {
-    const result = await checkSoraTaskStatus(taskId, onProgress);
+    const result = await checkSoraTaskStatus(taskId, onProgress, context);
 
     if (result.status === 'completed' || result.status === 'error') {
       console.log('[Sora Service] Task completed:', {
@@ -253,7 +263,8 @@ export async function pollSoraTaskUntilComplete(
  */
 export async function generateSoraVideo(
   taskGroup: SoraTaskGroup,
-  onProgress?: (message: string, progress: number) => void
+  onProgress?: (message: string, progress: number) => void,
+  context?: { nodeId?: string; nodeType?: string }
 ): Promise<SoraVideoResult> {
   try {
     // 1. 检查是否已提交过任务
@@ -265,9 +276,10 @@ export async function generateSoraVideo(
 
       const submitResult = await submitSoraTask(
         taskGroup.soraPrompt,
-        'sora-2-yijia', // 会根据实际选择动态设置
+        taskGroup.soraModelId || 'sora-2-yijia',
         taskGroup.referenceImage,
-        true
+        true,
+        context
       );
 
       taskGroup.soraTaskId = submitResult.id;
@@ -282,7 +294,9 @@ export async function generateSoraVideo(
       (progress) => {
         taskGroup.progress = progress;
         onProgress?.(`视频生成中... ${progress}%`, progress);
-      }
+      },
+      5000,
+      context
     );
 
     // 4. 更新状态
@@ -291,7 +305,7 @@ export async function generateSoraVideo(
       taskGroup.progress = 100;
       taskGroup.videoMetadata = {
         duration: parseFloat(result.duration || '0'),
-        resolution: '1080p', // 默认值
+        resolution: '1080p',
         fileSize: 0,
         createdAt: new Date()
       };
@@ -315,7 +329,8 @@ export async function generateSoraVideo(
  */
 export async function generateMultipleSoraVideos(
   taskGroups: SoraTaskGroup[],
-  onProgress?: (taskIndex: number, message: string, progress: number) => void
+  onProgress?: (taskIndex: number, message: string, progress: number) => void,
+  context?: { nodeId?: string; nodeType?: string }
 ): Promise<Map<string, SoraVideoResult>> {
   const results = new Map<string, SoraVideoResult>();
 
@@ -327,7 +342,7 @@ export async function generateMultipleSoraVideos(
 
       const result = await generateSoraVideo(taskGroup, (msg, progress) => {
         onProgress?.(i, msg, progress);
-      });
+      }, context);
 
       results.set(taskGroup.id, result);
 

@@ -12,6 +12,7 @@ import { CharacterDetailModal } from './components/CharacterDetailModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AppNode, NodeType, NodeStatus, Connection, ContextMenuState, Group, Workflow, SmartSequenceItem, CharacterProfile } from './types';
 import { generateImageFromText, generateVideo, analyzeVideo, editImageWithText, planStoryboard, orchestrateVideoPrompt, compileMultiFramePrompt, urlToBase64, extractLastFrame, generateAudio, generateScriptPlanner, generateScriptEpisodes, generateCinematicStoryboard, extractCharactersFromText, generateCharacterProfile, detectTextInImage, analyzeDrama } from './services/geminiService';
+import { getUserDefaultModel } from '../services/modelConfig';
 import { getGenerationStrategy } from './services/videoStrategies';
 import { saveToStorage, loadFromStorage } from './services/storage';
 import { 
@@ -420,7 +421,7 @@ export const App = () => {
                  type === NodeType.STORYBOARD_GENERATOR ? 'gemini-3-pro-preview' :
                  type === NodeType.CHARACTER_NODE ? 'gemini-3-pro-preview' :
                  type === NodeType.DRAMA_ANALYZER ? 'gemini-3-pro-preview' :
-                 type.includes('IMAGE') ? 'gemini-2.5-flash-image' :
+                 type.includes('IMAGE') ? getUserDefaultModel('image') :
                  'gemini-3-pro-preview',
           generationMode: type === NodeType.VIDEO_GENERATOR ? 'DEFAULT' : undefined,
           scriptEpisodes: type === NodeType.SCRIPT_PLANNER ? 10 : undefined,
@@ -462,13 +463,13 @@ export const App = () => {
         const startNode: AppNode = {
             id: startId, type: NodeType.IMAGE_GENERATOR, x: centerX - 500, y: centerY - 200, width: 420,
             title: '起始帧 (Start Frame)', status: NodeStatus.IDLE, inputs: [],
-            data: { model: 'gemini-2.5-flash-image', prompt: 'Cinematic shot, start scene...', aspectRatio: '16:9' }
+            data: { model: getUserDefaultModel('image'), prompt: 'Cinematic shot, start scene...', aspectRatio: '16:9' }
         };
 
         const endNode: AppNode = {
             id: endId, type: NodeType.IMAGE_GENERATOR, x: centerX - 500, y: centerY + 250, width: 420,
             title: '结束帧 (End Frame)', status: NodeStatus.IDLE, inputs: [],
-            data: { model: 'gemini-2.5-flash-image', prompt: 'Cinematic shot, end scene...', aspectRatio: '16:9' }
+            data: { model: getUserDefaultModel('image'), prompt: 'Cinematic shot, end scene...', aspectRatio: '16:9' }
         };
 
         const videoNode: AppNode = {
@@ -822,9 +823,9 @@ export const App = () => {
                   while (hasText && attempt < MAX_ATTEMPTS) {
                       if (attempt > 0) {
                           const retryPrompt = viewPrompt + " NO TEXT. NO LABELS. CLEAR BACKGROUND.";
-                          viewImages = await generateImageFromText(retryPrompt, 'gemini-2.5-flash-image', inputImages, { aspectRatio: '16:9', count: 1 });
+                          viewImages = await generateImageFromText(retryPrompt, getUserDefaultModel('image'), inputImages, { aspectRatio: '16:9', count: 1 });
                       } else {
-                          viewImages = await generateImageFromText(viewPrompt, 'gemini-2.5-flash-image', inputImages, { aspectRatio: '16:9', count: 1 });
+                          viewImages = await generateImageFromText(viewPrompt, getUserDefaultModel('image'), inputImages, { aspectRatio: '16:9', count: 1 });
                       }
 
                       if (viewImages.length > 0) {
@@ -923,7 +924,7 @@ export const App = () => {
               CRITICAL: NO TEXT, NO LABELS - Pure image only, no emotion labels (like "happy", "sad"), no numbers, no Chinese characters, no English text, no grid labels.
               Negative: ${negativePrompt}, text, labels, emotion names, numbers, letters, writing, watermark, signature.
               `;
-              const exprImages = await generateImageFromText(exprPrompt, 'gemini-2.5-flash-image', [], { aspectRatio: '1:1', count: 1 });
+              const exprImages = await generateImageFromText(exprPrompt, getUserDefaultModel('image'), [], { aspectRatio: '1:1', count: 1 });
               profile.expressionSheet = exprImages[0];
               profile.status = 'SUCCESS';
               
@@ -1040,7 +1041,7 @@ export const App = () => {
                           Composition: 3x3 grid.
                           Negative: ${negativePrompt}.
                           `;
-                          const exprImages = await generateImageFromText(exprPrompt, 'gemini-2.5-flash-image', [], { aspectRatio: '1:1', count: 1 });
+                          const exprImages = await generateImageFromText(exprPrompt, getUserDefaultModel('image'), [], { aspectRatio: '1:1', count: 1 });
                           profile.expressionSheet = exprImages[0];
 
                           profile.status = 'SUCCESS';
@@ -1262,7 +1263,7 @@ export const App = () => {
                   Negative: ${shot.negative}.
                   `;
                   try {
-                      const imgs = await generateImageFromText(visualPrompt, 'gemini-2.5-flash-image', [], { aspectRatio: node.data.aspectRatio || '16:9', count: 1 });
+                      const imgs = await generateImageFromText(visualPrompt, getUserDefaultModel('image'), [], { aspectRatio: node.data.aspectRatio || '16:9', count: 1 });
                       if (imgs && imgs.length > 0) {
                           updatedShots[shotIndex] = { ...shot, imageUrl: imgs[0] };
                           handleNodeUpdate(id, { storyboardShots: [...updatedShots] });

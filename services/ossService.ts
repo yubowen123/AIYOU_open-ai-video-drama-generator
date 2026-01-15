@@ -4,6 +4,7 @@
  */
 
 import { OSSConfig } from '../types';
+import COS from 'cos-js-sdk-v5';
 
 /**
  * 生成测试图片
@@ -39,53 +40,41 @@ async function generateTestImage(): Promise<Blob> {
 }
 
 /**
- * 上传文件到腾讯云 COS
+ * 上传文件到后端，由后端代理上传到腾讯云 COS
  */
 async function uploadToTencentCOS(
   file: Blob,
   fileName: string,
   config: OSSConfig
 ): Promise<string> {
-  const { bucket, region, accessKey, secretKey } = config;
+  // 后端 API 地址
+  const API_BASE_URL = 'http://localhost:3001';
 
-  // 构建请求 URL
-  const host = `${bucket}.cos.${region}.myqcloud.com`;
-  const url = `https://${host}/${fileName}`;
-
-  // 获取当前时间戳
-  const now = new Date();
-  const timestamp = Math.floor(now.getTime() / 1000);
-  const date = now.toUTCString();
-
-  // 构建签名
-  const keyTime = `${timestamp};${timestamp + 600}`;
-  const signKey = await hmacSha256Hex(accessKey, keyTime);
-  const httpString = `PUT\n\n\n\nhost=${host}\n`;
-  const stringToSign = hmacSha256Hex(httpString, signKey);
-  const signature = await hmacSha256Hex(stringToSign, signKey);
-
-  const authorization = `q-sign-algorithm=sha1&q-ak=${accessKey}&q-sign-time=${keyTime}&q-key-time=${keyTime}&q-header-list=&q-url-param-list=&q-signature=${signature}`;
+  // 创建 FormData
+  const formData = new FormData();
+  formData.append('file', file, fileName);
+  formData.append('folder', 'aiyou-uploads');
 
   try {
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        'Authorization': authorization,
-        'Host': host,
-        'Date': date,
-        'Content-Type': 'image/png'
-      },
-      body: file
+    const response = await fetch(`${API_BASE_URL}/api/upload-oss`, {
+      method: 'POST',
+      body: formData,
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`上传失败: ${response.status} ${response.statusText} - ${errorText}`);
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || `上传失败: ${response.status}`);
     }
 
-    return url;
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || '上传失败');
+    }
+
+    return result.url;
   } catch (error: any) {
-    throw new Error(`腾讯云 COS 上传失败: ${error.message}`);
+    throw new Error(`OSS 上传失败: ${error.message}`);
   }
 }
 
@@ -182,7 +171,7 @@ async function hmacSha256(message: string, key: string): Promise<string> {
 }
 
 /**
- * HMAC-SHA1 加密 (用于阿里云签名)
+ * HMAC-SHA1 加密返回 base64 (用于阿里云签名)
  */
 async function hmacSha1(message: string, key: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -200,6 +189,131 @@ async function hmacSha1(message: string, key: string): Promise<string> {
   const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
   const hashArray = Array.from(new Uint8Array(signature));
   return btoa(String.fromCharCode.apply(null, hashArray as any));
+}
+
+/**
+ * HMAC-SHA1 加密返回十六进制 (用于腾讯云签名)
+ */
+async function hmacSha1HexStr(message: string, key: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(key);
+  const messageData = encoder.encode(message);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * HMAC-SHA1 加密使用二进制 key 并返回十六进制
+ */
+async function hmacSha1WithBinaryKey(message: string, binaryKey: Uint8Array): Promise<string> {
+  const encoder = new TextEncoder();
+  const messageData = encoder.encode(message);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    binaryKey,
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * HMAC-SHA1 加密返回十六进制 (用于腾讯云 COS 签名)
+ */
+async function hmacSha1Hex(message: string, key: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(key);
+  const messageData = encoder.encode(message);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * HMAC-SHA1 加密返回原始二进制数据
+ */
+async function hmacSha1Raw(message: string, key: string): Promise<Uint8Array> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(key);
+  const messageData = encoder.encode(message);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  return new Uint8Array(signature);
+}
+
+/**
+ * HMAC-SHA1 加密使用二进制 key 并返回 base64
+ */
+async function hmacSha1Base64(message: string, keyData: Uint8Array): Promise<string> {
+  const encoder = new TextEncoder();
+  const messageData = encoder.encode(message);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyData,
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return btoa(String.fromCharCode.apply(null, hashArray as any));
+}
+
+/**
+ * HMAC-SHA1 加密使用十六进制字符串 key 并返回十六进制
+ */
+async function hmacSha1HexWithKey(message: string, hexKey: string): Promise<string> {
+  // 将十六进制字符串转换为字节数组
+  const keyBytes = new Uint8Array(hexKey.match(/[\da-f]{2}/gi)!.map(h => parseInt(h, 16)));
+
+  const encoder = new TextEncoder();
+  const messageData = encoder.encode(message);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'HMAC', hash: 'SHA-1' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('HMAC', cryptoKey, messageData);
+  const hashArray = Array.from(new Uint8Array(signature));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**

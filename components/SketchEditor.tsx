@@ -1,11 +1,12 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { 
-    X, Brush, Eraser, Palette, Undo, Trash2, 
-    MousePointer2, Download, Play, Image as ImageIcon, 
+import {
+    X, Brush, Eraser, Palette, Undo, Trash2,
+    MousePointer2, Download, Play, Image as ImageIcon,
     Activity, Wand2, Loader2, ChevronDown, Upload, Layers
 } from 'lucide-react';
 import { generateImageFromText, generateVideo } from '../services/geminiService';
+import { getUserDefaultModel } from '../services/modelConfig';
 
 interface SketchEditorProps {
     onClose: () => void;
@@ -210,7 +211,7 @@ export const SketchEditor: React.FC<SketchEditorProps> = ({ onClose, onGenerate 
                 Style: Minimalist stick figure or outline drawing, clear lines, no shading.
                 `;
                 
-                const res = await generateImageFromText(posePrompt, 'gemini-2.5-flash-image', [], { aspectRatio: '16:9', count: 1 });
+                const res = await generateImageFromText(posePrompt, getUserDefaultModel('image'), [], { aspectRatio: '16:9', count: 1 });
                 const imgUrl = res[0];
 
                 // 2. Draw Result onto Canvas
@@ -248,18 +249,18 @@ export const SketchEditor: React.FC<SketchEditorProps> = ({ onClose, onGenerate 
                 
                 if (activeMode === 'video') {
                     const res = await generateVideo(
-                        prompt, 
-                        'veo-3.1-fast-generate-preview', 
-                        { aspectRatio: '16:9' }, 
+                        prompt,
+                        getUserDefaultModel('video'),
+                        { aspectRatio: '16:9' },
                         compositeBase64
                     );
                     onGenerate('video', res.uri, prompt);
                 } else {
                     // Image (Sketch-to-Image)
                     const res = await generateImageFromText(
-                        prompt, 
-                        'gemini-2.5-flash-image', 
-                        [compositeBase64], 
+                        prompt,
+                        getUserDefaultModel('image'),
+                        [compositeBase64],
                         { aspectRatio: '16:9', count: 1 }
                     );
                     onGenerate('image', res[0], prompt);

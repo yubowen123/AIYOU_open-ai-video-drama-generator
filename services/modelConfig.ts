@@ -19,28 +19,40 @@ export interface ModelInfo {
   isDefault?: boolean;
 }
 
-// 图片生成模型 - 仅支持图生图的 Gemini 系列
+// 图片生成模型 - 使用 Gemini API 官方文档推荐的模型名称
+// 参考: https://ai.google.dev/gemini-api/docs/image-generation
 // 所有模型都使用 generateContent API，支持 image-to-image
-// Imagen 系列已隐藏（不支持图生图，不适合角色生成）
 export const IMAGE_MODELS: ModelInfo[] = [
   {
-    id: 'gemini-2.5-flash-image',
-    name: 'Gemini 2.5 Flash (Nano Banana)',
+    id: 'gemini-2.0-flash-exp',
+    name: 'Gemini 2.0 Flash Experimental',
     category: 'image',
     priority: 1,
     quality: 8,
-    speed: 9,
-    cost: 8,
-    capabilities: ['快速响应', 'aspectRatio 支持', 'SynthID 水印', '支持图生图'],
-    description: '快速稳定，支持 aspectRatio 参数，包含 SynthID 数字水印',
-    tags: ['native', 'fast', 'generateContent', 'synthid'],
+    speed: 10,
+    cost: 9,
+    capabilities: ['快速响应', 'aspectRatio 支持', '实验性功能', '支持图生图'],
+    description: '快速稳定的实验性模型，支持 aspectRatio 参数',
+    tags: ['experimental', 'fast', 'generateContent', 'aspectRatio'],
     isDefault: true
   },
   {
-    id: 'gemini-3-pro-image-preview',
-    name: 'Gemini 3 Pro (Nano Banana Pro)',
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
     category: 'image',
     priority: 2,
+    quality: 8,
+    speed: 9,
+    cost: 8,
+    capabilities: ['快速响应', '稳定版', '支持图生图', '多模态'],
+    description: '稳定版 Flash 模型，支持图像生成',
+    tags: ['stable', 'fast', 'generateContent', 'multimodal']
+  },
+  {
+    id: 'gemini-3-pro-preview',
+    name: 'Gemini 3 Pro Preview',
+    category: 'image',
+    priority: 3,
     quality: 10,
     speed: 7,
     cost: 5,
@@ -49,40 +61,16 @@ export const IMAGE_MODELS: ModelInfo[] = [
     tags: ['pro', 'high-quality', 'multimodal', 'generateContent']
   },
   {
-    id: 'gemini-2.5-flash-image-preview',
-    name: 'Gemini 2.5 Flash Preview',
-    category: 'image',
-    priority: 3,
-    quality: 8,
-    speed: 9,
-    cost: 8,
-    capabilities: ['预览版', '快速响应', '支持图生图'],
-    description: 'Gemini 2.5 Flash 预览版',
-    tags: ['preview', 'fast', 'generateContent']
-  },
-  {
-    id: 'gemini-2.0-flash-exp-image-generation',
-    name: 'Gemini 2.0 Flash Experimental',
+    id: 'gemini-3-flash',
+    name: 'Gemini 3 Flash',
     category: 'image',
     priority: 4,
-    quality: 7,
-    speed: 8,
-    cost: 9,
-    capabilities: ['实验性', '支持图生图'],
-    description: '实验性图像生成',
-    tags: ['experimental', 'fast', 'generateContent']
-  },
-  {
-    id: 'nano-banana-pro-preview',
-    name: 'Nano Banana Pro',
-    category: 'image',
-    priority: 5,
-    quality: 10,
-    speed: 7,
-    cost: 5,
-    capabilities: ['最高质量', '多模态理解', '支持图生图'],
-    description: '与 gemini-3-pro-image-preview 相同',
-    tags: ['pro', 'high-quality', 'multimodal', 'generateContent']
+    quality: 9,
+    speed: 9,
+    cost: 7,
+    capabilities: ['快速响应', '高质量', '支持图生图'],
+    description: '快速高质量的图像生成',
+    tags: ['fast', 'high-quality', 'generateContent']
   }
 ];
 
@@ -143,35 +131,23 @@ export const VIDEO_MODELS: ModelInfo[] = [
 // 文本生成模型（LLM）- 按推理能力排序
 export const TEXT_MODELS: ModelInfo[] = [
   {
-    id: 'gemini-3-pro',
-    name: 'Gemini 3 Pro',
-    category: 'text',
-    priority: 1,
-    quality: 10,
-    speed: 6,
-    cost: 3,
-    capabilities: ['最强推理', '复杂任务', '长上下文', '代码生成'],
-    description: '最强推理能力，适合复杂创作任务',
-    tags: ['strongest-reasoning', 'complex-tasks', 'long-context'],
-    isDefault: true
-  },
-  {
     id: 'gemini-3-pro-preview',
     name: 'Gemini 3 Pro Preview',
     category: 'text',
-    priority: 2,
-    quality: 9,
+    priority: 1,
+    quality: 10,
     speed: 7,
     cost: 4,
-    capabilities: ['预览版', '新功能', '高级推理'],
-    description: 'Gemini 3 Pro 预览版，包含最新功能',
-    tags: ['preview', 'new-features']
+    capabilities: ['预览版', '新功能', '高级推理', '最强推理', '复杂任务', '长上下文'],
+    description: '最强推理能力，适合复杂创作任务',
+    tags: ['preview', 'new-features', 'strongest-reasoning', 'complex-tasks'],
+    isDefault: true
   },
   {
     id: 'gemini-3-flash',
     name: 'Gemini 3 Flash',
     category: 'text',
-    priority: 3,
+    priority: 2,
     quality: 8,
     speed: 9,
     cost: 7,
@@ -183,7 +159,7 @@ export const TEXT_MODELS: ModelInfo[] = [
     id: 'gemini-2.5-flash',
     name: 'Gemini 2.5 Flash',
     category: 'text',
-    priority: 4,
+    priority: 3,
     quality: 7,
     speed: 10,
     cost: 9,
@@ -195,7 +171,7 @@ export const TEXT_MODELS: ModelInfo[] = [
     id: 'gemini-2.5-flash-preview',
     name: 'Gemini 2.5 Flash Preview',
     category: 'text',
-    priority: 5,
+    priority: 4,
     quality: 6,
     speed: 10,
     cost: 10,
@@ -338,4 +314,56 @@ export const getUserPriority = (category: ModelCategory): string[] => {
 export const saveUserPriority = (category: ModelCategory, priority: string[]) => {
   const priorityKey = `model_priority_${category}`;
   localStorage.setItem(priorityKey, JSON.stringify(priority));
+};
+
+/**
+ * 从 localStorage 获取用户配置的默认模型
+ * 与 App.tsx 中的逻辑保持一致
+ */
+export const getUserDefaultModel = (category: ModelCategory): string => {
+  const localStorageKey = `default_${category}_model`;
+  const model = localStorage.getItem(localStorageKey);
+
+  if (model) {
+    return model;
+  }
+
+  // 如果没有配置，返回默认值
+  return getDefaultModel(category);
+};
+
+/**
+ * 根据节点类型获取默认模型
+ */
+export const getModelByNodeType = (nodeType: string): string => {
+  // 视频生成节点
+  if (nodeType.includes('VIDEO') || nodeType === 'SORA_VIDEO_GENERATOR') {
+    return getUserDefaultModel('video');
+  }
+
+  // 图片生成节点
+  if (nodeType.includes('IMAGE') || nodeType === 'STORYBOARD_IMAGE') {
+    return getUserDefaultModel('image');
+  }
+
+  // 音频生成节点
+  if (nodeType.includes('AUDIO')) {
+    return getUserDefaultModel('audio');
+  }
+
+  // 文本处理节点（分析、剧本等）
+  return getUserDefaultModel('text');
+};
+
+/**
+ * 获取节点首选模型（考虑节点自身的模型配置）
+ * @param nodeType 节点类型
+ * @param nodeModel 节点自身配置的模型（可选）
+ * @returns 优先使用节点配置，否则使用节点类型对应的默认模型
+ */
+export const getPreferredModel = (nodeType: string, nodeModel?: string): string => {
+  if (nodeModel) {
+    return nodeModel;
+  }
+  return getModelByNodeType(nodeType);
 };

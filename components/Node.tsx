@@ -4,6 +4,7 @@ import { RefreshCw, Play, Image as ImageIcon, Video as VideoIcon, Type, AlertCir
 import { VideoModeSelector, SceneDirectorOverlay } from './VideoNodeModules';
 import React, { memo, useRef, useState, useEffect, useCallback } from 'react';
 import { getSoraModelById } from '../services/soraConfigService';
+import { IMAGE_MODELS, TEXT_MODELS, VIDEO_MODELS, AUDIO_MODELS, getUserDefaultModel } from '../services/modelConfig';
 
 const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
@@ -377,10 +378,13 @@ const EpisodeViewer = ({ episodes }: { episodes: { title: string, content: strin
     );
 };
 
-const NodeComponent: React.FC<NodeProps> = ({ 
-  node, onUpdate, onAction, onDelete, onExpand, onCrop, onNodeMouseDown, onPortMouseDown, onPortMouseUp, onNodeContextMenu, onMediaContextMenu, onResizeMouseDown, inputAssets, onInputReorder, onCharacterAction, onViewCharacter, isDragging, isGroupDragging, isSelected, isResizing, isConnecting, allNodes, characterLibrary 
+const NodeComponent: React.FC<NodeProps> = ({
+  node, onUpdate, onAction, onDelete, onExpand, onCrop, onNodeMouseDown, onPortMouseDown, onPortMouseUp, onNodeContextMenu, onMediaContextMenu, onResizeMouseDown, inputAssets, onInputReorder, onCharacterAction, onViewCharacter, isDragging, isGroupDragging, isSelected, isResizing, isConnecting, allNodes, characterLibrary
 }) => {
   const isWorking = node.status === NodeStatus.WORKING;
+  const [isActionProcessing, setIsActionProcessing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const isActionDisabled = isWorking || isActionProcessing;
   const mediaRef = useRef<HTMLImageElement | HTMLVideoElement | HTMLAudioElement | null>(null);
   const isHoveringRef = useRef(false);
   const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
@@ -400,11 +404,54 @@ const NodeComponent: React.FC<NodeProps> = ({
   const inputStartHeight = useRef(0);
   const [availableChapters, setAvailableChapters] = useState<string[]>([]);
   const [viewingOutline, setViewingOutline] = useState(false);
+  const actionProcessingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => { setLocalPrompt(node.data.prompt || ''); }, [node.data.prompt]);
   const commitPrompt = () => { if (localPrompt !== (node.data.prompt || '')) onUpdate(node.id, { prompt: localPrompt }); };
-  const handleActionClick = () => { commitPrompt(); onAction(node.id, localPrompt); };
-  const handleCmdEnter = (e: React.KeyboardEvent) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); commitPrompt(); onAction(node.id, localPrompt); }};
+
+  // 防重复点击的 Action 处理函数
+  const handleActionClick = () => {
+    // 如果正在处理中，直接返回
+    if (isActionProcessing) {
+      return;
+    }
+
+    // 标记为处理中
+    setIsActionProcessing(true);
+
+    // 执行操作
+    commitPrompt();
+    onAction(node.id, localPrompt);
+
+    // 清除之前的定时器
+    if (actionProcessingTimerRef.current) {
+      clearTimeout(actionProcessingTimerRef.current);
+    }
+
+    // 1秒后解除阻止
+    actionProcessingTimerRef.current = setTimeout(() => {
+      setIsActionProcessing(false);
+    }, 1000);
+  };
+
+  const handleCmdEnter = (e: React.KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      // 使用相同的防重复点击逻辑
+      if (isActionProcessing) {
+        return;
+      }
+      setIsActionProcessing(true);
+      commitPrompt();
+      onAction(node.id, localPrompt);
+      if (actionProcessingTimerRef.current) {
+        clearTimeout(actionProcessingTimerRef.current);
+      }
+      actionProcessingTimerRef.current = setTimeout(() => {
+        setIsActionProcessing(false);
+      }, 1000);
+    }
+  };
   
   const handleInputResizeStart = (e: React.MouseEvent) => {
       e.stopPropagation(); e.preventDefault();
@@ -512,8 +559,39 @@ const NodeComponent: React.FC<NodeProps> = ({
       }
   };
   const handleDownload = (e: React.MouseEvent) => { e.stopPropagation(); const a = document.createElement('a'); a.href = node.data.image || videoBlobUrl || node.data.audioUri || ''; a.download = `sunstudio-${Date.now()}`; document.body.appendChild(a); a.click(); document.body.removeChild(a); };
-  const handleUploadVideo = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onload = (e) => onUpdate(node.id, { videoUri: e.target?.result as string }); reader.readAsDataURL(file); }};
-  const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { const reader = new FileReader(); reader.onload = (e) => onUpdate(node.id, { image: e.target?.result as string }); reader.readAsDataURL(file); }};
+
+  // 防重复点击的上传处理函数
+  const handleUploadVideo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isUploading) return;
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      onUpdate(node.id, { videoUri: e.target?.result as string });
+      setIsUploading(false);
+    };
+    reader.onerror = () => setIsUploading(false);
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isUploading) return;
+
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      onUpdate(node.id, { image: e.target?.result as string });
+      setIsUploading(false);
+    };
+    reader.onerror = () => setIsUploading(false);
+    reader.readAsDataURL(file);
+  };
   
   const handleAspectRatioSelect = (newRatio: string) => {
     const [w, h] = newRatio.split(':').map(Number);
@@ -657,7 +735,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                                       setEditingShot({ ...shot });
                                                       setEditingShotIndex(idx);
                                                   }}
-                                                  disabled={isWorking}
+                                                  disabled={isActionDisabled}
                                                   className="p-1 rounded bg-white/5 hover:bg-white/10 text-slate-400 hover:text-indigo-300 transition-colors disabled:opacity-50"
                                                   title="编辑分镜"
                                               >
@@ -1199,7 +1277,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                       </button>
                                       <button
                                           onClick={handleSaveEdit}
-                                          disabled={isWorking}
+                                          disabled={isActionDisabled}
                                           className="px-5 py-2 rounded-lg text-sm font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                       >
                                           {isWorking ? (
@@ -2129,6 +2207,17 @@ const NodeComponent: React.FC<NodeProps> = ({
                                               </span>
                                           </div>
                                           <div className="flex items-center gap-1.5">
+                                              {/* Generate Video Button */}
+                                              <button
+                                                  onClick={() => onAction?.(node.id, `generate-video:${index}`)}
+                                                  disabled={tg.generationStatus === 'generating' || tg.generationStatus === 'uploading'}
+                                                  className="px-2 py-0.5 bg-indigo-500 hover:bg-indigo-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-[9px] rounded font-medium transition-colors"
+                                                  title="单独生成此任务组的视频"
+                                              >
+                                                  生成视频
+                                              </button>
+
+                                              {/* Status Badge */}
                                               {tg.generationStatus === 'completed' && (
                                                   <span className="px-2 py-0.5 bg-green-500/20 text-green-300 text-[9px] rounded-full font-medium">
                                                       完成
@@ -2195,13 +2284,22 @@ const NodeComponent: React.FC<NodeProps> = ({
                                           <div className="flex-1 space-y-2">
                                               <div className="flex items-center justify-between">
                                                   <div className="text-[10px] font-bold text-slate-400">AI 优化提示词</div>
-                                                  <button
-                                                      onClick={() => onAction?.(node.id, `regenerate-prompt:${index}`)}
-                                                      className="p-1 hover:bg-white/10 rounded transition-colors"
-                                                      title="重新生成提示词"
-                                                  >
-                                                      <RefreshCw size={10} className="text-slate-400 hover:text-white" />
-                                                  </button>
+                                                  <div className="flex items-center gap-1">
+                                                      <button
+                                                          onClick={() => onAction?.(node.id, `edit-shots:${index}`)}
+                                                          className="p-1 hover:bg-white/10 rounded transition-colors"
+                                                          title="编辑分镜信息"
+                                                      >
+                                                          <Edit size={10} className="text-slate-400 hover:text-white" />
+                                                      </button>
+                                                      <button
+                                                          onClick={() => onAction?.(node.id, `regenerate-prompt:${index}`)}
+                                                          className="p-1 hover:bg-white/10 rounded transition-colors"
+                                                          title="重新生成提示词"
+                                                      >
+                                                          <RefreshCw size={10} className="text-slate-400 hover:text-white" />
+                                                      </button>
+                                                  </div>
                                               </div>
 
                                               {tg.soraPrompt ? (
@@ -2240,6 +2338,28 @@ const NodeComponent: React.FC<NodeProps> = ({
                           </div>
                       )}
                   </div>
+
+                  {/* Footer Actions */}
+                  {taskGroups.length > 0 && (
+                      <div className="px-4 py-3 border-t border-white/10 bg-white/5 shrink-0">
+                          <div className="flex items-center justify-between">
+                              <div className="text-[9px] text-slate-500">
+                                  {taskGroups.filter((tg: any) => tg.generationStatus === 'completed').length} / {taskGroups.length} 个任务已完成
+                              </div>
+                              <div className="flex items-center gap-2">
+                                  <button
+                                      onClick={() => onAction?.(node.id, 'regenerate-all')}
+                                      disabled={taskGroups.some((tg: any) => tg.generationStatus === 'generating' || tg.generationStatus === 'uploading')}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 disabled:bg-slate-600/20 disabled:cursor-not-allowed text-cyan-400 disabled:text-slate-500 text-[10px] rounded font-medium transition-colors"
+                                      title="重新生成所有任务"
+                                  >
+                                      <RotateCcw size={10} />
+                                      重新生成全部
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+                  )}
               </div>
           );
       }
@@ -2477,7 +2597,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                      {/* Generate Button */}
                      <button
                          onClick={handleActionClick}
-                         disabled={isWorking}
+                         disabled={isActionDisabled}
                          className={`w-full px-4 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                              isWorking
                                  ? 'bg-white/5 text-slate-500 cursor-not-allowed'
@@ -2575,7 +2695,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                          // Stage 1: Generate task groups
                          <button
                              onClick={handleActionClick}
-                             disabled={isWorking}
+                             disabled={isActionDisabled}
                              className={`w-full px-4 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                                  isWorking
                                      ? 'bg-white/5 text-slate-500 cursor-not-allowed'
@@ -2651,7 +2771,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                      {videoUrl && !locallySaved && (
                          <button
                              onClick={() => onAction?.(node.id, 'save-locally')}
-                             disabled={isWorking}
+                             disabled={isActionDisabled}
                              className={`w-full px-4 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                                  isWorking
                                      ? 'bg-white/5 text-slate-500 cursor-not-allowed'
@@ -2869,27 +2989,23 @@ const NodeComponent: React.FC<NodeProps> = ({
 
      let models: {l: string, v: string}[] = [];
      if (node.type === NodeType.VIDEO_GENERATOR) {
-        models = [
-            {l: 'Veo 极速版 (Fast)', v: 'veo-3.1-fast-generate-preview'},
-            {l: 'Veo 专业版 (Pro)', v: 'veo-3.1-generate-preview'},
-            {l: 'Wan 2.1 (Animate)', v: 'wan-2.1-t2v-14b'}
-        ];
+        models = VIDEO_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.VIDEO_ANALYZER) {
-         models = [{l: 'Gemini 2.5 Flash', v: 'gemini-2.5-flash'}, {l: 'Gemini 3 Pro', v: 'gemini-3-pro-preview'}];
+         models = TEXT_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.AUDIO_GENERATOR) {
-         models = [{l: 'Voice Factory (Gemini 2.0)', v: 'gemini-2.5-flash-preview-tts'}];
+         models = AUDIO_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.SCRIPT_PLANNER) {
-         models = [{l: 'Gemini 2.5', v: 'gemini-2.5-flash'}];
+         models = TEXT_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.SCRIPT_EPISODE) {
-         models = [{l: 'Gemini 2.5', v: 'gemini-2.5-flash'}];
+         models = TEXT_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.STORYBOARD_GENERATOR) {
-         models = [{l: 'Gemini 3 Pro (Logic)', v: 'gemini-3-pro-preview'}];
+         models = TEXT_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.STORYBOARD_IMAGE) {
-         models = [{l: 'Gemini 2.5', v: 'gemini-2.5-flash-image'}];
+         models = IMAGE_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.CHARACTER_NODE) {
-         models = [{l: 'Gemini 3 Pro (Design)', v: 'gemini-3-pro-preview'}];
+         models = IMAGE_MODELS.map(m => ({l: m.name, v: m.id}));
      } else {
-        models = [{l: 'Gemini 2.5', v: 'gemini-2.5-flash-image'}, {l: 'Gemini 3 Pro', v: 'gemini-3-pro-image-preview'}];
+        models = IMAGE_MODELS.map(m => ({l: m.name, v: m.id}));
      }
 
      return (
@@ -3131,7 +3247,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                         <input type="range" min="1" max="5" step="0.5" value={node.data.scriptDuration || 1} onChange={e => onUpdate(node.id, { scriptDuration: parseFloat(e.target.value) })} className="w-full h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none cursor-pointer" />
                                     </div>
                                 </div>
-                                <button onClick={handleActionClick} disabled={isWorking} className={`w-full mt-1 flex items-center justify-center gap-2 px-4 py-1.5 rounded-[10px] font-bold text-[10px] tracking-wide transition-all duration-300 ${isWorking ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-orange-500 to-amber-500 text-black hover:shadow-lg hover:shadow-orange-500/20 hover:scale-[1.02]'}`}>{isWorking ? <Loader2 className="animate-spin" size={12} /> : <Wand2 size={12} />}<span>生成大纲</span></button>
+                                <button onClick={handleActionClick} disabled={isActionDisabled} className={`w-full mt-1 flex items-center justify-center gap-2 px-4 py-1.5 rounded-[10px] font-bold text-[10px] tracking-wide transition-all duration-300 ${isWorking ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-orange-500 to-amber-500 text-black hover:shadow-lg hover:shadow-orange-500/20 hover:scale-[1.02]'}`}>{isWorking ? <Loader2 className="animate-spin" size={12} /> : <Wand2 size={12} />}<span>生成大纲</span></button>
                             </>
                         ) : (
                             /* STATE B: POST-OUTLINE (View Only Mode) */
@@ -3243,7 +3359,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                 console.log('[Node] Node data.prompt:', node.data.prompt?.substring(0, 100));
                                 onAction(node.id, 'generate-storyboard');
                             }}
-                            disabled={isWorking}
+                            disabled={isActionDisabled}
                             className={`
                                 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-[10px] font-bold text-[10px] tracking-wide transition-all duration-300
                                 ${isWorking
@@ -3273,7 +3389,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                             {/* ... Ratios ... */}
                             {node.type !== NodeType.VIDEO_ANALYZER && node.type !== NodeType.AUDIO_GENERATOR && (<div className="relative group/ratio"><div className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-white/5 cursor-pointer transition-colors text-[10px] font-bold text-slate-400 hover:text-cyan-400"><Scaling size={12} /><span>{node.data.aspectRatio || '16:9'}</span></div><div className="absolute bottom-full left-0 pb-2 w-20 opacity-0 translate-y-2 pointer-events-none group-hover/ratio:opacity-100 group-hover/ratio:translate-y-0 group-hover/ratio:pointer-events-auto transition-all duration-200 z-[200]"><div className="bg-[#1c1c1e] border border-white/10 rounded-xl shadow-xl overflow-hidden">{(node.type.includes('VIDEO') ? VIDEO_ASPECT_RATIOS : IMAGE_ASPECT_RATIOS).map(r => (<div key={r} onClick={() => handleAspectRatioSelect(r)} className={`px-3 py-2 text-[10px] font-bold cursor-pointer hover:bg-white/10 ${node.data.aspectRatio === r ? 'text-cyan-400 bg-white/5' : 'text-slate-400'}`}>{r}</div>))}</div></div></div>)}
                         </div>
-                        <button onClick={handleActionClick} disabled={isWorking} className={`relative flex items-center gap-2 px-4 py-1.5 rounded-[12px] font-bold text-[10px] tracking-wide transition-all duration-300 ${isWorking ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-black hover:shadow-lg hover:shadow-cyan-500/20 hover:scale-105 active:scale-95'}`}>{isWorking ? <Loader2 className="animate-spin" size={12} /> : <Wand2 size={12} />}<span>{isWorking ? '生成中...' : '生成'}</span></button>
+                        <button onClick={handleActionClick} disabled={isActionDisabled} className={`relative flex items-center gap-2 px-4 py-1.5 rounded-[12px] font-bold text-[10px] tracking-wide transition-all duration-300 ${isWorking ? 'bg-white/5 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-black hover:shadow-lg hover:shadow-cyan-500/20 hover:scale-105 active:scale-95'}`}>{isWorking ? <Loader2 className="animate-spin" size={12} /> : <Wand2 size={12} />}<span>{isWorking ? '生成中...' : '生成'}</span></button>
                     </div>
                     </>
                 )}

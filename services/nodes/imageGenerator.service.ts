@@ -6,6 +6,7 @@
 import { AppNode } from '../../types';
 import { BaseNodeService, NodeExecutionContext, NodeExecutionResult, NodeStatus } from './baseNode.service';
 import { generateImageFromText } from '../geminiService';
+import { getUserDefaultModel } from '../modelConfig';
 
 /**
  * 图像生成请求接口
@@ -74,7 +75,7 @@ export class ImageGeneratorNodeService extends BaseNodeService {
       const request: ImageGenerationRequest = {
         prompt,
         negativePrompt: node.data.negativePrompt || '',
-        model: node.data.model || 'gemini-2.5-flash-image',
+        model: node.data.model || getUserDefaultModel('image'),
         inputImages: node.data.inputImages || [],
         aspectRatio: node.data.aspectRatio || '1:1',
         resolution: node.data.resolution || '1024x1024',

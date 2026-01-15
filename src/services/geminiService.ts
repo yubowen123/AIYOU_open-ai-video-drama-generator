@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, GenerateContentResponse, Type, Modality, Part, FunctionDeclaration } from "@google/genai";
 import { SmartSequenceItem, VideoGenerationMode, StoryboardShot, CharacterProfile, DramaAnalysis } from "../types";
+import { getUserDefaultModel } from "../../services/modelConfig";
 
 const getClient = () => {
   if (!process.env.API_KEY) {
@@ -573,7 +574,7 @@ export const generateVideo = async (
         try {
             const fallbackPrompt = "Cinematic movie still, " + enhancedPrompt;
             const inputImages = finalInputImageBase64 ? [finalInputImageBase64] : [];
-            const imgs = await generateImageFromText(fallbackPrompt, 'gemini-2.5-flash-image', inputImages, { aspectRatio: options.aspectRatio });
+            const imgs = await generateImageFromText(fallbackPrompt, getUserDefaultModel('image'), inputImages, { aspectRatio: options.aspectRatio });
             return { uri: imgs[0], isFallbackImage: true };
         } catch (imgErr) {
             throw new Error("Video generation failed and Image fallback also failed: " + getErrorMessage(e));

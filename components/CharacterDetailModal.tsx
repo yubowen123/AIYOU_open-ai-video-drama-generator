@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { X, User, Image as ImageIcon, AlignLeft, Shield, Heart, Zap, Target, RefreshCw, Loader2 } from 'lucide-react';
 import { CharacterProfile, AppNode } from '../types';
 
@@ -20,6 +20,12 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
     onGenerateExpression,
     onGenerateThreeView
 }) => {
+    // 防重复点击状态
+    const [isProcessingExpression, setIsProcessingExpression] = useState(false);
+    const [isProcessingThreeView, setIsProcessingThreeView] = useState(false);
+    const expressionTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const threeViewTimerRef = useRef<NodeJS.Timeout | null>(null);
+
     // Get latest character data from allNodes
     const latestCharacter = useMemo(() => {
         if (!character || !nodeId || !allNodes) {
@@ -56,6 +62,48 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
     const isGeneratingExpression = (latestCharacter as any).isGeneratingExpression;
     const isGeneratingThreeView = (latestCharacter as any).isGeneratingThreeView;
 
+    // 防重复点击的处理函数
+    const handleGenerateExpression = () => {
+        if (isProcessingExpression || !onGenerateExpression || !nodeId) return;
+
+        setIsProcessingExpression(true);
+
+        // 清除之前的定时器
+        if (expressionTimerRef.current) {
+            clearTimeout(expressionTimerRef.current);
+        }
+
+        // 执行生成
+        onGenerateExpression(nodeId, latestCharacter.name);
+
+        // 1秒后解除阻止
+        expressionTimerRef.current = setTimeout(() => {
+            setIsProcessingExpression(false);
+        }, 1000);
+    };
+
+    const handleGenerateThreeView = () => {
+        if (isProcessingThreeView || !onGenerateThreeView || !nodeId) return;
+
+        setIsProcessingThreeView(true);
+
+        // 清除之前的定时器
+        if (threeViewTimerRef.current) {
+            clearTimeout(threeViewTimerRef.current);
+        }
+
+        // 执行生成
+        onGenerateThreeView(nodeId, latestCharacter.name);
+
+        // 1秒后解除阻止
+        threeViewTimerRef.current = setTimeout(() => {
+            setIsProcessingThreeView(false);
+        }, 1000);
+    };
+
+    const isExpressionDisabled = isGeneratingExpression || isProcessingExpression;
+    const isThreeViewDisabled = isGeneratingThreeView || isProcessingThreeView;
+
     return (
         <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-200" onClick={onClose}>
             <div
@@ -74,11 +122,11 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
                                     </div>
                                     {nodeId && onGenerateExpression && (
                                         <button
-                                            onClick={() => onGenerateExpression(nodeId, latestCharacter.name)}
-                                            disabled={isGeneratingExpression}
+                                            onClick={handleGenerateExpression}
+                                            disabled={isExpressionDisabled}
                                             className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed text-white text-[10px] font-bold rounded-lg transition-all"
                                         >
-                                            {isGeneratingExpression ? (
+                                            {isExpressionDisabled ? (
                                                 <>
                                                     <Loader2 size={12} className="animate-spin" />
                                                     <span>生成中...</span>
@@ -112,11 +160,11 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
                                 </div>
                                 {nodeId && onGenerateThreeView && (
                                     <button
-                                        onClick={() => onGenerateThreeView(nodeId, latestCharacter.name)}
-                                        disabled={isGeneratingThreeView || !latestCharacter.expressionSheet}
+                                        onClick={handleGenerateThreeView}
+                                        disabled={isThreeViewDisabled || !latestCharacter.expressionSheet}
                                         className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50 text-white text-[10px] font-bold rounded-lg transition-all"
                                     >
-                                        {isGeneratingThreeView ? (
+                                        {isThreeViewDisabled ? (
                                             <>
                                                 <Loader2 size={12} className="animate-spin" />
                                                 <span>生成中...</span>

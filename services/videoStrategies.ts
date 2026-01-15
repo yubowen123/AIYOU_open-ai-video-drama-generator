@@ -1,6 +1,7 @@
 
 import { AppNode, VideoGenerationMode } from '../types';
 import { extractLastFrame, urlToBase64, analyzeVideo, orchestrateVideoPrompt, generateImageFromText } from './geminiService';
+import { getUserDefaultModel } from './modelConfig';
 
 export interface StrategyResult {
     finalPrompt: string;
@@ -128,7 +129,7 @@ export const processSceneDirector = async (
         try {
             let vidData = videoInputNode.data.videoUri;
             if (vidData.startsWith('http')) vidData = await urlToBase64(vidData);
-            upstreamContextStyle = await analyzeVideo(vidData, "Analyze the visual style, lighting, composition, and color grading briefly.", "gemini-2.5-flash");
+            upstreamContextStyle = await analyzeVideo(vidData, "Analyze the visual style, lighting, composition, and color grading briefly.", getUserDefaultModel('text'));
         } catch (e) { /* Ignore analysis failure */ }
     }
 
@@ -179,9 +180,9 @@ export const processSceneDirector = async (
             `;
             
             const restoredImages = await generateImageFromText(
-                restorationPrompt, 
-                'gemini-2.5-flash-image', 
-                [inputImageForGeneration], 
+                restorationPrompt,
+                getUserDefaultModel('image'),
+                [inputImageForGeneration],
                 { aspectRatio: node.data.aspectRatio || '16:9', count: 1 }
             );
             
@@ -226,9 +227,9 @@ export const processCharacterRef = async (
             
             // Ask Gemini to extract purely the motion/action, ignoring the original character's identity
             motionDescription = await analyzeVideo(
-                vidData, 
-                "Describe ONLY the physical actions, camera movement, and background environment of this video. Do not describe the person's identity. Example: 'A figure is waving their hand while walking forward in a studio.'", 
-                "gemini-2.5-flash"
+                vidData,
+                "Describe ONLY the physical actions, camera movement, and background environment of this video. Do not describe the person's identity. Example: 'A figure is waving their hand while walking forward in a studio.'",
+                getUserDefaultModel('text')
             );
         } catch (e) {
             console.warn("CharacterRef: Motion analysis failed", e);

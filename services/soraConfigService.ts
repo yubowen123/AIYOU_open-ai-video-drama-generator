@@ -9,137 +9,144 @@ const SORA_CONFIG_KEY = 'sora_storage_config';
 const OSS_CONFIG_KEY = 'sora_oss_config';
 const SORA_MODELS_KEY = 'sora_models';
 
-// 默认 Sora 模型列表
+// ✅ 官方模型列表（从 Yi 官网配置中心获取）
+// 测试时间: 2025-01-14
 export const DEFAULT_SORA_MODELS: SoraModel[] = [
+  // 基础版 (全部 720p)
   {
     id: 'sora-2-15s-yijia',
-    name: 'sora-2-yijia (15秒竖屏)',
+    name: 'Sora 2 (15秒竖屏)',
     duration: 15,
     aspectRatio: '9:16',
-    resolution: '1080x1920',
-    description: '15秒竖屏',
-    price: 0.210,
+    resolution: '1280x720',
+    description: '15秒竖屏基础版',
+    price: 0.240,
     endpointType: 'openai-video',
     provider: 'sora-2',
     billingType: '按次计费',
-    tags: ['视频']
+    tags: ['视频', '竖屏']
   },
+  {
+    id: 'sora-2-landscape-15s-yijia',
+    name: 'Sora 2 (15秒横屏)',
+    duration: 15,
+    aspectRatio: '16:9',
+    resolution: '1280x720',
+    description: '15秒横屏基础版',
+    price: 0.240,
+    endpointType: 'openai-video',
+    provider: 'sora-2',
+    billingType: '按次计费',
+    tags: ['视频', '横屏']
+  },
+  {
+    id: 'sora-2-landscape-yijia',
+    name: 'Sora 2 (10秒横屏)',
+    duration: 10,
+    aspectRatio: '16:9',
+    resolution: '1280x720',
+    description: '10秒横屏基础版',
+    price: 0.190,
+    endpointType: 'openai-video',
+    provider: 'sora-2',
+    billingType: '按次计费',
+    tags: ['视频', '横屏']
+  },
+  {
+    id: 'sora-2-yijia',
+    name: 'Sora 2 (10秒竖屏)',
+    duration: 10,
+    aspectRatio: '9:16',
+    resolution: '1280x720',
+    description: '10秒竖屏基础版',
+    price: 0.190,
+    endpointType: 'openai-video',
+    provider: 'sora-2',
+    billingType: '按次计费',
+    tags: ['视频', '竖屏'],
+    isDefault: true
+  },
+
+  // Pro 版 - 竖屏 (全部 1080p)
   {
     id: 'sora-2-pro-10s-large-yijia',
-    name: 'sora-2-pro (10秒高清竖屏)',
+    name: 'Sora 2 Pro (10秒竖屏)',
     duration: 10,
     aspectRatio: '9:16',
     resolution: '1080x1920',
-    description: 'sora2pro的10秒高清模式竖屏',
+    description: '10秒竖屏 Pro 版',
+    price: 1.150,
+    endpointType: 'openai',
+    provider: 'sora-2',
+    billingType: '按次计费',
+    tags: ['视频', '竖屏', 'Pro', '高清']
+  },
+  {
+    id: 'sora-2-pro-15s-large-yijia',
+    name: 'Sora 2 Pro (15秒竖屏)',
+    duration: 15,
+    aspectRatio: '9:16',
+    resolution: '1080x1920',
+    description: '15秒竖屏 Pro 版',
+    price: 1.800,
+    endpointType: 'openai',
+    provider: 'sora-2',
+    billingType: '按次计费',
+    tags: ['视频', '竖屏', 'Pro', '高清']
+  },
+  {
+    id: 'sora-2-pro-25s-yijia',
+    name: 'Sora 2 Pro (25秒竖屏)',
+    duration: 25,
+    aspectRatio: '9:16',
+    resolution: '1080x1920',
+    description: '25秒竖屏 Pro 版',
+    price: 2.200,
+    endpointType: 'openai',
+    provider: 'sora-2',
+    billingType: '按次计费',
+    tags: ['视频', '竖屏', 'Pro', '超长']
+  },
+
+  // Pro 版 - 横屏 (全部 1080p)
+  {
+    id: 'sora-2-pro-landscape-10s-large-yijia',
+    name: 'Sora 2 Pro (10秒横屏)',
+    duration: 10,
+    aspectRatio: '16:9',
+    resolution: '1920x1080',
+    description: '10秒横屏 Pro 版',
     price: 0.850,
     endpointType: 'openai',
     provider: 'sora-2',
     billingType: '按次计费',
-    tags: ['视频']
+    tags: ['视频', '横屏', 'Pro', '高清']
   },
   {
-    id: 'sora-2-pro-10s-large',
-    name: 'sora-2-pro (10秒高清横屏)',
-    duration: 10,
-    aspectRatio: '16:9',
-    resolution: '1920x1080',
-    description: 'sora2pro的10秒高清模式横屏',
-    price: 0.850,
-    endpointType: 'openai',
-    provider: 'sora-2',
-    billingType: '按次计费',
-    tags: ['视频']
-  },
-  {
-    id: 'sora-2-15s',
-    name: 'sora-2 (15秒横屏)',
+    id: 'sora-2-pro-landscape-15s-large-yijia',
+    name: 'Sora 2 Pro (15秒横屏)',
     duration: 15,
     aspectRatio: '16:9',
     resolution: '1920x1080',
-    description: '15秒横屏',
-    price: 0.210,
-    endpointType: 'openai-video',
-    provider: 'sora-2',
-    billingType: '按次计费',
-    tags: ['视频']
-  },
-  {
-    id: 'sora-2-pro-15s-yijia',
-    name: 'sora-2-pro (15秒竖屏)',
-    duration: 15,
-    aspectRatio: '9:16',
-    resolution: '1080x1920',
-    description: 'sora2pro的15秒竖屏',
-    price: 1.100,
+    description: '15秒横屏 Pro 版',
+    price: 1.500,
     endpointType: 'openai',
     provider: 'sora-2',
     billingType: '按次计费',
-    tags: ['视频']
+    tags: ['视频', '横屏', 'Pro', '高清']
   },
   {
-    id: 'sora-2-10s-large-yijia',
-    name: 'sora-2 (10秒高清竖屏)',
-    duration: 10,
-    aspectRatio: '9:16',
-    resolution: '1080x1920',
-    description: '10秒高清模式竖屏',
-    price: 0.550,
-    endpointType: 'openai-video',
-    provider: 'sora-2',
-    billingType: '按次计费',
-    tags: ['视频']
-  },
-  {
-    id: 'sora-2-pro-10s-yijia',
-    name: 'sora-2-pro (10秒竖屏)',
-    duration: 10,
-    aspectRatio: '9:16',
-    resolution: '1080x1920',
-    description: 'sora2pro的10秒竖屏',
-    price: 0.500,
-    endpointType: 'openai',
-    provider: 'sora-2',
-    billingType: '按次计费',
-    tags: ['视频']
-  },
-  {
-    id: 'sora-2-pro-15s',
-    name: 'sora-2-pro (15秒横屏)',
-    duration: 15,
+    id: 'sora-2-pro-landscape-25s-yijia',
+    name: 'Sora 2 Pro (25秒横屏)',
+    duration: 25,
     aspectRatio: '16:9',
     resolution: '1920x1080',
-    description: 'sora2pro的15秒横屏',
-    price: 1.100,
+    description: '25秒横屏 Pro 版',
+    price: 2.200,
     endpointType: 'openai',
     provider: 'sora-2',
     billingType: '按次计费',
-    tags: ['视频']
-  },
-  {
-    id: 'sora-2-10s-large',
-    name: 'sora-2 (10秒高清横屏)',
-    duration: 10,
-    aspectRatio: '16:9',
-    resolution: '1920x1080',
-    description: '10秒高清模式横屏',
-    price: 0.550,
-    endpointType: 'openai-video',
-    provider: 'sora-2',
-    billingType: '按次计费',
-    tags: ['视频']
-  },
-  {
-    id: 'sora-2-pro-10s',
-    name: 'sora-2-pro (10秒横屏)',
-    duration: 10,
-    aspectRatio: '16:9',
-    resolution: '1920x1080',
-    description: 'sora2pro的10秒横屏',
-    price: 0.500,
-    endpointType: 'openai',
-    provider: 'sora-2',
-    billingType: '按次计费',
-    tags: ['视频']
+    tags: ['视频', '横屏', 'Pro', '超长']
   }
 ];
 

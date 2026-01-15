@@ -287,6 +287,9 @@ export interface SoraTaskGroup {
   shotIds: string[]; // 包含的分镜ID
   splitShots: SplitStoryboardShot[]; // 分镜数据
 
+  // Sora 模型
+  soraModelId?: string; // Sora 模型 ID
+
   // Sora 提示词
   soraPrompt: string;
   promptGenerated: boolean;

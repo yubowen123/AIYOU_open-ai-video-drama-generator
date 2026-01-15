@@ -2,6 +2,7 @@
 import { GoogleGenAI, GenerateContentResponse, Type, Modality, Part, FunctionDeclaration } from "@google/genai";
 import { SmartSequenceItem, VideoGenerationMode, StoryboardShot, CharacterProfile } from "../types";
 import { logAPICall } from "./apiLogger";
+import { getUserDefaultModel } from "./modelConfig";
 
 // Get API Key from localStorage only
 const getApiKey = (): string | null => {
@@ -205,18 +206,18 @@ export const detectTextInImage = async (imageBase64: string): Promise<boolean> =
     2. Info boxes, stats blocks, or character descriptions overlaying the image.
     3. Watermarks, signatures, or large logos.
     4. Chinese characters or any handwritten notes.
-    
-    Answer strictly "YES" if any of these are visibly present. 
+
+    Answer strictly "YES" if any of these are visibly present.
     Answer "NO" if the image contains ONLY the character illustration with no overlay text.
     `;
-    
+
     const mimeMatch = imageBase64.match(/^data:(image\/\w+);base64,/);
     const mimeType = mimeMatch ? mimeMatch[1] : "image/png";
     const data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: getUserDefaultModel('text'),
             contents: {
                 parts: [
                     { inlineData: { mimeType, data } },
@@ -224,7 +225,7 @@ export const detectTextInImage = async (imageBase64: string): Promise<boolean> =
                 ]
             }
         });
-        
+
         const text = response.text?.trim().toUpperCase() || "";
         return text.includes("YES");
     } catch (e) {
@@ -366,12 +367,30 @@ const SCRIPT_PLANNER_INSTRUCTION = `
 ## 主要人物小传 (Character Briefs)
 * **[姓名]**: [角色定位/原型] - [简短性格和外貌描述]
 
+## 关键物品设定 (Important Items)
+为了确保后续分集时物品名称和描述的一致性，请列出本剧中所有关键物品：
+* **[物品名称]**: [物品描述和重要性]
+* 示例：**脊骨** - 主角寻找的神秘物品，据说蕴含强大力量
+
 ## 剧集结构规划 (共 [Total Episodes] 集)
 请将大纲划分为几个主要章节 (Chapters)，以便后续分集开发。
-* **## 第一章：[章节标题]** - [本章核心情节摘要，包含起承转合]
-* **## 第二章：[章节标题]** - [本章核心情节摘要]
-...
-* **## 最终章：[章节标题]** - [大结局情节摘要]
+
+每个章节必须包含以下信息：
+* **## [序号] [章节标题]**
+* **涉及角色**: [本章节出场的主要角色列表，用逗号分隔]
+* **关键物品**: [本章节出现的重要物品列表，用逗号分隔]
+* **情节摘要**: [本章核心情节，包含起承转合]
+
+章节示例：
+## 第一章：神秘来客
+- **涉及角色**: 林霄、苏婉
+- **关键物品**: 脊骨
+- **情节摘要**: 林霄在废弃仓库发现神秘脊骨，苏婉突然出现，两人初次相遇...
+
+**重要：**
+1. 物品名称必须统一，不要使用同义词（如不要一会儿叫"脊骨"，一会儿叫"灵骨"）
+2. 每个章节列出涉及的角色和物品，方便后续分集时维护一致性
+3. 角色和物品的描述应该详细，便于识别
 
 **注意：**
 1. **必须使用中文输出。**
@@ -383,16 +402,41 @@ const SCRIPT_PLANNER_INSTRUCTION = `
 `;
 
 const SCRIPT_EPISODE_INSTRUCTION = `
-你是一位专业的短剧分集编剧。
+你是一位专业的短剧分集编剧，擅长创作连贯、一致的系列剧集。
 你的任务是根据提供的【剧本大纲】和【指定章节】，将该章节拆分为 N 个具体的剧集脚本。
 
 **输入上下文：**
-1. 剧本大纲 (Context)
-2. 目标章节 (Selected Chapter)
-3. 拆分集数 (Split Count): [N]
-4. 单集时长参考 (Duration Constraint)
-5. 视觉风格 (Visual Style): [STYLE]
-6. 修改建议 (Modification Suggestions): [如果提供] - 用户针对之前生成版本的修改意见
+1. 剧本大纲 (Context) - 包含所有章节的概览
+2. 目标章节 (Selected Chapter) - 当前要拆分的章节
+3. 前序剧集摘要 (Previous Episodes Summary) - 之前已生成的剧集摘要，用于保持连贯性
+4. 全局角色设定 (Global Characters) - 剧本大纲中定义的所有角色信息
+5. 全局物品设定 (Global Items) - 剧本大纲中定义的所有关键物品信息
+6. 拆分集数 (Split Count): [N]
+7. 单集时长参考 (Duration Constraint)
+8. 视觉风格 (Visual Style): [STYLE]
+9. 修改建议 (Modification Suggestions): [如果提供] - 用户针对之前生成版本的修改意见
+
+**连贯性和一致性要求 (CRITICAL):**
+
+1. **角色一致性**:
+   - 严格遵循【全局角色设定】中的角色外貌、性格、说话方式
+   - 不要改变角色的既定特征（如：如果林霄是冷静内敛的，不要突然变得热血冲动）
+   - 角色关系和互动方式要保持一致
+
+2. **物品命名一致性**:
+   - 严格使用【全局物品设定】中的标准名称
+   - ❌ 错误：一会儿叫"脊骨"，一会儿叫"灵骨"
+   - ✅ 正确：始终使用"脊骨"这个名称
+   - 物品的特征、能力描述要保持一致
+
+3. **剧情连贯性**:
+   - 参考【前序剧集摘要】，确保时间线、事件顺序合理衔接
+   - 角色的知识、状态应该承接前文（如：如果第1集主角受伤了，第2集应该体现这个状态）
+   - 不要出现剧情矛盾或逻辑漏洞
+
+4. **场景连贯性**:
+   - 场景描述应该符合既定的视觉风格
+   - 环境细节要保持一致（如：同一个房间的布局、装饰）
 
 **输出要求：**
 请直接输出一个 **JSON 数组**，不要包含 markdown 代码块标记（如 \`\`\`json），只输出纯 JSON 字符串。
@@ -401,18 +445,47 @@ const SCRIPT_EPISODE_INSTRUCTION = `
   {
     "title": "第X集：[分集标题]",
     "content": "[详细剧本内容，包含场景描写、动作指令和对白。内容长度应符合时长限制。]",
-    "characters": "[本集涉及的角色列表]",
-    "visualStyleNote": "[针对本集的视觉风格备注]"
+    "characters": "[本集涉及的角色列表，必须与全局设定一致]",
+    "keyItems": "[本集出现的关键物品列表，必须使用标准名称]",
+    "visualStyleNote": "[针对本集的视觉风格备注]",
+    "continuityNote": "[本集的连贯性说明，如承接前文哪件事、角色状态变化等]"
   },
   ...
 ]
 
 **内容要求：**
 1. **全中文写作**。
-2. 剧本内容 (content) 必须包含画面感强的场景描述 (Scene Action) 和精彩对白 (Dialogue)。
-3. 确保 N 个剧集能够完整覆盖所选章节的情节，并且每集结尾都要有悬念 (Cliffhanger)。
-4. 场景描述应体现 [STYLE] 的视觉特点。
+
+2. **剧本内容长度要求（CRITICAL - 必须严格遵守）**：
+   - 每分钟时长需要 **200-250字** 的详细剧本内容
+   - 例如：1分钟剧集 = 200-250字，2分钟剧集 = 400-500字
+   - **如果对话较多，字数应相应增加**（对话+场景描述的字数密度更高）
+   - 计算公式：目标字数 = 时长(分钟) × 200-250字/分钟
+   - 如果内容不足，AI应该：
+     * 增加更详细的场景描述（环境、光影、氛围）
+     * 添加更多角色的肢体动作和表情细节
+     * 扩充对话内容，增加角色互动
+     * 描述角色的内心活动和情感变化
+     * 加入更多感官细节（声音、气味、触感等）
+
+3. **内容结构要求**：
+   - 剧本内容 (content) 必须包含：
+     * **场景描述** (Scene Action)：详细的环境描写、光影氛围、空间布局
+     * **肢体动作** (Physical Actions)：角色的身体姿势、动作细节、位置移动
+     * **表情细节** (Facial Expressions)：眼神、微表情、情绪变化
+     * **精彩对白** (Dialogue)：符合角色性格的对话，推动剧情发展
+     * **情感描写** (Emotional Depth)：内心活动、情感转变、动机暗示
+   - 确保 N 个剧集能够完整覆盖所选章节的情节，并且每集结尾都要有悬念 (Cliffhanger)。
+   - 场景描述应体现 [STYLE] 的视觉特点。
+
+4. **细节扩写技巧**：
+   - 不要只写"他走进房间"，要写"他推开沉重的红木门，脚步沉重地踏入昏暗的书房，皮鞋在大理石地板上发出清脆的回响"
+   - 不要只写"她哭了"，要写"她的眼泪如断了线的珍珠般滑落，肩膀随着压抑的抽泣微微颤抖，双手紧紧攥着衣角，指节泛白"
+   - 不要只写"房间很乱"，要写"书本散落一地，纸张如同秋风中的落叶般铺满整个房间，书架歪斜，几本书籍摇摇欲坠地挂在边缘"
+
 5. **如果提供了修改建议，请根据建议调整剧本内容，优化情节、对白或场景描述。**
+
+6. **在每集的continuityNote中明确说明本集与剧情主线的衔接关系。**
 `;
 
 const CINEMATIC_STORYBOARD_INSTRUCTION = `
@@ -474,7 +547,7 @@ const DETAILED_STORYBOARD_INSTRUCTION = `
     "shotSize": "特写",
     "cameraAngle": "低位仰拍",
     "cameraMovement": "固定",
-    "visualDescription": "阳光从窗外洒在林霄的侧脸上，他目光空洞地望向窗外，教室里其他同学的声音模糊成背景音",
+    "visualDescription": "(林霄坐在靠窗座位上，单手托腮，侧身望向窗外)阳光从窗外洒在林霄的侧脸上，他目光空洞地望向窗外，教室里其他同学的声音模糊成背景音",
     "dialogue": "无",
     "visualEffects": "浅景深，背景虚化；暖色调光线；ANIME风格，强调眼神细节",
     "audioEffects": "环境音 - 教室嘈杂声（低音量）"
@@ -484,27 +557,43 @@ const DETAILED_STORYBOARD_INSTRUCTION = `
 
 **拆分要求（必须严格遵守）：**
 
-**1. 时长控制（关键）**
+**1. 时长控制（CRITICAL - 最重要要求）**
 - 每个分镜时长：严格控制在 **1-4 秒** 之间
 - 平均镜头时长：2-3秒（保持快节奏）
 - 不得出现超过4秒的长镜头
 - 不得出现少于1秒的碎片化镜头
 
-**2. 分镜数量计算**
+**2. 分镜数量计算（必须满足最低要求）**
 根据总时长智能计算分镜数量：
-- **1分钟内容（60秒）**：15-60个分镜
-  - 最少：15个分镜（平均4秒/镜）
+- **1分钟内容（60秒）**：**至少 20 个分镜**
+  - 最少：20个分镜（平均3秒/镜）
+  - 推荐：25-30个分镜（平均2-2.4秒/镜）
   - 最多：60个分镜（平均1秒/镜）
-  - 推荐：20-30个分镜（平均2-3秒/镜）
-- **2分钟内容（120秒）**：30-120个分镜
-  - 最少：30个分镜
-  - 最多：120个分镜
-  - 推荐：40-60个分镜
+- **2分钟内容（120秒）**：**至少 40 个分镜**
+  - 最少：40个分镜（平均3秒/镜）
+  - 推荐：50-60个分镜（平均2-2.4秒/镜）
+  - 最多：120个分镜（平均1秒/镜）
+- **3分钟内容（180秒）**：**至少 60 个分镜**
+  - 最少：60个分镜（平均3秒/镜）
+  - 推荐：75-90个分镜（平均2-2.4秒/镜）
+  - 最多：180个分镜（平均1秒/镜）
 
-**3. 时间精确**
-所有分镜的时长总和必须等于目标总时长（误差不超过±1秒）
+**3. 时间精确（强制要求）**
+- **所有分镜的时长总和必须等于或大于目标总时长**
+- **不得低于目标总时长**（这是底线要求）
+- 如果超出，允许最多超出5秒（考虑到内容完整性）
+- 例如：目标60秒，生成总时长可以在60-65秒之间
+- 例如：目标120秒，生成总时长可以在120-125秒之间
 
-**4. 剧情结构智能拆分（核心要求）**
+**4. 时长不足的补偿策略**
+如果计算后发现总时长不足，必须：
+- 增加更多细节镜头（如：特写角色反应、环境细节）
+- 将长镜头拆分为多个短镜头
+- 添加过渡镜头或转场镜头
+- 补充角色表情变化的镜头
+- **严禁通过增加单个镜头时长来凑时间**（每个镜头仍必须在1-4秒范围内）
+
+**5. 剧情结构智能拆分（核心要求）**
 根据内容类型动态调整镜头节奏：
 
 **关键情节/高潮场景**：
@@ -547,6 +636,14 @@ const DETAILED_STORYBOARD_INSTRUCTION = `
    - 运镜方式：固定、横移、俯仰、横摇、升降、轨道推拉、变焦推拉、正跟随、倒跟随、环绕、滑轨横移
 
 2. **画面描述详细**：
+   - **必须首先描述角色的肢体状态/身体姿势**（这是最重要的要求）
+     - ✅ 正确："(秦烈躺在地上，浑身湿透)秦烈的眼睛里充满了不屈的怨毒，瞳孔深处燃烧着仇恨的火焰。"
+     - ❌ 错误："秦烈的眼睛里充满了不屈的怨毒，瞳孔深处燃烧着仇恨的火焰。"
+   - 肢体状态描述应包括：
+     - 身体姿势：站着、坐着、躺着、跪着、蹲着、弯腰等
+     - 身体状态：受伤、疲惫、湿透、颤抖、紧绷等
+     - 位置关系：在地面上、靠墙坐着、悬在空中等
+   - 在描述面部表情、眼神、细节之前，必须先交代角色的身体状态
    - 必须包含具体的人物动作、表情、环境细节
    - 描述要有画面感，能够直接指导AI生成
 
@@ -562,6 +659,9 @@ const DETAILED_STORYBOARD_INSTRUCTION = `
    - 分镜之间要有逻辑衔接
    - 服务于整体叙事节奏
    - 镜头组接要符合视听语言规律
+   - **肢体状态连贯性**：相邻分镜中，角色的身体姿势、位置状态应保持一致（除非有动作变化）
+     - 例如：如果前一个镜头角色是"躺在地上"，下一个特写镜头也要在描述中暗示这个状态
+     - 使用括号标注肢体状态以保持一致性："(角色躺在地上)"
 
 6. **对白处理**：
    - 如果有对白，标注角色名和对白内容
@@ -571,25 +671,30 @@ const DETAILED_STORYBOARD_INSTRUCTION = `
 **拆分策略示例：**
 
 *示例1：对话场景（15秒）*
-- 镜头1：角色A说话（2秒）
-- 镜头2：角色B倾听反应（2秒）
-- 镜头3：角色B说话（2秒）
-- 镜头4：角色A表情变化（2秒）
-- 镜头5：两人过肩对话（3秒）
-- 镜头6：环境氛围（2秒）
-- 镜头7：角色A决定性表情（2秒）
+- 镜头1：(林霄坐在靠窗座位上，单手托腮)林霄望向窗外，眼神空洞（2秒）
+- 镜头2：(林霄坐着，侧脸特写)阳光洒在林霄侧脸上（2秒）
+- 镜头3：(另一位同学站在林霄桌前)同学低头看向林霄（2秒）
+- 镜头4：(林霄坐着，未回头)林霄眼皮微微颤动（2秒）
+- 镜头5：(过肩镜头，林霄坐着)两人对话（3秒）
+- 镜头6：(教室全景)教室里的其他同学在交谈（2秒）
+- 镜头7：(林霄坐着，正面特写)林霄眼神逐渐聚焦（2秒）
 = 总共7个镜头，15秒
 
 *示例2：动作场景（10秒）*
-- 镜头1：动作起始（1秒）
-- 镜头2：动作过程（1秒）
-- 镜头3：特写冲击（1秒）
-- 镜头4：角色反应（2秒）
-- 镜头5：环境变化（2秒）
-- 镜头6：结果展现（3秒）
+- 镜头1：(秦烈站立，紧握拳头)秦烈怒视前方（1秒）
+- 镜头2：(秦烈向前冲出)秦烈冲向对手（1秒）
+- 镜头3：(两人肢体交错)特写冲击瞬间（1秒）
+- 镜头4：(秦烈后退半步，踉跄)秦烈受到冲击（2秒）
+- 镜头5：(秦烈单膝跪地，喘息)环境氛围渲染（2秒）
+- 镜头6：(秦烈跪在地上，抬头)秦烈眼中燃烧不屈火焰（3秒）
 = 总共6个镜头，10秒
 
+**画面描述范例对比：**
+- ❌ 缺少肢体状态："秦烈的眼睛里充满了不屈的怨毒，瞳孔深处燃烧着仇恨的火焰。"
+- ✅ 包含肢体状态："(秦烈跪在地上，浑身湿透，雨水顺着发梢滴落)秦烈的眼睛里充满了不屈的怨毒，瞳孔深处燃烧着仇恨的火焰。"
+
 **重要提示：**
+- **每个分镜的visualDescription必须以角色肢体状态开头**（用括号标注）
 - 输出必须是纯 JSON 数组，不要包含任何其他文字
 - 每个分镜对象的所有字段都必须填写
 - duration 字段必须是数字类型（1-4之间）
@@ -612,12 +717,8 @@ export const sendChatMessage = async (
         async () => {
             const ai = getClient();
 
-            let modelName = 'gemini-2.5-flash';
+            const modelName = getUserDefaultModel('text');
             let systemInstruction = SYSTEM_INSTRUCTION;
-
-            if (options?.isThinkingMode) {
-                modelName = 'gemini-2.5-flash';
-            }
 
             if (options?.isStoryboard) {
                 systemInstruction = STORYBOARD_INSTRUCTION;
@@ -635,7 +736,7 @@ export const sendChatMessage = async (
             return result.text || "No response";
         },
         {
-            model: options?.isThinkingMode ? 'gemini-2.5-flash' : 'gemini-2.5-flash',
+            model: getUserDefaultModel('text'),
             message: newMessage.substring(0, 200) + (newMessage.length > 200 ? '...' : ''),
             options,
             historyLength: history.length
@@ -910,7 +1011,7 @@ export const generateVideo = async (
                 try {
                     const fallbackPrompt = "Cinematic movie still, " + enhancedPrompt;
                     const inputImages = finalInputImageBase64 ? [finalInputImageBase64] : [];
-                    const imgs = await generateImageFromText(fallbackPrompt, 'gemini-2.5-flash-image', inputImages, { aspectRatio: options.aspectRatio }, context);
+                    const imgs = await generateImageFromText(fallbackPrompt, getUserDefaultModel('image'), inputImages, { aspectRatio: options.aspectRatio }, context);
                     return { uri: imgs[0], isFallbackImage: true };
                 } catch (imgErr) {
                     throw new Error("Video generation failed and Image fallback also failed: " + getErrorMessage(e));
@@ -980,14 +1081,17 @@ export const editImageWithText = async (imageBase64: string, prompt: string, mod
 export const planStoryboard = async (
     prompt: string,
     context: string,
+    model?: string,
     apiContext?: { nodeId?: string; nodeType?: string }
 ): Promise<string[]> => {
+    const effectiveModel = model || getUserDefaultModel('text');
+
     return logAPICall(
         'planStoryboard',
         async () => {
             const ai = getClient();
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: effectiveModel,
                 config: {
                     responseMimeType: 'application/json',
                     systemInstruction: STORYBOARD_INSTRUCTION
@@ -1002,7 +1106,7 @@ export const planStoryboard = async (
             }
         },
         {
-            model: 'gemini-2.5-flash',
+            model: effectiveModel,
             prompt: prompt.substring(0, 200) + (prompt.length > 200 ? '...' : ''),
             contextLength: context.length
         },
@@ -1062,7 +1166,7 @@ export const generateScriptPlanner = async (
     `;
 
             const response = await ai.models.generateContent({
-                model: model || 'gemini-2.5-flash',
+                model: model || getUserDefaultModel('text'),
                 config: { systemInstruction: SCRIPT_PLANNER_INSTRUCTION },
                 contents: { parts: [{ text: fullPrompt }] }
             });
@@ -1070,7 +1174,7 @@ export const generateScriptPlanner = async (
             return response.text || "";
         },
         {
-            model: model || 'gemini-2.5-flash',
+            model: model || getUserDefaultModel('text'),
             prompt: prompt.substring(0, 200) + (prompt.length > 200 ? '...' : ''),
             config,
             hasRefinedInfo: !!refinedInfo && Object.keys(refinedInfo).length > 0
@@ -1087,23 +1191,56 @@ export const generateScriptEpisodes = async (
     style?: string,
     modificationSuggestion?: string,
     model?: string,
+    previousEpisodes?: Array<{ title: string, content: string, characters: string, keyItems?: string }>, // 新增参数：之前生成的剧集
     context?: { nodeId?: string; nodeType?: string }
-): Promise<{ title: string, content: string, characters: string }[]> => {
+): Promise<{ title: string, content: string, characters: string, keyItems?: string, continuityNote?: string }[]> => {
     return logAPICall(
         'generateScriptEpisodes',
         async () => {
             const ai = getClient();
+
+            // 解析剧本大纲中的角色和物品信息
+            const globalCharacters = extractCharactersFromOutline(outline);
+            const globalItems = extractItemsFromOutline(outline);
+
+            // 构建前序剧集摘要
+            const previousEpisodesSummary = previousEpisodes && previousEpisodes.length > 0
+                ? previousEpisodes.map((ep, idx) => `
+第${idx + 1}集：${ep.title}
+- 涉及角色：${ep.characters}
+- 关键物品：${ep.keyItems || '无'}
+- 剧情摘要：${ep.content.substring(0, 200)}...
+                `).join('\n')
+                : '无前序剧集（这是第一批生成的剧集）';
+
             const prompt = `
-    Input Outline: ${outline}
-    Target Chapter: ${chapter}
-    Split into ${splitCount} episodes.
-    Target Duration per episode: ${duration} minutes.
-    Visual Style: ${style || 'N/A'}
-    ${modificationSuggestion ? `\n修改建议 (User Modification Suggestions): ${modificationSuggestion}` : ''}
+剧本大纲全文：
+${outline}
+
+目标章节：${chapter}
+拆分集数：${splitCount}
+单集时长参考：${duration} 分钟
+视觉风格：${style || 'N/A'}
+${modificationSuggestion ? `\n修改建议：${modificationSuggestion}` : ''}
+
+=== 全局角色设定 ===
+${globalCharacters}
+
+=== 全局物品设定 ===
+${globalItems}
+
+=== 前序剧集摘要（用于保持连贯性）===
+${previousEpisodesSummary}
+
+连贯性要求：
+1. 角色特征、说话方式必须与【全局角色设定】一致
+2. 物品名称必须严格使用【全局物品设定】中的标准名称
+3. 剧情应承接【前序剧集摘要】中的事件和角色状态
+4. 每集的continuityNote要明确说明与剧情主线的衔接关系
     `;
 
             const response = await ai.models.generateContent({
-                model: model || 'gemini-2.5-flash',
+                model: model || getUserDefaultModel('text'),
                 config: {
                     systemInstruction: SCRIPT_EPISODE_INSTRUCTION,
                     responseMimeType: 'application/json'
@@ -1120,16 +1257,41 @@ export const generateScriptEpisodes = async (
             }
         },
         {
-            model: model || 'gemini-2.5-flash',
+            model: model || getUserDefaultModel('text'),
             chapter,
             splitCount,
             duration,
             style,
-            hasModification: !!modificationSuggestion
+            hasModification: !!modificationSuggestion,
+            hasPreviousEpisodes: !!previousEpisodes && previousEpisodes.length > 0
         },
         context
     );
 };
+
+/**
+ * 从剧本大纲中提取角色信息
+ */
+function extractCharactersFromOutline(outline: string): string {
+    // 查找"## 主要人物小传"部分
+    const characterSection = outline.match(/## 主要人物小传[^#]*/s);
+    if (characterSection) {
+        return characterSection[0].trim();
+    }
+    return "未找到明确的角色定义";
+}
+
+/**
+ * 从剧本大纲中提取物品信息
+ */
+function extractItemsFromOutline(outline: string): string {
+    // 查找"## 关键物品设定"部分
+    const itemsSection = outline.match(/## 关键物品设定[^#]*/s);
+    if (itemsSection) {
+        return itemsSection[0].trim();
+    }
+    return "未找到明确的物品定义";
+}
 
 export const generateDetailedStoryboard = async (
     episodeTitle: string,
@@ -1137,8 +1299,11 @@ export const generateDetailedStoryboard = async (
     totalDuration: number, // in seconds
     visualStyle: string,
     onShotGenerated?: (shot: import('../types').DetailedStoryboardShot) => void,
+    model?: string,
     context?: { nodeId?: string; nodeType?: string }
 ): Promise<import('../types').DetailedStoryboardShot[]> => {
+    const effectiveModel = model || getUserDefaultModel('text');
+
     return logAPICall(
         'generateDetailedStoryboard',
         async () => {
@@ -1153,7 +1318,7 @@ export const generateDetailedStoryboard = async (
     `;
 
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: effectiveModel,
                 config: {
                     systemInstruction: DETAILED_STORYBOARD_INSTRUCTION,
                     responseMimeType: 'application/json'
@@ -1230,21 +1395,64 @@ export const generateDetailedStoryboard = async (
                 console.log('[generateDetailedStoryboard] 时长违规:', invalidDurationCount, '处');
                 console.log('[generateDetailedStoryboard] ========================');
 
-                // Warn if total duration is significantly off
-                if (Math.abs(actualTotalDuration - totalDuration) > 5) {
-                    console.warn(`[generateDetailedStoryboard] Duration mismatch! Target: ${totalDuration}s, Actual: ${actualTotalDuration}s, Difference: ${actualTotalDuration - totalDuration}s`);
+                // ⚠️ 关键检查：时长是否不足
+                const durationDiff = actualTotalDuration - totalDuration;
+
+                if (durationDiff < 0) {
+                    const shortageSeconds = Math.abs(durationDiff);
+                    const shortagePercent = (shortageSeconds / totalDuration) * 100;
+
+                    console.error(`[generateDetailedStoryboard] ❌ 时长不足！`);
+                    console.error(`[generateDetailedStoryboard] 目标时长: ${totalDuration}秒`);
+                    console.error(`[generateDetailedStoryboard] 实际时长: ${actualTotalDuration}秒`);
+                    console.error(`[generateDetailedStoryboard] 缺少: ${shortageSeconds}秒 (${shortagePercent.toFixed(1)}%)`);
+                    console.error(`[generateDetailedStoryboard] 建议: 需要再添加 ${Math.ceil(shortageSeconds / 2)} 个分镜（按平均2秒计算）`);
+
+                    // 如果缺少超过10%，这是一个严重问题
+                    if (shortagePercent > 10) {
+                        throw new Error(
+                            `分镜总时长严重不足：缺少 ${shortageSeconds} 秒 (${shortagePercent.toFixed(1)}%)。` +
+                            `目标时长 ${totalDuration} 秒，实际生成 ${actualTotalDuration} 秒。` +
+                            `请重新生成或增加更多分镜。`
+                        );
+                    }
+
+                    // 如果缺少5-10%，这是一个警告但仍可接受
+                    if (shortagePercent > 5) {
+                        console.warn(`[generateDetailedStoryboard] ⚠️ 警告: 时长缺少 ${shortagePercent.toFixed(1)}%，建议补充分镜`);
+                    }
+                } else if (durationDiff > 5) {
+                    // 时长超出超过5秒
+                    console.warn(`[generateDetailedStoryboard] ⚠️ 时长超出 ${durationDiff} 秒，这在可接受范围内`);
+                } else {
+                    console.log(`[generateDetailedStoryboard] ✅ 时长符合要求 (${actualTotalDuration}/${totalDuration}秒)`);
                 }
 
                 // Validate shot count is within expected range
-                const minExpectedShots = Math.floor(totalDuration / 4); // Maximum 4s per shot
+                // 最低分镜数量要求：按平均3秒/镜计算
+                const minExpectedShots = Math.floor(totalDuration / 3);
+                // 推荐分镜数量：按平均2.5秒/镜计算
+                const recommendedShots = Math.floor(totalDuration / 2.5);
                 const maxExpectedShots = totalDuration; // Minimum 1s per shot
 
+                console.log(`[generateDetailedStoryboard] 分镜数量要求:`);
+                console.log(`[generateDetailedStoryboard] - 最低要求: ${minExpectedShots} 个（平均3秒/镜）`);
+                console.log(`[generateDetailedStoryboard] - 推荐数量: ${recommendedShots} 个（平均2.5秒/镜）`);
+                console.log(`[generateDetailedStoryboard] - 实际生成: ${shots.length} 个`);
+                console.log(`[generateDetailedStoryboard] - 最大数量: ${maxExpectedShots} 个（平均1秒/镜）`);
+
                 if (shots.length < minExpectedShots) {
-                    console.warn(`[generateDetailedStoryboard] Shot count too low! Expected at least ${minExpectedShots}, got ${shots.length}`);
+                    console.error(`[generateDetailedStoryboard] ❌ 分镜数量严重不足！最少需要 ${minExpectedShots} 个，实际只有 ${shots.length} 个`);
+                    throw new Error(
+                        `分镜数量严重不足：目标 ${totalDuration} 秒至少需要 ${minExpectedShots} 个分镜，` +
+                        `但只生成了 ${shots.length} 个。请重新生成。`
+                    );
+                } else if (shots.length < recommendedShots) {
+                    console.warn(`[generateDetailedStoryboard] ⚠️ 分镜数量偏少，建议 ${recommendedShots} 个，当前 ${shots.length} 个`);
                 } else if (shots.length > maxExpectedShots) {
-                    console.warn(`[generateDetailedStoryboard] Shot count too high! Expected at most ${maxExpectedShots}, got ${shots.length}`);
+                    console.warn(`[generateDetailedStoryboard] ⚠️ 分镜数量过多，最多 ${maxExpectedShots} 个，当前 ${shots.length} 个`);
                 } else {
-                    console.log(`[generateDetailedStoryboard] ✅ Shot count within expected range: ${minExpectedShots}-${maxExpectedShots}`);
+                    console.log(`[generateDetailedStoryboard] ✅ 分镜数量符合预期`);
                 }
 
                 return shots;
@@ -1254,7 +1462,7 @@ export const generateDetailedStoryboard = async (
             }
         },
         {
-            model: 'gemini-2.5-flash',
+            model: effectiveModel,
             episodeTitle,
             totalDuration,
             visualStyle,
@@ -1367,8 +1575,11 @@ export const generateCinematicStoryboard = async (
     shotCount: number,
     shotDuration: number,
     style: string,
+    model?: string,
     context?: { nodeId?: string; nodeType?: string }
 ): Promise<StoryboardShot[]> => {
+    const effectiveModel = model || getUserDefaultModel('text');
+
     return logAPICall(
         'generateCinematicStoryboard',
         async () => {
@@ -1381,7 +1592,7 @@ export const generateCinematicStoryboard = async (
     `;
 
             const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview',
+                model: effectiveModel,
                 config: {
                     systemInstruction: CINEMATIC_STORYBOARD_INSTRUCTION,
                     responseMimeType: 'application/json'
@@ -1411,7 +1622,7 @@ export const generateCinematicStoryboard = async (
             }
         },
         {
-            model: 'gemini-3-pro-preview',
+            model: effectiveModel,
             shotCount,
             shotDuration,
             style,
@@ -1424,8 +1635,11 @@ export const generateCinematicStoryboard = async (
 export const orchestrateVideoPrompt = async (
     images: string[],
     userPrompt: string,
+    model?: string,
     context?: { nodeId?: string; nodeType?: string }
 ): Promise<string> => {
+    const effectiveModel = model || getUserDefaultModel('text');
+
     return logAPICall(
         'orchestrateVideoPrompt',
         async () => {
@@ -1434,7 +1648,7 @@ export const orchestrateVideoPrompt = async (
             parts.push({ text: `Create a single video prompt that transitions between these images. User Intent: ${userPrompt}` });
 
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: effectiveModel,
                 config: { systemInstruction: VIDEO_ORCHESTRATOR_INSTRUCTION },
                 contents: { parts }
             });
@@ -1442,7 +1656,7 @@ export const orchestrateVideoPrompt = async (
             return response.text || userPrompt;
         },
         {
-            model: 'gemini-2.5-flash',
+            model: effectiveModel,
             prompt: userPrompt.substring(0, 200) + (userPrompt.length > 200 ? '...' : ''),
             imageCount: images.length
         },
@@ -1505,8 +1719,11 @@ export const generateAudio = async (
 
 export const transcribeAudio = async (
     audioBase64: string,
+    model?: string,
     context?: { nodeId?: string; nodeType?: string }
 ): Promise<string> => {
+    const effectiveModel = model || getUserDefaultModel('audio');
+
     return logAPICall(
         'transcribeAudio',
         async () => {
@@ -1515,7 +1732,7 @@ export const transcribeAudio = async (
             const data = audioBase64.replace(/^data:audio\/\w+;base64,/, "");
 
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: effectiveModel,
                 contents: {
                     parts: [
                         { inlineData: { mimeType: mime, data } },
@@ -1527,7 +1744,7 @@ export const transcribeAudio = async (
             return response.text || "";
         },
         {
-            model: 'gemini-2.5-flash',
+            model: effectiveModel,
             hasAudio: true
         },
         context
@@ -1566,14 +1783,17 @@ export const connectLiveSession = async (
 
 export const extractCharactersFromText = async (
     text: string,
+    model?: string,
     context?: { nodeId?: string; nodeType?: string }
 ): Promise<string[]> => {
+    const effectiveModel = model || getUserDefaultModel('text');
+
     return logAPICall(
         'extractCharactersFromText',
         async () => {
             const ai = getClient();
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: effectiveModel,
                 config: {
                     responseMimeType: 'application/json',
                     systemInstruction: CHARACTER_EXTRACTION_INSTRUCTION
@@ -1588,7 +1808,7 @@ export const extractCharactersFromText = async (
             }
         },
         {
-            model: 'gemini-2.5-flash',
+            model: effectiveModel,
             textLength: text.length
         },
         context
@@ -1600,8 +1820,11 @@ export const generateCharacterProfile = async (
     contextText: string,
     styleContext?: string,
     customDesc?: string,
+    model?: string,
     apiContext?: { nodeId?: string; nodeType?: string }
 ): Promise<CharacterProfile> => {
+    const effectiveModel = model || getUserDefaultModel('text');
+
     return logAPICall(
         'generateCharacterProfile',
         async () => {
@@ -1614,7 +1837,7 @@ export const generateCharacterProfile = async (
     `;
 
             const response = await ai.models.generateContent({
-                model: 'gemini-3-pro-preview',
+                model: effectiveModel,
                 config: {
                     responseMimeType: 'application/json',
                     systemInstruction: CHARACTER_PROFILE_INSTRUCTION
@@ -1645,7 +1868,7 @@ export const generateCharacterProfile = async (
             }
         },
         {
-            model: 'gemini-3-pro-preview',
+            model: effectiveModel,
             characterName: name,
             hasStyleContext: !!styleContext,
             hasCustomDesc: !!customDesc,
@@ -1660,8 +1883,11 @@ export const generateSupportingCharacter = async (
     name: string,
     contextText: string,
     styleContext?: string,
+    model?: string,
     apiContext?: { nodeId?: string; nodeType?: string }
 ): Promise<CharacterProfile> => {
+    const effectiveModel = model || getUserDefaultModel('text');
+
     return logAPICall(
         'generateSupportingCharacter',
         async () => {
@@ -1674,7 +1900,7 @@ export const generateSupportingCharacter = async (
     `;
 
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: effectiveModel,
                 config: {
                     responseMimeType: 'application/json',
                     systemInstruction: SUPPORTING_CHARACTER_INSTRUCTION
@@ -1700,7 +1926,7 @@ export const generateSupportingCharacter = async (
             }
         },
         {
-            model: 'gemini-2.5-flash',
+            model: effectiveModel,
             characterName: name,
             roleType: 'supporting',
             hasStyleContext: !!styleContext,
@@ -1726,8 +1952,11 @@ export interface DramaAnalysisResult {
 
 export const analyzeDrama = async (
     dramaName: string,
+    model?: string,
     context?: { nodeId?: string; nodeType?: string }
 ): Promise<DramaAnalysisResult> => {
+    const effectiveModel = model || getUserDefaultModel('text');
+
     return logAPICall(
         'analyzeDrama',
         async () => {
@@ -1741,7 +1970,7 @@ export const analyzeDrama = async (
     `;
 
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: effectiveModel,
                 config: {
                     responseMimeType: 'application/json',
                     systemInstruction: DRAMA_ANALYZER_INSTRUCTION
@@ -1770,7 +1999,7 @@ export const analyzeDrama = async (
             }
         },
         {
-            model: 'gemini-2.5-flash',
+            model: effectiveModel,
             dramaName
         },
         context
@@ -1841,8 +2070,11 @@ const DRAMA_REFINED_EXTRACTION_INSTRUCTION = `
 export const extractRefinedTags = async (
     analysisData: any,
     selectedFields: string[],
+    model?: string,
     context?: { nodeId?: string; nodeType?: string }
 ): Promise<Record<string, string[]>> => {
+    const effectiveModel = model || getUserDefaultModel('text');
+
     return logAPICall(
         'extractRefinedTags',
         async () => {
@@ -1886,7 +2118,7 @@ ${contentToExtract}
 
             try {
                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: effectiveModel,
                     config: {
                         responseMimeType: 'application/json',
                         systemInstruction: DRAMA_REFINED_EXTRACTION_INSTRUCTION
@@ -1915,7 +2147,7 @@ ${contentToExtract}
             }
         },
         {
-            model: 'gemini-2.5-flash',
+            model: effectiveModel,
             selectedFieldsCount: selectedFields.length,
             selectedFields
         },
@@ -2035,8 +2267,11 @@ export const generateStylePreset = async (
         setting?: string;
     },
     userInput?: string,
+    model?: string,
     context?: { nodeId?: string; nodeType?: string }
 ): Promise<{ stylePrompt: string; negativePrompt: string }> => {
+    const effectiveModel = model || getUserDefaultModel('text');
+
     return logAPICall(
         'generateStylePreset',
         async () => {
@@ -2065,7 +2300,7 @@ ${userInput || '无'}
 
             try {
                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: effectiveModel,
                     config: {
                         systemInstruction,
                         temperature: 0.7
@@ -2100,7 +2335,7 @@ ${userInput || '无'}
             }
         },
         {
-            model: 'gemini-2.5-flash',
+            model: effectiveModel,
             presetType,
             visualStyle,
             hasUserInput: !!userInput,

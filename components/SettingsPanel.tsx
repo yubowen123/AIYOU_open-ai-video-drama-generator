@@ -82,6 +82,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
   const [ossTestState, setOssTestState] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [ossTestMessage, setOssTestMessage] = useState('');
   const [ossTestUrl, setOssTestUrl] = useState('');
+  const [imageLoadError, setImageLoadError] = useState(false);
 
   // 模型优先级配置
   const [modelPriorities, setModelPriorities] = useState<Record<ModelCategory, string[]>>({
@@ -240,6 +241,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
     setOssTestState('testing');
     setOssTestMessage('');
     setOssTestUrl('');
+    setImageLoadError(false);
 
     try {
       const result = await testOSSConnection(ossConfig, (message) => {
@@ -725,25 +727,37 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-xs text-slate-400">Access Key</label>
+                    <label className="text-xs text-slate-400">
+                      SecretId (Access Key)
+                      <span className="text-yellow-500 ml-1">*</span>
+                    </label>
                     <input
                       type="password"
                       value={ossConfig.accessKey}
                       onChange={(e) => setOssConfig({ ...ossConfig, accessKey: e.target.value })}
-                      placeholder="输入 Access Key"
+                      placeholder="AKIDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
                       className="w-full px-3 py-2 bg-black/20 border border-white/10 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-green-500/50"
                     />
+                    {ossConfig.accessKey && !ossConfig.accessKey.startsWith('AKID') && (
+                      <p className="text-[9px] text-yellow-400">⚠️ SecretId 格式应该以 AKID 开头</p>
+                    )}
                   </div>
 
                   <div className="col-span-2 space-y-2">
-                    <label className="text-xs text-slate-400">Secret Key</label>
+                    <label className="text-xs text-slate-400">
+                      SecretKey (Secret Key)
+                      <span className="text-yellow-500 ml-1">*</span>
+                    </label>
                     <input
                       type="password"
                       value={ossConfig.secretKey}
                       onChange={(e) => setOssConfig({ ...ossConfig, secretKey: e.target.value })}
-                      placeholder="输入 Secret Key"
+                      placeholder="输入腾讯云 SecretKey（32位字符）"
                       className="w-full px-3 py-2 bg-black/20 border border-white/10 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-green-500/50"
                     />
+                    {ossConfig.secretKey && ossConfig.secretKey.length < 20 && (
+                      <p className="text-[9px] text-yellow-400">⚠️ SecretKey 长度似乎不正确（通常32位以上）</p>
+                    )}
                   </div>
                 </div>
 
@@ -822,11 +836,32 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                                 className="text-[10px] text-blue-400 hover:underline flex items-center gap-1"
                               >
                                 <ExternalLink size={10} />
-                                查看上传的测试图片
+                                {imageLoadError ? '图片链接（无法预览）' : '查看上传的测试图片'}
                               </a>
-                              <div className="w-20 h-20 rounded-lg overflow-hidden border border-white/10">
-                                <img src={ossTestUrl} alt="OSS Test" className="w-full h-full object-cover" />
+                              <div className="w-20 h-20 rounded-lg overflow-hidden border border-white/10 bg-white/5 flex items-center justify-center">
+                                {imageLoadError ? (
+                                  <div className="text-center p-2">
+                                    <AlertCircle size={16} className="text-yellow-400 mx-auto mb-1" />
+                                    <p className="text-[8px] text-slate-400">无法预览</p>
+                                  </div>
+                                ) : (
+                                  <img
+                                    src={ossTestUrl}
+                                    alt="OSS Test"
+                                    className="w-full h-full object-cover"
+                                    onError={() => setImageLoadError(true)}
+                                  />
+                                )}
                               </div>
+                              {imageLoadError && (
+                                <div className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded">
+                                  <p className="text-[9px] text-yellow-300 leading-relaxed">
+                                    图片预览失败，可能是 CORS 或权限问题。但文件已成功上传。
+                                    <br />
+                                    请点击上方链接在新标签页打开，或检查 Bucket 的 CORS 配置。
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>

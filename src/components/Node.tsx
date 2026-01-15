@@ -3,6 +3,7 @@ import { AppNode, NodeStatus, NodeType, StoryboardShot, CharacterProfile, DramaA
 import { RefreshCw, Play, Image as ImageIcon, Video as VideoIcon, Type, AlertCircle, CheckCircle, Plus, Maximize2, Download, MoreHorizontal, Wand2, Scaling, FileSearch, Edit, Loader2, Layers, Trash2, X, Upload, Scissors, Film, MousePointerClick, Crop as CropIcon, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, GripHorizontal, Link, Copy, Monitor, Music, Pause, Volume2, Mic2, BookOpen, ScrollText, Clapperboard, LayoutGrid, Box, User, Users, Save, RotateCcw, Eye, List, Search, CheckSquare, Square } from 'lucide-react';
 import { VideoModeSelector, SceneDirectorOverlay } from './VideoNodeModules';
 import React, { memo, useRef, useState, useEffect, useCallback } from 'react';
+import { IMAGE_MODELS, TEXT_MODELS, VIDEO_MODELS, AUDIO_MODELS } from '../../services/modelConfig';
 
 const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
@@ -1067,25 +1068,21 @@ const NodeComponent: React.FC<NodeProps> = ({
 
      let models: {l: string, v: string}[] = [];
      if (node.type === NodeType.VIDEO_GENERATOR) {
-        models = [
-            {l: 'Veo 极速版 (Fast)', v: 'veo-3.1-fast-generate-preview'},
-            {l: 'Veo 专业版 (Pro)', v: 'veo-3.1-generate-preview'},
-            {l: 'Wan 2.1 (Animate)', v: 'wan-2.1-t2v-14b'}
-        ];
+        models = VIDEO_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.VIDEO_ANALYZER) {
-         models = [{l: 'Gemini 2.5 Flash', v: 'gemini-2.5-flash'}, {l: 'Gemini 3 Pro', v: 'gemini-3-pro-preview'}];
+         models = TEXT_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.AUDIO_GENERATOR) {
-         models = [{l: 'Voice Factory (Gemini 2.0)', v: 'gemini-2.5-flash-preview-tts'}];
+         models = AUDIO_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.SCRIPT_PLANNER) {
-         models = [{l: 'Gemini 2.5', v: 'gemini-2.5-flash'}];
+         models = TEXT_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.SCRIPT_EPISODE) {
-         models = [{l: 'Gemini 2.5', v: 'gemini-2.5-flash'}];
+         models = TEXT_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.STORYBOARD_GENERATOR) {
-         models = [{l: 'Gemini 3 Pro (Logic)', v: 'gemini-3-pro-preview'}];
+         models = TEXT_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.CHARACTER_NODE) {
-         models = [{l: 'Gemini 3 Pro (Design)', v: 'gemini-3-pro-preview'}];
+         models = IMAGE_MODELS.map(m => ({l: m.name, v: m.id}));
      } else {
-        models = [{l: 'Gemini 2.5', v: 'gemini-2.5-flash-image'}, {l: 'Gemini 3 Pro', v: 'gemini-3-pro-image-preview'}];
+        models = IMAGE_MODELS.map(m => ({l: m.name, v: m.id}));
      }
 
      return (

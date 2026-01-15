@@ -12,6 +12,7 @@ import {
   getCameraAngleByName,
   getCameraMovementByName
 } from '../constants/storyboardTerms';
+import { getUserDefaultModel } from './modelConfig';
 
 export interface EnhancedShotFields {
   shotSize: string;
@@ -75,7 +76,7 @@ export async function enhanceShotWithAI(shot: SplitStoryboardShot | DetailedStor
     const { generateText } = await import('./geminiService');
     const response = await generateText(
       systemPrompt + '\n\n' + userPrompt,
-      'gemini-2.5-flash'
+      getUserDefaultModel('text')
     );
 
     // 解析 JSON 响应
