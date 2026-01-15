@@ -2278,6 +2278,47 @@ const NodeComponent: React.FC<NodeProps> = ({
                                                       </div>
                                                   </div>
                                               )}
+
+                                              {/* Image Fusion Info */}
+                                              {tg.splitShots && tg.splitShots.length > 0 && (
+                                                  <div className="mt-3 space-y-1.5 p-2 bg-purple-500/10 rounded border border-purple-500/20">
+                                                      <div className="flex items-center justify-between">
+                                                          <div className="flex items-center gap-1.5">
+                                                              <ImageIcon size={12} className="text-purple-400" />
+                                                              <span className="text-[9px] font-bold text-purple-300">图片融合</span>
+                                                          </div>
+                                                          {tg.imageFused ? (
+                                                              <span className="px-1.5 py-0.5 bg-green-500/20 text-green-300 text-[8px] rounded">
+                                                                  ✓ 已融合
+                                                              </span>
+                                                          ) : (
+                                                              <span className="text-[8px] text-slate-500">
+                                                                  待融合 ({tg.splitShots.length}张)
+                                                              </span>
+                                                          )}
+                                                      </div>
+                                                      <div className="text-[8px] text-slate-400 leading-relaxed">
+                                                          将当前任务组的 <span className="text-purple-300 font-medium">{tg.splitShots.length}</span> 张分镜图进行拼接并标号，生成一张参考图供 AI 理解镜头顺序和画面内容
+                                                      </div>
+                                                      {/* Fusion Structure Preview */}
+                                                      <div className="flex items-center gap-1 pt-1">
+                                                          {tg.splitShots.slice(0, 6).map((_, idx) => (
+                                                              <div key={idx} className="flex items-center">
+                                                                  <div className="w-6 h-4 bg-purple-500/30 rounded border border-purple-500/30 flex items-center justify-center">
+                                                                      <span className="text-[6px] text-purple-300">{idx + 1}</span>
+                                                                  </div>
+                                                                  {idx < Math.min(tg.splitShots.length, 6) - 1 && (
+                                                                      <span className="text-purple-500/40">+</span>
+                                                                  )}
+                                                              </div>
+                                                          ))}
+                                                          {tg.splitShots.length > 6 && (
+                                                              <span className="text-[7px] text-purple-400">+{tg.splitShots.length - 6}</span>
+                                                          )}
+                                                          <span className="text-[7px] text-slate-500">→ 融合图</span>
+                                                      </div>
+                                                  </div>
+                                              )}
                                           </div>
 
                                           {/* Right: AI Optimized Sora Prompt */}
@@ -2624,8 +2665,8 @@ const NodeComponent: React.FC<NodeProps> = ({
      // Special handling for SORA_VIDEO_GENERATOR
      if (node.type === NodeType.SORA_VIDEO_GENERATOR) {
          const taskGroups = node.data.taskGroups || [];
-         const soraModelId = node.data.soraModelId || 'sora-2-10s-large';
-         const selectedModel: SoraModel | undefined = getSoraModelById(soraModelId);
+         const soraModelId = node.data.soraModelId || getUserDefaultModel('video');
+         const selectedModel = VIDEO_MODELS.find(m => m.id === soraModelId);
 
          return (
              <div className={`absolute top-full left-1/2 -translate-x-1/2 w-[98%] pt-2 z-50 flex flex-col items-center justify-start transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-[-10px] scale-95 pointer-events-none'}`}>
@@ -2642,16 +2683,11 @@ const NodeComponent: React.FC<NodeProps> = ({
                              onChange={(e) => onUpdate(node.id, { soraModelId: e.target.value })}
                              onMouseDown={e => e.stopPropagation()}
                          >
-                             <option value="sora-2-15s-yijia">sora-2-yijia (15秒竖屏)</option>
-                             <option value="sora-2-pro-10s-large-yijia">sora-2-pro (10秒高清竖屏)</option>
-                             <option value="sora-2-pro-10s-large">sora-2-pro (10秒高清横屏)</option>
-                             <option value="sora-2-15s">sora-2 (15秒横屏)</option>
-                             <option value="sora-2-pro-15s-yijia">sora-2-pro (15秒竖屏)</option>
-                             <option value="sora-2-10s-large-yijia">sora-2 (10秒高清竖屏)</option>
-                             <option value="sora-2-pro-10s-yijia">sora-2-pro (10秒竖屏)</option>
-                             <option value="sora-2-pro-15s">sora-2-pro (15秒横屏)</option>
-                             <option value="sora-2-10s-large">sora-2 (10秒高清横屏)</option>
-                             <option value="sora-2-pro-10s">sora-2-pro (10秒横屏)</option>
+                             {VIDEO_MODELS.filter(m => m.tags.includes('sora')).map(model => (
+                                 <option key={model.id} value={model.id}>
+                                     {model.name}
+                                 </option>
+                             ))}
                          </select>
 
                          {/* Model Details */}
@@ -2660,31 +2696,43 @@ const NodeComponent: React.FC<NodeProps> = ({
                                  <div className="grid grid-cols-2 gap-2">
                                      <div>
                                          <span className="text-[9px] font-bold text-slate-500 uppercase">时长</span>
-                                         <p className="text-xs text-slate-300">{selectedModel.duration}秒</p>
-                                     </div>
-                                     <div>
-                                         <span className="text-[9px] font-bold text-slate-500 uppercase">分辨率</span>
-                                         <p className="text-xs text-slate-300">{selectedModel.resolution}</p>
+                                         <p className="text-xs text-slate-300">
+                                             {selectedModel.capabilities.find(c => c.includes('秒视频'))?.replace('秒视频', '') || 'N/A'}秒
+                                         </p>
                                      </div>
                                      <div>
                                          <span className="text-[9px] font-bold text-slate-500 uppercase">比例</span>
-                                         <p className="text-xs text-slate-300">{selectedModel.aspectRatio}</p>
+                                         <p className="text-xs text-slate-300">
+                                             {selectedModel.tags.includes('vertical') ? '竖屏 (9:16)' :
+                                              selectedModel.tags.includes('horizontal') ? '横屏 (16:9)' :
+                                              selectedModel.capabilities.find(c => c.includes('9:16') || c.includes('16:9')) || 'N/A'}
+                                         </p>
+                                     </div>
+                                     <div>
+                                         <span className="text-[9px] font-bold text-slate-500 uppercase">分辨率</span>
+                                         <p className="text-xs text-slate-300">
+                                             {selectedModel.capabilities.find(c => c.includes('1280x') || c.includes('1920x') || c.includes('1080x'))?.split(' ')[1] || '720p/1080p'}
+                                         </p>
                                      </div>
                                      <div>
                                          <span className="text-[9px] font-bold text-green-400 uppercase">价格</span>
-                                         <p className="text-xs text-green-300 font-bold">¥{selectedModel.price.toFixed(3)}</p>
+                                         <p className="text-xs text-green-300 font-bold">
+                                             {selectedModel.capabilities.find(c => c.includes('¥')) || '按次计费'}
+                                         </p>
                                      </div>
                                  </div>
                                  <div>
                                      <span className="text-[9px] font-bold text-slate-500 uppercase">描述</span>
                                      <p className="text-xs text-slate-300">{selectedModel.description}</p>
                                  </div>
-                                 <div className="flex items-center gap-2">
-                                     <span className="text-[9px] font-bold text-slate-500 uppercase">标签</span>
-                                     {selectedModel.tags.map((tag, i) => (
-                                         <span key={i} className="px-1.5 py-0.5 bg-blue-500/20 text-blue-300 text-[9px] rounded">{tag}</span>
+                                 <div className="flex items-center gap-2 flex-wrap">
+                                     <span className="text-[9px] font-bold text-slate-500 uppercase">特性</span>
+                                     {selectedModel.capabilities.slice(0, 4).map((cap, i) => (
+                                         <span key={i} className="px-1.5 py-0.5 bg-blue-500/20 text-blue-300 text-[9px] rounded">{cap}</span>
                                      ))}
-                                     <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-300 text-[9px] rounded">{selectedModel.endpointType}</span>
+                                     {selectedModel.tags.includes('pro') && (
+                                         <span className="px-1.5 py-0.5 bg-purple-500/30 text-purple-300 text-[9px] rounded font-bold">PRO</span>
+                                     )}
                                  </div>
                              </div>
                          )}
@@ -2988,7 +3036,7 @@ const NodeComponent: React.FC<NodeProps> = ({
      }
 
      let models: {l: string, v: string}[] = [];
-     if (node.type === NodeType.VIDEO_GENERATOR) {
+     if (node.type === NodeType.VIDEO_GENERATOR || node.type === NodeType.SORA_VIDEO_GENERATOR) {
         models = VIDEO_MODELS.map(m => ({l: m.name, v: m.id}));
      } else if (node.type === NodeType.VIDEO_ANALYZER) {
          models = TEXT_MODELS.map(m => ({l: m.name, v: m.id}));

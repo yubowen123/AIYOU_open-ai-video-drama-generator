@@ -19,63 +19,159 @@ export interface ModelInfo {
   isDefault?: boolean;
 }
 
-// 图片生成模型 - 使用 Gemini API 官方文档推荐的模型名称
+// 图片生成模型 - 使用 Gemini API 官方文档推荐的模型
 // 参考: https://ai.google.dev/gemini-api/docs/image-generation
-// 所有模型都使用 generateContent API，支持 image-to-image
 export const IMAGE_MODELS: ModelInfo[] = [
   {
-    id: 'gemini-2.0-flash-exp',
-    name: 'Gemini 2.0 Flash Experimental',
+    id: 'gemini-3-pro-image-preview',
+    name: 'Gemini 3 Pro Image Preview',
     category: 'image',
     priority: 1,
-    quality: 8,
-    speed: 10,
-    cost: 9,
-    capabilities: ['快速响应', 'aspectRatio 支持', '实验性功能', '支持图生图'],
-    description: '快速稳定的实验性模型，支持 aspectRatio 参数',
-    tags: ['experimental', 'fast', 'generateContent', 'aspectRatio'],
-    isDefault: true
-  },
-  {
-    id: 'gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    category: 'image',
-    priority: 2,
-    quality: 8,
-    speed: 9,
-    cost: 8,
-    capabilities: ['快速响应', '稳定版', '支持图生图', '多模态'],
-    description: '稳定版 Flash 模型，支持图像生成',
-    tags: ['stable', 'fast', 'generateContent', 'multimodal']
-  },
-  {
-    id: 'gemini-3-pro-preview',
-    name: 'Gemini 3 Pro Preview',
-    category: 'image',
-    priority: 3,
     quality: 10,
     speed: 7,
     cost: 5,
-    capabilities: ['最高质量', '多模态理解', '推理增强', '支持图生图'],
-    description: '最高质量，强大的多模态理解能力',
-    tags: ['pro', 'high-quality', 'multimodal', 'generateContent']
+    capabilities: ['最高质量', '专业级输出', '图像生成', '支持 aspectRatio'],
+    description: 'Gemini 3 Pro 预览版，最高质量的图像生成',
+    tags: ['pro', 'high-quality', 'image-generation'],
+    isDefault: true
   },
   {
-    id: 'gemini-3-flash',
-    name: 'Gemini 3 Flash',
+    id: 'gemini-2.5-flash-image',
+    name: 'Gemini 2.5 Flash Image',
     category: 'image',
-    priority: 4,
-    quality: 9,
-    speed: 9,
-    cost: 7,
-    capabilities: ['快速响应', '高质量', '支持图生图'],
-    description: '快速高质量的图像生成',
-    tags: ['fast', 'high-quality', 'generateContent']
+    priority: 2,
+    quality: 8,
+    speed: 10,
+    cost: 9,
+    capabilities: ['快速响应', '图像生成', '支持 aspectRatio'],
+    description: 'Gemini 2.5 Flash 图像生成，速度最快',
+    tags: ['fast', 'image-generation', 'aspectRatio']
   }
 ];
 
 // 视频生成模型
 export const VIDEO_MODELS: ModelInfo[] = [
+  {
+    id: 'sora-2-yijia',
+    name: 'Sora 2 (10秒竖屏)',
+    category: 'video',
+    priority: 0, // 最高优先级
+    quality: 10,
+    speed: 8,
+    cost: 9, // 费用：0.19元/次，性价比高
+    capabilities: ['OpenAI Sora 2', '10秒视频', '9:16竖屏', '1280x720', '按次计费', '¥0.19/次'],
+    description: 'OpenAI Sora 2 基础版，10秒竖屏视频生成，性价比最高',
+    tags: ['sora', 'openai', 'vertical', '10s', '720p'],
+    isDefault: true
+  },
+  {
+    id: 'sora-2-15s-yijia',
+    name: 'Sora 2 (15秒竖屏)',
+    category: 'video',
+    priority: 0,
+    quality: 10,
+    speed: 7,
+    cost: 9,
+    capabilities: ['OpenAI Sora 2', '15秒视频', '9:16竖屏', '1280x720', '按次计费', '¥0.24/次'],
+    description: 'OpenAI Sora 2 基础版，15秒竖屏视频生成',
+    tags: ['sora', 'openai', 'vertical', '15s', '720p']
+  },
+  {
+    id: 'sora-2-landscape-15s-yijia',
+    name: 'Sora 2 (15秒横屏)',
+    category: 'video',
+    priority: 0,
+    quality: 10,
+    speed: 7,
+    cost: 9,
+    capabilities: ['OpenAI Sora 2', '15秒视频', '16:9横屏', '1280x720', '按次计费', '¥0.24/次'],
+    description: 'OpenAI Sora 2 基础版，15秒横屏视频生成',
+    tags: ['sora', 'openai', 'horizontal', '15s', '720p']
+  },
+  {
+    id: 'sora-2-landscape-yijia',
+    name: 'Sora 2 (10秒横屏)',
+    category: 'video',
+    priority: 0,
+    quality: 10,
+    speed: 8,
+    cost: 9,
+    capabilities: ['OpenAI Sora 2', '10秒视频', '16:9横屏', '1280x720', '按次计费', '¥0.19/次'],
+    description: 'OpenAI Sora 2 基础版，10秒横屏视频生成',
+    tags: ['sora', 'openai', 'horizontal', '10s', '720p']
+  },
+  {
+    id: 'sora-2-pro-10s-large-yijia',
+    name: 'Sora 2 Pro (10秒竖屏)',
+    category: 'video',
+    priority: 0,
+    quality: 10,
+    speed: 6,
+    cost: 5, // 费用高但质量更高
+    capabilities: ['OpenAI Sora 2 Pro', '10秒视频', '9:16竖屏', '1080x1920', '按次计费', '¥1.15/次', '高清'],
+    description: 'OpenAI Sora 2 Pro 版，10秒竖屏高清视频生成',
+    tags: ['sora', 'openai', 'pro', 'vertical', '10s', '1080p']
+  },
+  {
+    id: 'sora-2-pro-15s-large-yijia',
+    name: 'Sora 2 Pro (15秒竖屏)',
+    category: 'video',
+    priority: 0,
+    quality: 10,
+    speed: 5,
+    cost: 4,
+    capabilities: ['OpenAI Sora 2 Pro', '15秒视频', '9:16竖屏', '1080x1920', '按次计费', '¥1.80/次', '高清'],
+    description: 'OpenAI Sora 2 Pro 版，15秒竖屏高清视频生成',
+    tags: ['sora', 'openai', 'pro', 'vertical', '15s', '1080p']
+  },
+  {
+    id: 'sora-2-pro-25s-yijia',
+    name: 'Sora 2 Pro (25秒竖屏)',
+    category: 'video',
+    priority: 0,
+    quality: 10,
+    speed: 4,
+    cost: 3,
+    capabilities: ['OpenAI Sora 2 Pro', '25秒视频', '9:16竖屏', '1080x1920', '按次计费', '¥2.20/次', '超长视频', '高清'],
+    description: 'OpenAI Sora 2 Pro 版，25秒竖屏超长视频生成',
+    tags: ['sora', 'openai', 'pro', 'vertical', '25s', '1080p', 'ultra-long']
+  },
+  {
+    id: 'sora-2-pro-landscape-10s-large-yijia',
+    name: 'Sora 2 Pro (10秒横屏)',
+    category: 'video',
+    priority: 0,
+    quality: 10,
+    speed: 6,
+    cost: 5,
+    capabilities: ['OpenAI Sora 2 Pro', '10秒视频', '16:9横屏', '1920x1080', '按次计费', '¥0.85/次', '高清'],
+    description: 'OpenAI Sora 2 Pro 版，10秒横屏高清视频生成',
+    tags: ['sora', 'openai', 'pro', 'horizontal', '10s', '1080p']
+  },
+  {
+    id: 'sora-2-pro-landscape-15s-large-yijia',
+    name: 'Sora 2 Pro (15秒横屏)',
+    category: 'video',
+    priority: 0,
+    quality: 10,
+    speed: 5,
+    cost: 4,
+    capabilities: ['OpenAI Sora 2 Pro', '15秒视频', '16:9横屏', '1920x1080', '按次计费', '¥1.50/次', '高清'],
+    description: 'OpenAI Sora 2 Pro 版，15秒横屏高清视频生成',
+    tags: ['sora', 'openai', 'pro', 'horizontal', '15s', '1080p']
+  },
+  {
+    id: 'sora-2-pro-landscape-25s-yijia',
+    name: 'Sora 2 Pro (25秒横屏)',
+    category: 'video',
+    priority: 0,
+    quality: 10,
+    speed: 4,
+    cost: 3,
+    capabilities: ['OpenAI Sora 2 Pro', '25秒视频', '16:9横屏', '1920x1080', '按次计费', '¥2.20/次', '超长视频', '高清'],
+    description: 'OpenAI Sora 2 Pro 版，25秒横屏超长视频生成',
+    tags: ['sora', 'openai', 'pro', 'horizontal', '25s', '1080p', 'ultra-long']
+  },
   {
     id: 'veo-3.1-generate-preview',
     name: 'Veo 3.1',
@@ -87,7 +183,7 @@ export const VIDEO_MODELS: ModelInfo[] = [
     capabilities: ['最高质量', '长视频', '4K支持', '流畅动画'],
     description: 'Veo 3.1 专业版，生成高质量视频',
     tags: ['professional', 'high-quality'],
-    isDefault: true
+    isDefault: false
   },
   {
     id: 'veo-3.1-fast-generate-preview',

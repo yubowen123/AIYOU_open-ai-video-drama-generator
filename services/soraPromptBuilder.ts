@@ -132,12 +132,12 @@ ${shotsInfo}
 5. 使用 Sora 2 Story Mode 格式输出`;
 
   try {
-    const { generateText } = await import('./geminiService');
+    const { sendChatMessage } = await import('./geminiService');
 
     return await logAPICall(
       'buildProfessionalSoraPrompt',
       async () => {
-        return await generateText(
+        return await sendChatMessage(
           systemPrompt + '\n\n' + userPrompt,
           getUserDefaultModel('text')
         );

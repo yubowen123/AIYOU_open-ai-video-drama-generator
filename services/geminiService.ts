@@ -761,66 +761,8 @@ export const generateImageFromText = async (
             // Use the actual model ID provided
             const effectiveModel = model;
 
-            // Detect if this is an Imagen model (which uses generateImages API)
-            const isImagenModel = effectiveModel.includes('imagen-');
+            console.log(`[generateImageFromText] Using Gemini generateContent API for model: ${effectiveModel}`);
 
-            console.log(`[generateImageFromText] Using ${isImagenModel ? 'Imagen (generateImages)' : 'Gemini (generateContent)'} API for model: ${effectiveModel}`);
-
-            // ============================================
-            // PATH 1: Imagen Models - use generateImages API
-            // ============================================
-            if (isImagenModel) {
-                try {
-                    // Build generateImages request
-                    const imagenConfig: any = {
-                        model: effectiveModel,
-                        prompt: prompt
-                    };
-
-                    // Add aspect ratio if specified
-                    if (options.aspectRatio) {
-                        imagenConfig.aspectRatio = options.aspectRatio;
-                    }
-
-                    // Add number of images if specified
-                    if (options.count && options.count > 1) {
-                        imagenConfig.numberOfImages = options.count;
-                    }
-
-                    // Note: Imagen API doesn't support inputImages (image-to-image)
-                    if (inputImages.length > 0) {
-                        console.warn('[generateImageFromText] Imagen models do not support image-to-image. Input images will be ignored.');
-                    }
-
-                    const result = await ai.models.generateImages(imagenConfig);
-
-                    // Parse Imagen response
-                    const images: string[] = [];
-                    if (result.generatedImages) {
-                        for (const img of result.generatedImages) {
-                            if (img.image && img.image.imageBytes) {
-                                const base64 = `data:${img.image.mimeType || 'image/png'};base64,${img.image.imageBytes}`;
-                                images.push(base64);
-                            }
-                        }
-                    }
-
-                    if (images.length === 0) {
-                        throw new Error("No images generated from Imagen API.");
-                    }
-
-                    console.log(`[generateImageFromText] Imagen generated ${images.length} images`);
-                    return images;
-
-                } catch (e: any) {
-                    console.error("[generateImageFromText] Imagen API Error:", e);
-                    throw new Error(getErrorMessage(e));
-                }
-            }
-
-            // ============================================
-            // PATH 2: Gemini Models - use generateContent API
-            // ============================================
             // Prepare Contents
             const parts: Part[] = [];
 
@@ -886,10 +828,21 @@ export const generateImageFromText = async (
                 }
 
                 if (images.length === 0) {
-                    throw new Error("No images generated. Safety filter might have been triggered.");
+                    // Check for finish reason to provide better error message
+                    const finishReason = response.candidates?.[0]?.finishReason;
+
+                    if (finishReason === 'SAFETY') {
+                        throw new Error("Image generation blocked by safety filter. The prompt may contain sensitive content. Please try a different description.");
+                    } else if (finishReason === 'IMAGE_SAFETY') {
+                        throw new Error("Image generation blocked by safety filter. Please try a different visual style or description.");
+                    } else if (finishReason) {
+                        throw new Error(`Image generation failed: ${finishReason}. Please try again.`);
+                    } else {
+                        throw new Error("No images generated. The model may not support image generation or the response was empty.");
+                    }
                 }
 
-                console.log(`[generateImageFromText] Gemini generated ${images.length} images`);
+                console.log(`[generateImageFromText] Generated ${images.length} images`);
                 return images;
             } catch (e: any) {
                 console.error("Image Gen Error:", e);

@@ -703,7 +703,7 @@ export const App = () => {
       if (style === 'ANIME') {
           base = 'Anime style, Japanese 2D animation, vibrant colors, Studio Ghibli style, clean lines, high detail, 8k resolution, cel shaded, flat color, expressive characters.';
       } else if (style === '3D') {
-          base = '3D render, C4D, Pixar style, high fidelity, clay material, unreal engine 5, global illumination, octane render, 8k, volumetric lighting, highly detailed textures.';
+          base = 'Photorealistic 3D render, highly realistic human characters, lifelike skin textures, natural subsurface scattering, realistic eyes with detailed iris, accurate anatomy, high-fidelity 3D modeling, Unreal Engine 5, MetaHuman, cinematic lighting, volumetric light ray, global illumination, screen space reflections, 8k resolution, photorealistic materials, detailed fabric textures, realistic hair strands, natural skin pores and imperfections, live action quality.';
       } else {
           // Default to REAL
           base = 'Cinematic, Photorealistic, 8k, raw photo, hyperrealistic, movie still, live action, cinematic lighting, Arri Alexa, depth of field, film grain, color graded.';
@@ -711,7 +711,7 @@ export const App = () => {
 
       if (genre) base += ` Genre: ${genre}.`;
       if (setting) base += ` Setting: ${setting}.`;
-      
+
       base += " Unified art style, consistent character design across all generated images.";
       return base;
   };
@@ -1247,10 +1247,10 @@ export const App = () => {
               
               const processShotImage = async (shotIndex: number) => {
                   const shot = updatedShots[shotIndex];
-                  const stylePrompt = node.data.storyboardStyle === 'ANIME' 
+                  const stylePrompt = node.data.storyboardStyle === 'ANIME'
                       ? 'Anime style, Japanese animation, Studio Ghibli style, 2D, Cel shaded, vibrant colors.'
                       : node.data.storyboardStyle === '3D'
-                      ? '3D Animation style, Pixar style, C4D, Octane Render, Unreal Engine 5, high fidelity.'
+                      ? 'Photorealistic 3D render, highly realistic human characters, lifelike skin textures, natural subsurface scattering, realistic eyes with detailed iris, accurate anatomy, high-fidelity 3D modeling, Unreal Engine 5, MetaHuman, cinematic lighting, volumetric light ray, global illumination, screen space reflections, 8k resolution, photorealistic materials, detailed fabric textures, realistic hair strands, natural skin pores and imperfections, live action quality.'
                       : 'Cinematic Movie Still, Photorealistic, 8k, Live Action, highly detailed.';
 
                   const visualPrompt = `

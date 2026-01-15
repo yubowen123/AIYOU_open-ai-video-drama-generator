@@ -38,7 +38,7 @@ export interface APILogEntry {
 
 class APILogger {
     private logs: APILogEntry[] = [];
-    private maxLogs = 100;  // 最多保存100条日志
+    private maxLogs = 30;  // 最多保存30条日志（减少内存占用）
     private storageKey = 'AIYOU_API_LOGS';
 
     constructor() {
@@ -272,12 +272,58 @@ class APILogger {
 
     private saveToStorage() {
         try {
-            // 只保存最近50条到 localStorage（避免存储过大）
-            const recentLogs = this.logs.slice(0, 50);
+            // 只保存最近20条到 localStorage（进一步减少存储压力）
+            // 深度清理数据以减少存储大小
+            const recentLogs = this.logs.slice(0, 20).map(log => ({
+                ...log,
+                // 清理 request 中的大字段
+                request: {
+                    model: log.request.model,
+                    prompt: log.request.prompt ? this.truncateString(log.request.prompt, 200) : undefined,
+                    options: log.request.options,
+                    inputs: log.request.inputs?.map(() => '[Input Data]'),
+                    inputImagesCount: log.request.inputImagesCount
+                },
+                // 清理 response 中的大字段
+                response: log.response ? {
+                    success: log.response.success,
+                    error: log.response.error,
+                    details: log.response.details ? {
+                        generatedCount: log.response.details.generatedCount,
+                        finishReason: log.response.details.finishReason
+                    } : undefined
+                } : undefined
+            }));
+
             localStorage.setItem(this.storageKey, JSON.stringify(recentLogs));
-        } catch (e) {
-            console.warn('[API Logger] Failed to save to storage', e);
+        } catch (e: any) {
+            // 如果存储失败，尝试清理后再次保存
+            if (e.name === 'QuotaExceededError') {
+                console.warn('[API Logger] Storage quota exceeded, clearing old logs...');
+                try {
+                    // 只保留最近 5 条
+                    const minimalLogs = this.logs.slice(0, 5).map(log => ({
+                        id: log.id,
+                        timestamp: log.timestamp,
+                        apiName: log.apiName,
+                        status: log.status,
+                        duration: log.duration
+                    }));
+                    localStorage.setItem(this.storageKey, JSON.stringify(minimalLogs));
+                } catch (e2) {
+                    // 如果还是失败，就清空所有日志
+                    console.error('[API Logger] Failed to save even minimal logs, clearing storage');
+                    localStorage.removeItem(this.storageKey);
+                }
+            } else {
+                console.warn('[API Logger] Failed to save to storage', e);
+            }
         }
+    }
+
+    private truncateString(str: string, maxLength: number): string {
+        if (!str || typeof str !== 'string') return str;
+        return str.length > maxLength ? str.substring(0, maxLength) + '...' : str;
     }
 
     private loadFromStorage() {

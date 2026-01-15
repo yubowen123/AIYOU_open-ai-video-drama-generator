@@ -852,7 +852,7 @@ export const App = () => {
       if (style === 'ANIME') {
           base = 'Anime style, Japanese 2D animation, vibrant colors, Studio Ghibli style, clean lines, high detail, 8k resolution, cel shaded, flat color, expressive characters.';
       } else if (style === '3D') {
-          base = '3D render, C4D, Pixar style, high fidelity, clay material, unreal engine 5, global illumination, octane render, 8k, volumetric lighting, highly detailed textures.';
+          base = 'Photorealistic 3D render, highly realistic human characters, lifelike skin textures, natural subsurface scattering, realistic eyes with detailed iris, accurate anatomy, high-fidelity 3D modeling, Unreal Engine 5, MetaHuman, cinematic lighting, volumetric light ray, global illumination, screen space reflections, 8k resolution, photorealistic materials, detailed fabric textures, realistic hair strands, natural skin pores and imperfections, live action quality.';
       } else {
           // Default to REAL
           base = 'Cinematic, Photorealistic, 8k, raw photo, hyperrealistic, movie still, live action, cinematic lighting, Arri Alexa, depth of field, film grain, color graded.';
@@ -860,7 +860,7 @@ export const App = () => {
 
       if (genre) base += ` Genre: ${genre}.`;
       if (setting) base += ` Setting: ${setting}.`;
-      
+
       base += " Unified art style, consistent character design across all generated images.";
       return base;
   };
@@ -1169,6 +1169,7 @@ export const App = () => {
                   context,
                   stylePrompt,
                   customDesc,
+                  node.data.model || getUserDefaultModel('text'),
                   { nodeId: nodeId, nodeType: node.type }
               );
 
@@ -1264,11 +1265,11 @@ export const App = () => {
               - Close-up portrait shots ONLY (head and shoulders)
               - NO full body, NO lower body, NO legs
               - Focus on facial features, expressions, and head
-              - White or neutral background
+              - SOLID FLAT BACKGROUND - Plain solid color background ONLY (white, light gray, or black). NO patterns, NO gradients, NO environmental elements, NO scenery, NO objects, NO shadows on background
               - Consistent character design across all 9 expressions
               - 3x3 grid composition
 
-              Negative Prompt: ${negativePrompt}${styleNegative}, full body, standing, legs, feet, full-length portrait, wide shot, environmental background
+              Negative Prompt: ${negativePrompt}${styleNegative}, full body, standing, legs, feet, full-length portrait, wide shot, environmental background, patterned background, gradient background, scenery, objects, shadows, textured background
               `;
 
               // Use user-configured model priority for image generation
@@ -1411,7 +1412,7 @@ export const App = () => {
               COMPOSITION:
               - Create a vertical layout with 3 views: Front View, Side View (profile), Back View
               - Full body standing pose, neutral expression
-              - Clean white or neutral background
+              - SOLID FLAT BACKGROUND - Plain solid color background ONLY (white, light gray, or black). NO patterns, NO gradients, NO environmental elements, NO scenery, NO objects, NO shadows on background, NO floor reflections, NO ground shadows
               - Each view should clearly show the character from the specified angle
 
               CRITICAL REQUIREMENTS:
@@ -1423,7 +1424,7 @@ export const App = () => {
 
               ${latestChar.expressionSheet ? 'REFERENCE IMAGE: Use the expression sheet as visual reference for face and clothing details.' : ''}
 
-              Negative Prompt: ${negativePrompt}, text, labels, writing, letters, watermark, signature, bad anatomy, deformed, low quality, chinese characters, english text, interface elements, stats, info boxes
+              Negative Prompt: ${negativePrompt}, text, labels, writing, letters, watermark, signature, bad anatomy, deformed, low quality, chinese characters, english text, interface elements, stats, info boxes, patterned background, gradient background, scenery, environmental background, shadows on background, textured background, floor, ground, reflection
               `;
 
               const inputImages = latestChar.expressionSheet ? [latestChar.expressionSheet] : [];
@@ -1552,13 +1553,14 @@ export const App = () => {
                       handleNodeUpdate(nodeId, { generatedCharacters: [...generated] });
                   }
               } else if (config.method === 'SUPPORTING_ROLE') {
-                  // Generate supporting character
-                  const { generateSupportingCharacter, generateImageFromText, detectTextInImage } = await import('./services/geminiService');
+                  // Generate supporting character profile only (no auto image generation)
+                  const { generateSupportingCharacter } = await import('./services/geminiService');
 
                   const profile = await generateSupportingCharacter(
                       charName,
                       context,
                       stylePrompt,
+                      node.data.model || getUserDefaultModel('text'),
                       { nodeId: nodeId, nodeType: node.type }
                   );
 
@@ -1566,83 +1568,19 @@ export const App = () => {
                   const existingChar = generated[idx];
                   generated[idx] = {
                       ...profile,
-                      // Preserve existing image data
+                      // Preserve existing image data (expressionSheet, threeViewSheet)
+                      expressionSheet: existingChar?.expressionSheet,
                       threeViewSheet: existingChar?.threeViewSheet,
-                      status: 'GENERATING' as const,
-                      roleType: 'supporting'
+                      status: 'SUCCESS' as const,
+                      roleType: 'supporting',
+                      isGeneratingExpression: false,
+                      isGeneratingThreeView: false
                   };
-                  handleNodeUpdate(nodeId, { generatedCharacters: [...generated] });
-
-                  // Auto-generate Three-View
-                  const negativePrompt = "nsfw, text, watermark, label, signature, bad anatomy, deformed, low quality, writing, letters, logo, interface, ui, username, website, chinese characters, info box, stats, descriptions, annotations";
-
-                  const viewPrompt = `
-                  ${stylePrompt}
-
-                  CHARACTER THREE-VIEW GENERATION TASK:
-                  Generate a character three-view reference sheet (front, side, back views).
-
-                  Character Description:
-                  ${profile.appearance}
-
-                  Attributes: ${profile.basicStats}
-
-                  COMPOSITION:
-                  - Create a vertical layout with 3 views: Front View, Side View (profile), Back View
-                  - Full body standing pose, neutral expression
-                  - Clean white or neutral background
-                  - Each view should clearly show the character from the specified angle
-
-                  CRITICAL REQUIREMENTS:
-                  1. CONSISTENT CHARACTER DESIGN - All three views must show the SAME character with consistent facial features, hair style, body proportions, and clothing
-                  2. NO TEXT, NO LABELS - Pure image only, no "Front View" or "Side View" text labels, no Chinese characters, no English text
-                  3. PROPER ANATOMY - Ensure correct body proportions and natural stance for each view angle
-                  4. NEUTRAL EXPRESSION - Use a calm, neutral face expression across all views
-                  5. CLEAR ALIGNMENT - Front, side, and back views should be vertically aligned and proportionally consistent
-
-                  Negative Prompt: ${negativePrompt}, text, labels, writing, letters, watermark, signature, bad anatomy, deformed, low quality, chinese characters, english text, interface elements, stats, info boxes
-                  `;
-
-                  let viewImages: string[] = [];
-                  let hasText = true;
-                  let attempt = 0;
-                  const MAX_ATTEMPTS = 3;
-
-                  while (hasText && attempt < MAX_ATTEMPTS) {
-                      if (attempt > 0) {
-                          const retryPrompt = viewPrompt + " NO TEXT. NO LABELS. CLEAR BACKGROUND.";
-                          viewImages = await generateImageFromText(
-                              retryPrompt,
-                              getUserDefaultModel('image'),
-                              [],
-                              { aspectRatio: '16:9', resolution: '2K', count: 1 },
-                              { nodeId: nodeId, nodeType: node.type }
-                          );
-                      } else {
-                          viewImages = await generateImageFromText(
-                              viewPrompt,
-                              getUserDefaultModel('image'),
-                              [],
-                              { aspectRatio: '16:9', resolution: '2K', count: 1 },
-                              { nodeId: nodeId, nodeType: node.type }
-                          );
-                      }
-
-                      if (viewImages.length > 0) {
-                          hasText = await detectTextInImage(viewImages[0]);
-                          if (hasText) {
-                              console.log(`[GENERATE_SINGLE] Text detected in supporting 3-view (Attempt ${attempt + 1}/${MAX_ATTEMPTS})`);
-                          }
-                      }
-                      attempt++;
-                  }
-
-                  const finalIdx = generated.findIndex(c => c.name === charName);
-                  generated[finalIdx] = {
-                      ...generated[finalIdx],
-                      threeViewSheet: viewImages[0],
-                      status: 'SUCCESS' as const
-                  };
+                  console.log('[GENERATE_SINGLE] Supporting character profile generated:', {
+                      name: charName,
+                      hasExpression: !!generated[idx].expressionSheet,
+                      hasThreeView: !!generated[idx].threeViewSheet
+                  });
                   handleNodeUpdate(nodeId, { generatedCharacters: [...generated] });
 
               } else {
@@ -1654,6 +1592,7 @@ export const App = () => {
                       context,
                       stylePrompt,
                       customDesc,
+                      node.data.model || getUserDefaultModel('text'),
                       { nodeId: nodeId, nodeType: node.type }
                   );
 
@@ -2300,6 +2239,13 @@ export const App = () => {
           } else if (node.type === NodeType.CHARACTER_NODE) {
               // --- Character Node Generation Logic ---
 
+              console.log('[CHARACTER_NODE] Starting character node processing:', {
+                  nodeId: id,
+                  hasExtractedNames: !!node.data.extractedCharacterNames,
+                  nameCount: node.data.extractedCharacterNames?.length || 0,
+                  inputCount: node.inputs.length
+              });
+
               // For character name extraction: Use ONLY direct inputs (not recursive)
               const directUpstreamTexts = inputs.map(n => {
                   if (n?.type === NodeType.PROMPT_INPUT) return n.data.prompt;
@@ -2339,7 +2285,8 @@ export const App = () => {
                   directTextCount: directUpstreamTexts.length,
                   recursiveTextCount: recursiveUpstreamTexts.length,
                   directLength: directUpstreamTexts.join('\n').length,
-                  recursiveLength: recursiveUpstreamTexts.join('\n').length
+                  recursiveLength: recursiveUpstreamTexts.join('\n').length,
+                  inputTypes: inputs.map(n => n?.type)
               });
 
               if (!node.data.extractedCharacterNames || node.data.extractedCharacterNames.length === 0) {
@@ -2438,99 +2385,26 @@ export const App = () => {
                               name,
                               context,
                               stylePrompt,
+                              node.data.model || getUserDefaultModel('text'),
                               { nodeId: id, nodeType: node.type }
                           );
 
                           const idx = newGeneratedChars.findIndex(c => c.name === name);
+                          // ✅ Phase 1 complete - only generate profile info, no images
                           const existingChar = newGeneratedChars[idx];
                           newGeneratedChars[idx] = {
                               ...profile,
                               // Preserve existing image data
+                              expressionSheet: existingChar?.expressionSheet,
                               threeViewSheet: existingChar?.threeViewSheet,
-                              status: 'GENERATING' as const,
-                              roleType: 'supporting'
-                          };
-                          handleNodeUpdate(id, { generatedCharacters: [...newGeneratedChars] });
-
-                          console.log('[CHARACTER_NODE] Supporting character profile generated, now generating three-view...');
-
-                          // Step 2: Auto-generate Three-View (no expression sheet for supporting chars)
-                          const negativePrompt = "nsfw, text, watermark, label, signature, bad anatomy, deformed, low quality, writing, letters, logo, interface, ui, username, website, chinese characters, info box, stats, descriptions, annotations";
-
-                          const viewPrompt = `
-                          ${stylePrompt}
-
-                          CHARACTER THREE-VIEW GENERATION TASK:
-                          Generate a character three-view reference sheet (front, side, back views).
-
-                          Character Description:
-                          ${profile.appearance}
-
-                          Attributes: ${profile.basicStats}
-
-                          COMPOSITION:
-                          - Create a vertical layout with 3 views: Front View, Side View (profile), Back View
-                          - Full body standing pose, neutral expression
-                          - Clean white or neutral background
-                          - Each view should clearly show the character from the specified angle
-
-                          CRITICAL REQUIREMENTS:
-                          1. CONSISTENT CHARACTER DESIGN - All three views must show the SAME character with consistent facial features, hair style, body proportions, and clothing
-                          2. NO TEXT, NO LABELS - Pure image only, no "Front View" or "Side View" text labels, no Chinese characters, no English text
-                          3. PROPER ANATOMY - Ensure correct body proportions and natural stance for each view angle
-                          4. NEUTRAL EXPRESSION - Use a calm, neutral face expression across all views
-                          5. CLEAR ALIGNMENT - Front, side, and back views should be vertically aligned and proportionally consistent
-
-                          Negative Prompt: ${negativePrompt}, text, labels, writing, letters, watermark, signature, bad anatomy, deformed, low quality, chinese characters, english text, interface elements, stats, info boxes
-                          `;
-
-                          let viewImages: string[] = [];
-                          let hasText = true;
-                          let attempt = 0;
-                          const MAX_ATTEMPTS = 3;
-
-                          while (hasText && attempt < MAX_ATTEMPTS) {
-                              if (attempt > 0) {
-                                  const retryPrompt = viewPrompt + " NO TEXT. NO LABELS. CLEAR BACKGROUND.";
-                                  viewImages = await generateImageFromText(
-                                      retryPrompt,
-                                      'gemini-2.0-flash-exp',
-                                      [],
-                                      { aspectRatio: '16:9', resolution: '2K', count: 1 },
-                                      { nodeId: id, nodeType: node.type }
-                                  );
-                              } else {
-                                  viewImages = await generateImageFromText(
-                                      viewPrompt,
-                                      'gemini-2.0-flash-exp',
-                                      [],
-                                      { aspectRatio: '16:9', resolution: '2K', count: 1 },
-                                      { nodeId: id, nodeType: node.type }
-                                  );
-                              }
-
-                              if (viewImages.length > 0) {
-                                  hasText = await detectTextInImage(viewImages[0]);
-                                  if (hasText) {
-                                      console.log(`Text detected in supporting character 3-view (Attempt ${attempt + 1}/${MAX_ATTEMPTS}). Retrying...`);
-                                  }
-                              }
-                              attempt++;
-                          }
-
-                          // Update with three-view
-                          const finalIdx = newGeneratedChars.findIndex(c => c.name === name);
-                          newGeneratedChars[finalIdx] = {
-                              ...newGeneratedChars[finalIdx],
-                              threeViewSheet: viewImages[0],
                               status: 'SUCCESS' as const,
-                              isGeneratingExpression: false, // Explicitly set
-                              isGeneratingThreeView: false  // Explicitly set
+                              roleType: 'supporting',
+                              isGeneratingExpression: false,
+                              isGeneratingThreeView: false
                           };
-
-                          console.log('[CHARACTER_NODE] Supporting character complete (profile + three-view):', {
+                          console.log('[CHARACTER_NODE] Supporting character profile generated successfully:', {
                               name,
-                              hasThreeView: !!viewImages[0],
+                              status: newGeneratedChars[idx].status,
                               roleType: 'supporting'
                           });
                       } catch (e: any) {
@@ -2549,6 +2423,7 @@ export const App = () => {
                               context,
                               stylePrompt,
                               customDesc,
+                              node.data.model || getUserDefaultModel('text'),
                               { nodeId: id, nodeType: node.type }
                           );
 
@@ -2583,6 +2458,31 @@ export const App = () => {
 
                   // Update after each character is processed (for real-time feedback)
                   handleNodeUpdate(id, { generatedCharacters: [...newGeneratedChars] });
+              }
+
+              // Check if any characters were processed
+              const anyProcessed = newGeneratedChars.some(c => c.status === 'GENERATING' || c.status === 'SUCCESS' || c.status === 'ERROR');
+              if (!anyProcessed && names.length > 0) {
+                  // All characters were skipped - they're already in SUCCESS state
+                  console.log('[CHARACTER_NODE] All characters already generated, no action needed');
+                  handleNodeUpdate(id, { generatedCharacters: [...newGeneratedChars] });
+                  setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.SUCCESS } : n));
+              } else if (names.length === 0) {
+                  // No characters to generate
+                  console.log('[CHARACTER_NODE] No characters to generate');
+                  setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.IDLE } : n));
+              } else {
+                  // Characters were processed - check if all completed successfully
+                  const allSuccess = newGeneratedChars.every(c => c.status === 'SUCCESS');
+                  const hasError = newGeneratedChars.some(c => c.status === 'ERROR');
+
+                  if (allSuccess) {
+                      console.log('[CHARACTER_NODE] All characters generated successfully');
+                      setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.SUCCESS } : n));
+                  } else if (hasError) {
+                      console.log('[CHARACTER_NODE] Some characters failed to generate');
+                      setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.ERROR } : n));
+                  }
               }
 
           } else if (node.type === NodeType.STYLE_PRESET) {
@@ -2797,7 +2697,7 @@ export const App = () => {
 
                           newNodes.forEach(async (n) => {
                                try {
-                                   const res = await generateImageFromText(n.data.prompt!, n.data.model!, inputImages, { aspectRatio: n.data.aspectRatio, resolution: n.data.resolution, count: 1 });
+                                   const res = await generateImageFromText(n.data.prompt!, getUserDefaultModel('image'), inputImages, { aspectRatio: n.data.aspectRatio, resolution: n.data.resolution, count: 1 });
                                    handleNodeUpdate(n.id, { image: res[0], images: res, status: NodeStatus.SUCCESS });
                                } catch (e: any) {
                                    handleNodeUpdate(n.id, { error: e.message, status: NodeStatus.ERROR });
@@ -2809,7 +2709,7 @@ export const App = () => {
                }
               const res = await generateImageFromText(
                   finalPrompt,
-                  node.data.model,
+                  getUserDefaultModel('image'),
                   inputImages,
                   { aspectRatio: node.data.aspectRatio || '16:9', resolution: node.data.resolution, count: node.data.imageCount },
                   { nodeId: id, nodeType: node.type }
@@ -2882,10 +2782,10 @@ export const App = () => {
               
               const processShotImage = async (shotIndex: number) => {
                   const shot = updatedShots[shotIndex];
-                  const stylePrompt = node.data.storyboardStyle === 'ANIME' 
+                  const stylePrompt = node.data.storyboardStyle === 'ANIME'
                       ? 'Anime style, Japanese animation, Studio Ghibli style, 2D, Cel shaded, vibrant colors.'
                       : node.data.storyboardStyle === '3D'
-                      ? '3D Animation style, Pixar style, C4D, Octane Render, Unreal Engine 5, high fidelity.'
+                      ? 'Photorealistic 3D render, highly realistic human characters, lifelike skin textures, natural subsurface scattering, realistic eyes with detailed iris, accurate anatomy, high-fidelity 3D modeling, Unreal Engine 5, MetaHuman, cinematic lighting, volumetric light ray, global illumination, screen space reflections, 8k resolution, photorealistic materials, detailed fabric textures, realistic hair strands, natural skin pores and imperfections, live action quality.'
                       : 'Cinematic Movie Still, Photorealistic, 8k, Live Action, highly detailed.';
 
                   const visualPrompt = `
@@ -3022,6 +2922,7 @@ export const App = () => {
 
               // Extract character reference images from upstream CHARACTER_NODE (for all cases)
               const characterReferenceImages: string[] = [];
+              const characterNames: string[] = [];  // Track character names for prompt
               const characterNode = inputs.find(n => n.type === NodeType.CHARACTER_NODE);
 
               if (characterNode?.data.generatedCharacters) {
@@ -3032,12 +2933,17 @@ export const App = () => {
                       } else if (char.expressionSheet) {
                           characterReferenceImages.push(char.expressionSheet);
                       }
+                      // Collect character names
+                      if (char.name) {
+                          characterNames.push(char.name);
+                      }
                   });
 
                   console.log('[STORYBOARD_IMAGE] Character references:', {
                       characterCount: characters.length,
                       referenceImageCount: characterReferenceImages.length,
-                      characterNames: characters.map(c => c.name)
+                      characterNames: characterNames,
+                      hasReferences: characterReferenceImages.length > 0
                   });
               }
 
@@ -3115,6 +3021,51 @@ export const App = () => {
                       return `Panel ${idx + 1}: ${shotPrompt}`;
                   }).join('\n\n');
 
+                  // Extract unique scenes and build scene consistency guide
+                  const sceneGroups = new Map<string, { indices: number[], descriptions: string[] }>();
+                  pageShots.forEach((shot, idx) => {
+                      if (!shot.isEmpty && shot.scene) {
+                          if (!sceneGroups.has(shot.scene)) {
+                              sceneGroups.set(shot.scene, { indices: [], descriptions: [] });
+                          }
+                          const group = sceneGroups.get(shot.scene)!;
+                          group.indices.push(idx + 1); // 1-based panel number
+                          if (shot.visualDescription) {
+                              group.descriptions.push(shot.visualDescription);
+                          }
+                      }
+                  });
+
+                  // Build scene consistency section
+                  let sceneConsistencySection = '';
+                  if (sceneGroups.size > 0) {
+                      const sceneEntries = Array.from(sceneGroups.entries()).map(([sceneName, data]) => {
+                          const panelList = data.indices.join(', ');
+                          const combinedDesc = data.descriptions.join(' ');
+                          // Truncate if too long
+                          const descSummary = combinedDesc.length > 150
+                              ? combinedDesc.substring(0, 150) + '...'
+                              : combinedDesc;
+
+                          return `- Scene "${sceneName}" (Panels ${panelList}): ${descSummary}`;
+                      }).join('\n');
+
+                      sceneConsistencySection = `
+SCENE CONSISTENCY REQUIREMENTS:
+CRITICAL: Panels belonging to the same scene MUST maintain perfect visual consistency:
+${sceneEntries}
+
+For each scene above:
+- Environment style, architecture, and props must be IDENTICAL across all panels of that scene
+- Lighting quality, color temperature, and shadow direction must be CONSISTENT within the same scene
+- Atmosphere, mood, and environmental effects must match across panels of the same scene
+- Background elements, textures, and materials must be the same for the same scene
+- Time of day and weather conditions must be consistent within each scene
+
+This ensures visual continuity - multiple panels showing the same scene should look like different camera angles of the SAME location, not different places.
+`;
+                  }
+
                   // Calculate correct output aspect ratio and resolution based on grid type
                   let outputAspectRatio: string;
                   let resolutionWidth: number;
@@ -3183,7 +3134,27 @@ CRITICAL NEGATIVE CONSTRAINTS (MUST FOLLOW):
 
 ${stylePrefix ? `ART STYLE: ${stylePrefix}\n` : ''}
 
-${characterReferenceImages.length > 0 ? `CHARACTER CONSISTENCY: Use provided reference images to ensure ALL characters look EXACTLY THE SAME across all panels - same face, hair, clothes, body proportions, and style. Maintain visual consistency rigorously.\n` : ''}
+${characterReferenceImages.length > 0 ? `CHARACTER CONSISTENCY (CRITICAL):
+⚠️ MANDATORY: You MUST use the provided character reference images as the ONLY source of truth for character appearance.
+
+Characters in this storyboard: ${characterNames.length > 0 ? characterNames.join(', ') : 'See reference images'}
+Number of character references provided: ${characterReferenceImages.length}
+
+REQUIREMENTS:
+- ALL characters in EVERY panel must look EXACTLY THE SAME as in the reference images
+- Face: SAME facial features, eye shape, nose, mouth, skin tone, expression style
+- Hair: IDENTICAL hairstyle, hair color, hair texture, hair length
+- Body: SAME body proportions, height, build, posture
+- Clothing: EXACT SAME clothes, accessories, shoes, colors, fabrics
+- Skin: IDENTICAL skin texture, skin tone, skin quality
+- ZERO tolerance for character appearance changes across panels
+- DO NOT generate random or different-looking characters
+- Treat these reference images as sacred - match them PERFECTLY in every detail
+
+This is NON-NEGOTIABLE: Character consistency across all panels is mandatory.
+` : ''}
+
+${sceneConsistencySection}
 
 PANEL BREAKDOWN (each panel MUST be visually distinct):
 ${panelDescriptions}
@@ -3200,24 +3171,42 @@ COMPOSITION REQUIREMENTS:
                   console.log(`[STORYBOARD_IMAGE] Generating page ${pageIndex + 1}/${numberOfPages}:`, {
                       shotRange: `${startIdx + 1}-${endIdx}`,
                       promptLength: gridPrompt.length,
-                      aspectRatio: outputAspectRatio
+                      aspectRatio: outputAspectRatio,
+                      sceneGroups: Array.from(sceneGroups.entries()).map(([scene, data]) => ({
+                          scene,
+                          panelCount: data.indices.length,
+                          panels: data.indices
+                      })),
+                      characterReferences: {
+                          count: characterReferenceImages.length,
+                          names: characterNames,
+                          hasReferences: characterReferenceImages.length > 0
+                      }
                   });
 
                   try {
                       // Use user-configured model priority with fallback
                       console.log(`[STORYBOARD_IMAGE] Generating page ${pageIndex + 1}/${numberOfPages} with model: ${primaryImageModel}`);
 
-                      const imgs = await generateImageWithFallback(
-                          gridPrompt,
-                          primaryImageModel,
-                          characterReferenceImages,
-                          {
-                              aspectRatio: outputAspectRatio,
-                              resolution: "2K",
-                              count: 1
-                          },
-                          { nodeId: id, nodeType: node.type }
-                      );
+                      // Add timeout wrapper (5 minutes per page)
+                      const timeoutPromise = new Promise<never>((_, reject) => {
+                          setTimeout(() => reject(new Error('页面生成超时（5分钟）')), 5 * 60 * 1000);
+                      });
+
+                      const imgs = await Promise.race([
+                          generateImageWithFallback(
+                              gridPrompt,
+                              primaryImageModel,
+                              characterReferenceImages,
+                              {
+                                  aspectRatio: outputAspectRatio,
+                                  resolution: "2K",
+                                  count: 1
+                              },
+                              { nodeId: id, nodeType: node.type }
+                          ),
+                          timeoutPromise
+                      ]);
 
                       if (imgs && imgs.length > 0) {
                           console.log(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generated successfully`);
@@ -3301,6 +3290,13 @@ COMPOSITION REQUIREMENTS:
                       totalPagesGenerated: generatedGrids.length,
                       success: generatedGrids.length === numberOfPages
                   });
+
+                  // Warn if some pages failed
+                  if (generatedGrids.length > 0 && generatedGrids.length < numberOfPages) {
+                      const failedPages = numberOfPages - generatedGrids.length;
+                      console.warn(`[STORYBOARD_IMAGE] ${failedPages} page(s) failed to generate. ${generatedGrids.length} page(s) succeeded.`);
+                      // Note: We still proceed with the successful pages
+                  }
 
                   if (generatedGrids.length === 0) {
                       throw new Error("分镜图生成失败，请重试");
