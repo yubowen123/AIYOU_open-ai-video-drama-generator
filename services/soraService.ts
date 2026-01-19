@@ -400,7 +400,9 @@ export async function generateSoraVideo(
       };
     } else if (result.status === 'error') {
       taskGroup.generationStatus = 'failed';
-      taskGroup.error = '生成失败，请重试';
+      // 使用具体的错误原因
+      const errorReason = result.violationReason || result.quality || '生成失败，请重试';
+      taskGroup.error = `生成失败: ${errorReason}`;
     }
 
     return result;

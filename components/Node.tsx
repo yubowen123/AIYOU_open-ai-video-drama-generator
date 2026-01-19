@@ -2312,9 +2312,16 @@ const NodeComponent: React.FC<NodeProps> = ({
                                                   </span>
                                               )}
                                               {tg.generationStatus === 'failed' && (
-                                                  <span className="px-2 py-0.5 bg-red-500/20 text-red-300 text-[9px] rounded-full font-medium">
-                                                      失败
-                                                  </span>
+                                                  <div className="flex flex-col gap-1">
+                                                      <span className="px-2 py-0.5 bg-red-500/20 text-red-300 text-[9px] rounded-full font-medium">
+                                                          失败
+                                                      </span>
+                                                      {tg.error && (
+                                                          <span className="text-[8px] text-red-400 max-w-[150px] truncate" title={tg.error}>
+                                                              {tg.error}
+                                                          </span>
+                                                      )}
+                                                  </div>
                                               )}
                                           </div>
                                       </div>
