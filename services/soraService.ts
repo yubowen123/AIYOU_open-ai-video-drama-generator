@@ -1,36 +1,19 @@
 /**
  * Sora 2 API 服务
  * 封装 Sora 2 文/图生视频 API 调用
+ * 支持多个 API 提供商（速推、云雾等）
  */
 
 import { SoraTaskGroup, SplitStoryboardShot, Sora2UserConfig } from '../types';
-import { getSoraApiKey, getSoraModelById, getOSSConfig, DEFAULT_SORA2_CONFIG } from './soraConfigService';
+import { getSoraModelById, getOSSConfig, DEFAULT_SORA2_CONFIG, getSoraProvider, getProviderApiKey } from './soraConfigService';
 import { getUserDefaultModel } from './modelConfig';
 import { logAPICall } from './apiLogger';
 import { uploadFileToOSS } from './ossService';
+import { getProvider } from './soraProviders';
+import type { SoraSubmitResult, SoraVideoResult, SoraSubmitParams, CallContext } from './soraProviders/types';
 
-export interface SoraSubmitResult {
-  id: string;
-  task_id?: string;  // 支持新 API 的字段名
-  object: string;
-  model: string;
-  status: string;
-  progress: number;
-  createdAt: number;
-  size: string;
-}
-
-export interface SoraVideoResult {
-  taskId: string;
-  status: 'queued' | 'processing' | 'completed' | 'error';
-  progress: number;
-  videoUrl?: string; // 无水印视频
-  videoUrlWatermarked?: string; // 有水印视频
-  duration?: string;
-  quality: string;
-  isCompliant: boolean;
-  violationReason?: string;
-}
+// 重新导出类型供外部使用
+export type { SoraSubmitResult, SoraVideoResult } from './soraProviders';
 
 /**
  * 构建 Sora 2 分镜模式提示词
@@ -47,31 +30,8 @@ Scene: ${scene}`;
 }
 
 /**
- * 使用 AI 生成增强的 Sora 2 提示词
- * 包含镜头、运镜、拍摄视角等专业影视术语
- */
-
-/**
- * 从 API 响应中提取任务 ID（兼容多种格式）
- */
-function extractTaskId(result: any): string {
-  // 直接的 id 字段
-  if (result.id) return result.id;
-  // task_id 字段
-  if (result.task_id) return result.task_id;
-  // 嵌套在 data 中
-  if (result.data?.id) return result.data.id;
-  if (result.data?.task_id) return result.data.task_id;
-  // 嵌套在 result 中
-  if (result.result?.id) return result.result.id;
-  if (result.result?.task_id) return result.result.task_id;
-
-  throw new Error('无法从 API 响应中提取任务 ID: ' + JSON.stringify(result));
-}
-
-/**
  * 提交 Sora 2 视频生成任务
- * 使用新的 /v2/videos/generations 接口
+ * 自动使用当前选择的 API 提供商
  */
 export async function submitSoraTask(
   soraPrompt: string,
@@ -79,64 +39,43 @@ export async function submitSoraTask(
   sora2Config?: { aspect_ratio: '16:9' | '9:16'; duration: '10' | '15' | '25'; hd: boolean },
   context?: { nodeId?: string; nodeType?: string }
 ): Promise<SoraSubmitResult> {
-  const apiKey = getSoraApiKey();
+  // 获取当前选择的提供商
+  const providerName = getSoraProvider();
+  const apiKey = getProviderApiKey();
+
   if (!apiKey) {
-    throw new Error('请先在设置中配置 Sora 2 API Key');
+    const providerDisplay = providerName === 'sutu' ? '速推' : '云雾';
+    throw new Error(`请先在设置中配置 ${providerDisplay} API Key`);
   }
 
-  // 使用 Sora2 配置或默认值
-  const config = sora2Config || DEFAULT_SORA2_CONFIG;
+  // 获取提供商实例
+  const provider = getProvider(providerName);
 
-  const requestBody = {
+  // 构建提交参数
+  const params: SoraSubmitParams = {
     prompt: soraPrompt,
-    model: 'sora-2',
-    images: referenceImageUrl ? [referenceImageUrl] : [],
-    aspect_ratio: config.aspect_ratio,
-    duration: config.duration,
-    hd: config.hd,
-    watermark: true,
-    private: true
+    referenceImageUrl,
+    config: sora2Config || DEFAULT_SORA2_CONFIG,
   };
 
+  console.log(`[SoraService] 使用 ${provider.displayName} 提交任务`, {
+    provider: providerName,
+    hasReferenceImage: !!referenceImageUrl,
+    config: params.config,
+  });
+
+  // 调用提供商的提交方法
   return logAPICall(
     'submitSoraTask',
-    async () => {
-      // 使用本地代理服务器绕过 CORS
-      const apiUrl = 'http://localhost:3001/api/sora/generations';
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'X-API-Key': apiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Sora API 错误: ${response.status} - ${errorText}`);
-      }
-
-      const result: SoraSubmitResult = await response.json();
-
-      // 验证并提取任务 ID
-      const taskId = extractTaskId(result);
-      console.log('[Sora Service] 提交成功，任务 ID:', taskId);
-
-      // 确保 id 字段存在
-      if (!result.id) {
-        result.id = taskId;
-      }
-
-      return result;
-    },
+    () => provider.submitTask(params, apiKey, context),
     {
-      aspectRatio: config.aspect_ratio,
-      duration: config.duration,
-      hd: config.hd,
+      provider: providerName,
+      aspectRatio: params.config.aspect_ratio,
+      duration: params.config.duration,
+      hd: params.config.hd,
       hasReferenceImage: !!referenceImageUrl,
       promptLength: soraPrompt.length,
-      promptPreview: soraPrompt.substring(0, 200) + (soraPrompt.length > 200 ? '...' : '')
+      promptPreview: soraPrompt.substring(0, 200) + (soraPrompt.length > 200 ? '...' : ''),
     },
     context
   );
@@ -144,99 +83,38 @@ export async function submitSoraTask(
 
 /**
  * 查询 Sora 任务进度
- * 使用新的 /v2/videos/generations/{task_id} 接口
+ * 自动使用当前选择的 API 提供商
  */
 export async function checkSoraTaskStatus(
   taskId: string,
   onProgress?: (progress: number) => void,
   context?: { nodeId?: string; nodeType?: string }
 ): Promise<SoraVideoResult> {
-  const apiKey = getSoraApiKey();
+  // 获取当前选择的提供商
+  const providerName = getSoraProvider();
+  const apiKey = getProviderApiKey();
+
   if (!apiKey) {
-    throw new Error('请先在设置中配置 Sora 2 API Key');
+    const providerDisplay = providerName === 'sutu' ? '速推' : '云雾';
+    throw new Error(`请先在设置中配置 ${providerDisplay} API Key`);
   }
 
+  // 获取提供商实例
+  const provider = getProvider(providerName);
+
+  console.log(`[SoraService] 使用 ${provider.displayName} 查询任务`, {
+    provider: providerName,
+    taskId,
+  });
+
+  // 调用提供商的查询方法
   return logAPICall(
     'checkSoraTaskStatus',
-    async () => {
-      // 使用本地代理服务器绕过 CORS
-      const apiUrl = `http://localhost:3001/api/sora/generations/${taskId}`;
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'X-API-Key': apiKey,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Sora API 错误: ${response.status} - ${errorText}`);
-      }
-
-      const data: any = await response.json();
-
-      // 添加详细日志
-      const progressNum = parseInt(String(data.progress)) || 0;
-      console.log('[Sora Service] API Response:', {
-        taskId,
-        status: data.status,
-        progress: data.progress,
-        progressNum: progressNum,
-        hasOutput: !!data.output,
-        hasUrl: !!data.url,
-        hasVideoUrl: !!data.video_url,
-        // 打印所有可能的视频 URL 字段
-        allFields: Object.keys(data),
-        urlField: data.url,
-        videoUrlField: data.video_url,
-        outputUrl: data.output?.url,
-        rawData: JSON.stringify(data).substring(0, 800)
-      });
-
-      // 更新进度
-      if (onProgress && data.progress !== undefined) {
-        onProgress(data.progress);
-      }
-
-      // 检查是否违规（quality 字段：standard=正常，其他值=违规说明或错误原因）
-      const isCompliant = data.quality === 'standard';
-      const violationReason = isCompliant ? undefined : (data.quality || '内容审核未通过');
-
-      // 处理错误状态（重试6次后仍失败，quality 包含具体错误原因）
-      if (data.status === 'error') {
-        return {
-          taskId: data.id,
-          status: 'error',
-          progress: data.progress || 0,
-          videoUrl: undefined,
-          videoUrlWatermarked: undefined,
-          duration: undefined,
-          quality: data.quality || 'unknown',
-          isCompliant: false,
-          violationReason: violationReason || '视频生成失败，系统重试6次后仍未成功'
-        };
-      }
-
-      // 正常状态处理 - 支持多种可能的响应格式
-      return {
-        taskId: data.id || data.task_id,
-        status: data.status,
-        progress: progressNum,
-        // 新 API: data.output 包含视频 URL
-        videoUrl: data.data?.output || data.output?.url || data.output || data.url || data.video_url || data.result?.url || data.video?.url,
-        videoUrlWatermarked: data.data?.watermark_output || data.output?.watermark_url || data.watermark_url || data.watermarked_url || data.watermark?.url,
-        duration: data.data?.duration || data.output?.duration || data.seconds || data.duration || data.video?.duration,
-        quality: data.quality || 'standard',
-        isCompliant: isCompliant,
-        violationReason: violationReason,
-        // 保存原始数据以便调试
-        _rawData: data
-      };
-    },
+    () => provider.checkStatus(taskId, apiKey, onProgress, context),
     {
+      provider: providerName,
       taskId,
-      hasProgressCallback: !!onProgress
+      hasProgressCallback: !!onProgress,
     },
     context
   );

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试云雾 API</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Mono', 'Droid Sans Mono', 'Source Code Pro', monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            border: 1px solid #3a3a3a;
+        }
+        h1 { color: #4fc3f7; }
+        h2 { color: #81c784; margin-top: 0; }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background: #1a1a1a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            color: #fff;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 12px 24px;
+            margin: 5px;
+            cursor: pointer;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button:hover { background: #1976d2; }
+        button:disabled { background: #555; cursor: not-allowed; }
+        pre {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border-left: 3px solid #4caf50;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+        .success { color: #4caf50; }
+        .error { color: #f44336; }
+        .info { color: #2196f3; }
+        .warning { color: #ff9800; }
+        .label {
+            display: inline-block;
+            min-width: 120px;
+            color: #aaa;
+        }
+        .value {
+            color: #fff;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-badge.success { background: #4caf50; }
+        .status-badge.error { background: #f44336; }
+        .status-badge.pending { background: #ff9800; }
+    </style>
+</head>
+<body>
+    <h1>🧪 云雾 API 测试工具</h1>
+    <p>直接测试云雾 API 连接和功能</p>
+
+    <div class="section">
+        <h2>1. API 配置</h2>
+        <label>
+            <span class="label">API Key:</span>
+            <input type="text" id="apiKey" placeholder="sk-..." />
+        </label>
+        <button onclick="saveApiKey()">保存 API Key</button>
+        <button onclick="clearApiKey()">清除</button>
+        <p id="apiKeyStatus" class="info"></p>
+    </div>
+
+    <div class="section">
+        <h2>2. 测试提交任务</h2>
+        <label>
+            <span class="label">提示词 (Prompt):</span>
+            <textarea id="prompt" rows="3">一只可爱的小猫咪在花园里玩耍，阳光明媚，花开满园</textarea>
+        </label>
+        <br>
+        <label>
+            <span class="label">方向:</span>
+            <select id="orientation">
+                <option value="landscape">横向 (16:9)</option>
+                <option value="portrait">纵向 (9:16)</option>
+            </select>
+        </label>
+        <br>
+        <label>
+            <span class="label">时长:</span>
+            <select id="duration">
+                <option value="10">10秒</option>
+                <option value="15" selected>15秒</option>
+                <option value="25">25秒</option>
+            </select>
+        </label>
+        <br>
+        <label>
+            <span class="label">尺寸:</span>
+            <select id="size">
+                <option value="medium">标准 (medium)</option>
+                <option value="large">高清 (large)</option>
+            </select>
+        </label>
+        <br>
+        <button onclick="testSubmitTask()" id="submitBtn">测试提交任务</button>
+        <pre id="submitResult"></pre>
+    </div>
+
+    <div class="section">
+        <h2>3. 测试查询任务</h2>
+        <label>
+            <span class="label">任务 ID:</span>
+            <input type="text" id="taskId" placeholder="sora-2:task_..." />
+        </label>
+        <button onclick="testQueryTask()" id="queryBtn">测试查询任务</button>
+        <pre id="queryResult"></pre>
+    </div>
+
+    <div class="section">
+        <h2>4. 日志</h2>
+        <button onclick="clearLogs()">清除日志</button>
+        <pre id="logs"></pre>
+    </div>
+
+    <script>
+        const API_KEY_KEY = 'yunwu_test_api_key';
+        const YUNWU_API_BASE = 'https://yunwu.ai/v1';
+
+        // 页面加载时恢复 API Key
+        window.onload = function() {
+            const savedKey = localStorage.getItem(API_KEY_KEY);
+            if (savedKey) {
+                document.getElementById('apiKey').value = savedKey;
+                updateApiKeyStatus(true);
+            }
+        };
+
+        function saveApiKey() {
+            const key = document.getElementById('apiKey').value.trim();
+            if (!key) {
+                alert('请输入 API Key');
+                return;
+            }
+            localStorage.setItem(API_KEY_KEY, key);
+            updateApiKeyStatus(true);
+            addLog('✅ API Key 已保存', 'success');
+        }
+
+        function clearApiKey() {
+            localStorage.removeItem(API_KEY_KEY);
+            document.getElementById('apiKey').value = '';
+            updateApiKeyStatus(false);
+            addLog('🗑️ API Key 已清除', 'info');
+        }
+
+        function updateApiKeyStatus(hasKey) {
+            const status = document.getElementById('apiKeyStatus');
+            if (hasKey) {
+                const key = localStorage.getItem(API_KEY_KEY);
+                status.innerHTML = `✅ 已配置 (前10位: ${key.substring(0, 10)}...)`;
+                status.className = 'success';
+            } else {
+                status.innerHTML = '❌ 未配置';
+                status.className = 'error';
+            }
+        }
+
+        function getApiKey() {
+            return localStorage.getItem(API_KEY_KEY);
+        }
+
+        async function testSubmitTask() {
+            const apiKey = getApiKey();
+            if (!apiKey) {
+                alert('请先保存 API Key');
+                return;
+            }
+
+            const prompt = document.getElementById('prompt').value.trim();
+            if (!prompt) {
+                alert('请输入提示词');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitBtn');
+            const resultDiv = document.getElementById('submitResult');
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = '提交中...';
+            resultDiv.innerHTML = '<div class="info">⏳ 正在提交任务...</div>';
+
+            try {
+                const requestBody = {
+                    prompt: prompt,
+                    model: 'sora-2',
+                    orientation: document.getElementById('orientation').value,
+                    duration: parseInt(document.getElementById('duration').value),
+                    size: document.getElementById('size').value,
+                    watermark: false,
+                    images: []
+                };
+
+                addLog(`📤 发送请求到: ${YUNWU_API_BASE}/video/create`, 'info');
+                addLog(`📋 请求体: ${JSON.stringify(requestBody, null, 2)}`, 'info');
+
+                const response = await fetch(`${YUNWU_API_BASE}/video/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const responseText = await response.text();
+                addLog(`📥 响应状态: ${response.status} ${response.statusText}`, 'info');
+                addLog(`📥 响应内容: ${responseText.substring(0, 500)}`, response.ok ? 'success' : 'error');
+
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(`无法解析响应 JSON: ${e.message}`);
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || '请求失败');
+                }
+
+                resultDiv.innerHTML = `<div class="success">✅ 提交成功!</div>\n\n` +
+                    `<div><span class="label">任务 ID:</span><span class="value">${data.id}</span></div>\n` +
+                    `<div><span class="label">状态:</span><span class="value">${data.status}</span></div>\n` +
+                    `<div><span class="label">更新时间:</span><span class="value">${new Date(data.status_update_time).toLocaleString()}</span></div>\n\n` +
+                    `完整响应:\n${JSON.stringify(data, null, 2)}`;
+
+                // 自动填充任务 ID
+                document.getElementById('taskId').value = data.id;
+                addLog(`✅ 任务提交成功，ID: ${data.id}`, 'success');
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 错误: ${error.message}</div>\n\n` +
+                    `请检查:\n` +
+                    `1. API Key 是否正确\n` +
+                    `2. API Key 是否有访问 sora-2 模型的权限\n` +
+                    `3. 网络连接是否正常\n` +
+                    `4. 账户余额是否充足`;
+                addLog(`❌ 提交失败: ${error.message}`, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = '测试提交任务';
+            }
+        }
+
+        async function testQueryTask() {
+            const apiKey = getApiKey();
+            if (!apiKey) {
+                alert('请先保存 API Key');
+                return;
+            }
+
+            const taskId = document.getElementById('taskId').value.trim();
+            if (!taskId) {
+                alert('请输入任务 ID');
+                return;
+            }
+
+            const queryBtn = document.getElementById('queryBtn');
+            const resultDiv = document.getElementById('queryResult');
+
+            queryBtn.disabled = true;
+            queryBtn.textContent = '查询中...';
+            resultDiv.innerHTML = '<div class="info">⏳ 正在查询任务...</div>';
+
+            try {
+                addLog(`📤 发送查询请求: ${YUNWU_API_BASE}/video/query?id=${taskId}`, 'info');
+
+                const response = await fetch(`${YUNWU_API_BASE}/video/query?id=${encodeURIComponent(taskId)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const responseText = await response.text();
+                addLog(`📥 响应状态: ${response.status} ${response.statusText}`, 'info');
+                addLog(`📥 响应内容: ${responseText.substring(0, 500)}`, response.ok ? 'success' : 'error');
+
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(`无法解析响应 JSON: ${e.message}`);
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || '查询失败');
+                }
+
+                const detail = data.detail || {};
+                const progress = detail.progress_pct || 0;
+                const status = detail.status || 'unknown';
+
+                let statusClass = 'pending';
+                if (status === 'succeeded' || status === 'completed') statusClass = 'success';
+                if (status === 'failed' || status === 'error') statusClass = 'error';
+
+                resultDiv.innerHTML = `<div><span class="label">任务 ID:</span><span class="value">${data.id}</span></div>\n` +
+                    `<div><span class="label">状态:</span><span class="status-badge ${statusClass}">${status}</span></div>\n` +
+                    `<div><span class="label">进度:</span><span class="value">${progress}%</span></div>\n` +
+                    `<div><span class="label">生成数量:</span><span class="value">${detail.generations?.length || 0}</span></div>\n\n` +
+                    `完整响应:\n${JSON.stringify(data, null, 2)}`;
+
+                addLog(`✅ 查询成功: ${status}, 进度 ${progress}%`, 'success');
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 错误: ${error.message}</div>`;
+                addLog(`❌ 查询失败: ${error.message}`, 'error');
+            } finally {
+                queryBtn.disabled = false;
+                queryBtn.textContent = '测试查询任务';
+            }
+        }
+
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logLine = `<div class="${type}">[${timestamp}] ${message}</div>`;
+            logsDiv.innerHTML = logLine + logsDiv.innerHTML;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            addLog('🗑️ 日志已清除', 'info');
+        }
+    </script>
+</body>
+</html>

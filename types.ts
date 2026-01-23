@@ -329,7 +329,17 @@ export interface SoraTaskGroup {
 }
 
 export interface SoraStorageConfig {
+  // 通用 API Key（向后兼容，主要用于速推 API）
   apiKey?: string;
+
+  // API 提供商选择
+  provider?: 'sutu' | 'yunwu';
+
+  // 速推 API Key（独立字段，与 apiKey 共享值）
+  sutuApiKey?: string;
+
+  // 云雾 API Key
+  yunwuApiKey?: string;
 }
 
 export interface OSSConfig {

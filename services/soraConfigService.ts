@@ -4,10 +4,14 @@
  */
 
 import { SoraStorageConfig, OSSConfig, SoraModel } from '../types';
+import { SoraProviderType } from './soraProviders';
 
 const SORA_CONFIG_KEY = 'sora_storage_config';
 const OSS_CONFIG_KEY = 'sora_oss_config';
 const SORA_MODELS_KEY = 'sora_models';
+
+// API 提供商类型
+export type { SoraProviderType } from './soraProviders';
 
 // ✅ 官方模型列表（从 Yi 官网配置中心获取）
 // 测试时间: 2025-01-14
@@ -205,23 +209,6 @@ export function saveOSSConfig(config: OSSConfig): void {
 }
 
 /**
- * 获取 Sora API Key
- */
-export function getSoraApiKey(): string | undefined {
-  const config = getSoraStorageConfig();
-  return config.apiKey;
-}
-
-/**
- * 保存 Sora API Key
- */
-export function saveSoraApiKey(apiKey: string): void {
-  const config = getSoraStorageConfig();
-  config.apiKey = apiKey;
-  saveSoraStorageConfig(config);
-}
-
-/**
  * 获取 Sora 模型列表
  */
 export function getSoraModels(): SoraModel[] {
@@ -264,3 +251,98 @@ export const DEFAULT_SORA2_CONFIG = {
   duration: '10' as const,
   hd: true
 } as const;
+
+// ============================================================
+// API 提供商配置
+// ============================================================
+
+/**
+ * 获取当前选择的 API 提供商
+ * @returns 提供商名称，默认为 'sutu'
+ */
+export function getSoraProvider(): SoraProviderType {
+  const config = getSoraStorageConfig();
+  return (config.provider as SoraProviderType) || 'sutu';
+}
+
+/**
+ * 保存 API 提供商选择
+ * @param provider 提供商名称
+ */
+export function saveSoraProvider(provider: SoraProviderType): void {
+  const config = getSoraStorageConfig();
+  config.provider = provider;
+  saveSoraStorageConfig(config);
+  console.log('[SoraConfig] API 提供商已切换为:', provider);
+}
+
+/**
+ * 获取当前提供商的 API Key
+ * @returns API Key，如果未配置则返回 null
+ */
+export function getProviderApiKey(): string | null {
+  const provider = getSoraProvider();
+  const config = getSoraStorageConfig();
+
+  if (provider === 'sutu') {
+    // 速推 API 使用原有的 apiKey 字段（向后兼容）
+    return config.apiKey || config.sutuApiKey || null;
+  } else if (provider === 'yunwu') {
+    // 云雾 API 使用独立的 yunwuApiKey 字段
+    return config.yunwuApiKey || null;
+  }
+
+  return null;
+}
+
+/**
+ * 保存提供商的 API Key
+ * @param provider 提供商名称
+ * @param apiKey API Key
+ */
+export function saveProviderApiKey(provider: SoraProviderType, apiKey: string): void {
+  const config = getSoraStorageConfig();
+
+  if (provider === 'sutu') {
+    // 速推 API 同时保存到 apiKey（向后兼容）和 sutuApiKey
+    config.apiKey = apiKey;
+    config.sutuApiKey = apiKey;
+  } else if (provider === 'yunwu') {
+    config.yunwuApiKey = apiKey;
+  }
+
+  saveSoraStorageConfig(config);
+  console.log(`[SoraConfig] ${provider} API Key 已保存`);
+}
+
+/**
+ * 获取速推 API Key
+ * @deprecated 使用 getProviderApiKey() 代替
+ */
+export function getSoraApiKey(): string | undefined {
+  const config = getSoraStorageConfig();
+  return config.apiKey;
+}
+
+/**
+ * 保存速推 API Key
+ * @deprecated 使用 saveProviderApiKey('sutu', apiKey) 代替
+ */
+export function saveSoraApiKey(apiKey: string): void {
+  saveProviderApiKey('sutu', apiKey);
+}
+
+/**
+ * 获取云雾 API Key
+ */
+export function getYunwuApiKey(): string | null {
+  const config = getSoraStorageConfig();
+  return config.yunwuApiKey || null;
+}
+
+/**
+ * 保存云雾 API Key
+ */
+export function saveYunwuApiKey(apiKey: string): void {
+  saveProviderApiKey('yunwu', apiKey);
+}

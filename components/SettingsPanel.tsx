@@ -18,9 +18,12 @@ import {
   resetModelStats
 } from '../services/modelFallback';
 import { StorageSettingsPanel } from './StorageSettingsPanel';
-import { getSoraStorageConfig, saveSoraStorageConfig, getOSSConfig, saveOSSConfig, DEFAULT_SORA_MODELS } from '../services/soraConfigService';
+import { getSoraStorageConfig, saveSoraStorageConfig, getOSSConfig, saveOSSConfig, DEFAULT_SORA_MODELS, getSoraProvider, saveSoraProvider, getYunwuApiKey } from '../services/soraConfigService';
 import { testOSSConnection } from '../services/ossService';
 import { OSSConfig } from '../types';
+
+// API 提供商类型
+type SoraProviderType = 'sutu' | 'yunwu';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -60,7 +63,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
   const [isSaved, setIsSaved] = useState(false);
 
   // Sora 配置 state
+  const [soraProvider, setSoraProviderState] = useState<SoraProviderType>('sutu');
   const [soraApiKey, setSoraApiKey] = useState('');
+  const [yunwuApiKey, setYunwuApiKey] = useState('');
   const [ossConfig, setOssConfig] = useState<OSSConfig>({
     provider: 'imgbb',
     imgbbApiKey: '',
@@ -71,6 +76,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
     secretKey: ''
   });
   const [showSoraApiKey, setShowSoraApiKey] = useState(false);
+  const [showYunwuApiKey, setShowYunwuApiKey] = useState(false);
   const [showOssHelp, setShowOssHelp] = useState(false);
 
   // OSS 测试状态
@@ -138,6 +144,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
     const savedSoraConfig = getSoraStorageConfig();
     if (savedSoraConfig?.apiKey) {
       setSoraApiKey(savedSoraConfig.apiKey);
+    }
+
+    // 加载 API 提供商
+    const savedProvider = getSoraProvider();
+    setSoraProviderState(savedProvider);
+
+    // 加载云雾 API Key
+    const savedYunwuKey = getYunwuApiKey();
+    if (savedYunwuKey) {
+      setYunwuApiKey(savedYunwuKey);
     }
 
     // 加载 OSS 配置
@@ -223,10 +239,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
   // 保存 Sora 配置
   const handleSaveSoraConfig = () => {
     const savedConfig = getSoraStorageConfig();
+
+    // 一次性保存所有配置（包括 provider），避免覆盖
     saveSoraStorageConfig({
       ...savedConfig,
-      apiKey: soraApiKey
+      provider: soraProvider, // ← 关键：保存提供商选择
+      apiKey: soraProvider === 'sutu' ? soraApiKey : savedConfig.apiKey,
+      sutuApiKey: soraProvider === 'sutu' ? soraApiKey : savedConfig.sutuApiKey,
+      yunwuApiKey: yunwuApiKey,
     });
+
+    // 保存 OSS 配置
     saveOSSConfig(ossConfig);
 
     setIsSaved(true);
@@ -647,34 +670,116 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                   Sora 2 API 配置
                 </h3>
                 <p className="text-[11px] text-slate-400">
-                  配置 Sora 2 API Key，视频将保存到"存储设置"中配置的通用路径
+                  选择 API 提供商并配置对应的 API Key，系统将根据选择自动调用相应的服务
                 </p>
               </div>
 
-              {/* Sora API Key */}
+              {/* API 提供商选择 */}
               <div className="space-y-3">
                 <label className="block">
-                  <span className="text-sm font-medium text-slate-300">Sora 2 API Key</span>
+                  <span className="text-sm font-medium text-slate-300">API 提供商</span>
                 </label>
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <input
-                      type={showSoraApiKey ? 'text' : 'password'}
-                      value={soraApiKey}
-                      onChange={(e) => setSoraApiKey(e.target.value)}
-                      placeholder="输入 Sora 2 API Key"
-                      className="w-full px-4 py-2.5 bg-black/20 border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-green-500/50"
-                    />
-                    <button
-                      onClick={() => setShowSoraApiKey(!showSoraApiKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                    >
-                      {showSoraApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
+                <select
+                  value={soraProvider}
+                  onChange={(e) => setSoraProviderState(e.target.value as SoraProviderType)}
+                  className="w-full px-4 py-2.5 bg-black/20 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-green-500/50"
+                >
+                  <option value="sutu">速推 API (Sutu)</option>
+                  <option value="yunwu">云雾 API (Yunwu)</option>
+                </select>
+                <p className="text-[10px] text-slate-500">
+                  {soraProvider === 'sutu' ? '速推 API：原有接口，稳定性一般' : '云雾 API：新增接口，稳定性较好（推荐）'}
+                </p>
+              </div>
+
+              {/* 速推 API Key */}
+              {soraProvider === 'sutu' && (
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">速推 API Key</span>
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <input
+                        type={showSoraApiKey ? 'text' : 'password'}
+                        value={soraApiKey}
+                        onChange={(e) => setSoraApiKey(e.target.value)}
+                        placeholder="输入速推 API Key"
+                        className="w-full px-4 py-2.5 bg-black/20 border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-green-500/50"
+                      />
+                      <button
+                        onClick={() => setShowSoraApiKey(!showSoraApiKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                      >
+                        {showSoraApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    从速推服务商获取 API Key
+                  </p>
+                </div>
+              )}
+
+              {/* 云雾 API Key */}
+              {soraProvider === 'yunwu' && (
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">云雾 API Key</span>
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <input
+                        type={showYunwuApiKey ? 'text' : 'password'}
+                        value={yunwuApiKey}
+                        onChange={(e) => setYunwuApiKey(e.target.value)}
+                        placeholder="输入云雾 API Key"
+                        className="w-full px-4 py-2.5 bg-black/20 border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-green-500/50"
+                      />
+                      <button
+                        onClick={() => setShowYunwuApiKey(!showYunwuApiKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                      >
+                        {showYunwuApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    在 <a href="https://yunwu.ai" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">云雾官网</a> 获取 API Key
+                  </p>
+                </div>
+              )}
+
+              {/* API 提供商说明 */}
+              <div className="p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/20">
+                <h4 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                  <HelpCircle size={16} className="text-blue-400" />
+                  API 提供商说明
+                </h4>
+                <div className="space-y-2 text-xs text-slate-300">
+                  <div className="flex items-start gap-2">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full mt-1 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-white">速推 API (Sutu)</p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        原有接口，稳定性一般，价格相对较低
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-1 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-white">云雾 API (Yunwu)</p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        新增接口，稳定性较好，推荐使用
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-500">
-                  从 Sora 2 服务商获取 API Key
+                <p className="text-[10px] text-slate-400 mt-2">
+                  💡 提示：您可以随时切换提供商，每个提供商的 API Key 独立保存
                 </p>
               </div>
             </div>
