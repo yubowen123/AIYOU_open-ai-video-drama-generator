@@ -3808,7 +3808,13 @@ const NodeComponent: React.FC<NodeProps> = ({
         <div className={`absolute top-full left-1/2 -translate-x-1/2 w-[98%] pt-2 z-50 flex flex-col items-center justify-start transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? `opacity-100 translate-y-0 scale-100` : 'opacity-0 translate-y-[-10px] scale-95 pointer-events-none'}`}>
             {hasInputs && onInputReorder && (<div className="w-full flex justify-center mb-2 z-0 relative"><InputThumbnails assets={inputAssets!} onReorder={(newOrder) => onInputReorder(node.id, newOrder)} /></div>)}
 
-            <div className={`w-full rounded-[20px] p-1 flex flex-col gap-1 ${GLASS_PANEL} relative z-[100]`} onMouseDown={e => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+            <div className={`w-full rounded-[20px] p-1 flex flex-col gap-1 ${GLASS_PANEL} relative z-[100]`} onMouseDown={(e) => {
+                // 只在点击的不是range input时才阻止冒泡
+                const target = e.target as HTMLElement;
+                if (target.tagName !== 'INPUT' || target.type !== 'range') {
+                    e.stopPropagation();
+                }
+            }} onWheel={(e) => e.stopPropagation()}>
 
                 {/* Specific UI for Storyboard Generator */}
                 {node.type === NodeType.STORYBOARD_GENERATOR ? (
@@ -4043,12 +4049,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                             step="1"
                                             value={node.data.scriptEpisodes || 10}
                                             onChange={e => onUpdate(node.id, { scriptEpisodes: parseInt(e.target.value) })}
-                                            onMouseDown={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                                            onPointerDown={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                                            onPointerUp={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                                            onPointerMove={e => { e.stopPropagation(); }}
-                                            className="w-full h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none cursor-pointer touch-none"
-                                            style={{ touchAction: 'none', pointerEvents: 'auto' }}
+                                            className="w-full h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none cursor-pointer"
                                         />
                                     </div>
                                     <div className="flex-1 flex flex-col gap-1">
@@ -4060,12 +4061,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                             step="0.5"
                                             value={node.data.scriptDuration || 1}
                                             onChange={e => onUpdate(node.id, { scriptDuration: parseFloat(e.target.value) })}
-                                            onMouseDown={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                                            onPointerDown={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                                            onPointerUp={e => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
-                                            onPointerMove={e => { e.stopPropagation(); }}
-                                            className="w-full h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none cursor-pointer touch-none"
-                                            style={{ touchAction: 'none', pointerEvents: 'auto' }}
+                                            className="w-full h-1 bg-white/10 rounded-full appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-orange-500 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none cursor-pointer"
                                         />
                                     </div>
                                 </div>
