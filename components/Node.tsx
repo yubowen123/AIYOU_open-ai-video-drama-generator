@@ -3809,9 +3809,18 @@ const NodeComponent: React.FC<NodeProps> = ({
             {hasInputs && onInputReorder && (<div className="w-full flex justify-center mb-2 z-0 relative"><InputThumbnails assets={inputAssets!} onReorder={(newOrder) => onInputReorder(node.id, newOrder)} /></div>)}
 
             <div className={`w-full rounded-[20px] p-1 flex flex-col gap-1 ${GLASS_PANEL} relative z-[100]`} onMouseDown={(e) => {
-                // 只在点击的不是range input时才阻止冒泡
+                // 对于 range input，阻止所有事件冒泡，确保滑块可以正常拖拽
+                // 对于其他交互元素，也阻止冒泡防止触发节点拖拽
                 const target = e.target as HTMLElement;
-                if (target.tagName !== 'INPUT' || target.type !== 'range') {
+                const tagName = target.tagName;
+                const targetType = target.getAttribute('type');
+
+                const isInteractiveElement =
+                    (tagName === 'INPUT' && (targetType === 'range' || targetType === 'text' || targetType === 'number' || targetType === 'checkbox' || targetType === 'radio')) ||
+                    tagName === 'TEXTAREA' ||
+                    tagName === 'SELECT';
+
+                if (isInteractiveElement) {
                     e.stopPropagation();
                 }
             }} onWheel={(e) => e.stopPropagation()}>
