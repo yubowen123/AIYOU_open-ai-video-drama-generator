@@ -23,6 +23,34 @@ import {
  */
 
 /**
+ * 获取节点中文名称
+ */
+export function getNodeNameCN(type: NodeType): string {
+  switch (type) {
+    case NodeType.PROMPT_INPUT: return '创意描述';
+    case NodeType.IMAGE_GENERATOR: return '文字生图';
+    case NodeType.VIDEO_GENERATOR: return '文生视频';
+    case NodeType.AUDIO_GENERATOR: return '灵感音乐';
+    case NodeType.VIDEO_ANALYZER: return '视频分析';
+    case NodeType.IMAGE_EDITOR: return '图像编辑';
+    case NodeType.SCRIPT_PLANNER: return '剧本大纲';
+    case NodeType.SCRIPT_EPISODE: return '剧本分集';
+    case NodeType.STORYBOARD_GENERATOR: return '分镜生成';
+    case NodeType.STORYBOARD_IMAGE: return '分镜图设计';
+    case NodeType.STORYBOARD_SPLITTER: return '分镜图拆解';
+    case NodeType.SORA_VIDEO_GENERATOR: return 'Sora 2 视频';
+    case NodeType.SORA_VIDEO_CHILD: return 'Sora 2 视频结果';
+    case NodeType.STORYBOARD_VIDEO_GENERATOR: return '分镜视频生成';
+    case NodeType.STORYBOARD_VIDEO_CHILD: return '分镜视频结果';
+    case NodeType.CHARACTER_NODE: return '角色设计';
+    case NodeType.DRAMA_ANALYZER: return '剧目分析';
+    case NodeType.DRAMA_REFINED: return '剧目精炼';
+    case NodeType.STYLE_PRESET: return '全局风格';
+    default: return type;
+  }
+}
+
+/**
  * 获取节点图标
  */
 export function getNodeIcon(type: NodeType) {
@@ -42,7 +70,9 @@ export function getNodeIcon(type: NodeType) {
     [NodeType.CHARACTER_NODE]: User,
     [NodeType.DRAMA_ANALYZER]: Film,
     [NodeType.DRAMA_REFINED]: Sparkles,
-    [NodeType.STYLE_PRESET]: Palette
+    [NodeType.STYLE_PRESET]: Palette,
+    [NodeType.STORYBOARD_VIDEO_GENERATOR]: Film,
+    [NodeType.STORYBOARD_VIDEO_CHILD]: VideoIcon
   };
 
   return icons[type] || Type;
@@ -65,10 +95,13 @@ export function getNodeColor(type: NodeType): string {
     [NodeType.STORYBOARD_IMAGE]: '#a855f7',
     [NodeType.STORYBOARD_SPLITTER]: '#3b82f6',  // Blue color for analysis/processing
     [NodeType.SORA_VIDEO_GENERATOR]: '#10b981',  // Green color for Sora video generation
+    [NodeType.SORA_VIDEO_CHILD]: '#10b981',
     [NodeType.CHARACTER_NODE]: '#f97316',
     [NodeType.DRAMA_ANALYZER]: '#7c3aed',
     [NodeType.DRAMA_REFINED]: '#06b6d4',
-    [NodeType.STYLE_PRESET]: '#a855f7'
+    [NodeType.STYLE_PRESET]: '#a855f7',
+    [NodeType.STORYBOARD_VIDEO_GENERATOR]: '#a855f7',  // Purple color for storyboard video generator
+    [NodeType.STORYBOARD_VIDEO_CHILD]: '#a855f7'
   };
 
   return colors[type] || '#6366f1';
@@ -98,7 +131,9 @@ export function getApproxNodeHeight(node: AppNode): number {
     [NodeType.CHARACTER_NODE]: 520,
     [NodeType.DRAMA_ANALYZER]: 600,
     [NodeType.DRAMA_REFINED]: 400,
-    [NodeType.STYLE_PRESET]: 420
+    [NodeType.STYLE_PRESET]: 420,
+    [NodeType.STORYBOARD_VIDEO_GENERATOR]: 720,  // Taller for 5-phase state machine
+    [NodeType.STORYBOARD_VIDEO_CHILD]: 480  // Medium height for video + prompt display
   };
 
   let height = baseHeights[node.type] || 360;

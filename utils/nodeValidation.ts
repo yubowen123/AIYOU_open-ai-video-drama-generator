@@ -200,7 +200,8 @@ export const NODE_DEPENDENCY_RULES: Record<NodeType, {
       NodeType.STORYBOARD_IMAGE
     ],
     allowedOutputs: [
-      NodeType.SORA_VIDEO_GENERATOR  // Can output to Sora video generation
+      NodeType.SORA_VIDEO_GENERATOR,  // Can output to Sora video generation
+      NodeType.STORYBOARD_VIDEO_GENERATOR  // Can output to storyboard video generation
     ],
     minInputs: 1,
     maxInputs: 5,  // Can split up to 5 storyboard image nodes
@@ -273,6 +274,28 @@ export const NODE_DEPENDENCY_RULES: Record<NodeType, {
     minInputs: 1,
     maxInputs: 1,
     description: '显示单个 Sora 2 视频生成结果'
+  },
+
+  // 分镜视频生成器 - 接收分镜图拆解输入,支持多模型视频生成
+  [NodeType.STORYBOARD_VIDEO_GENERATOR]: {
+    allowedInputs: [
+      NodeType.STORYBOARD_SPLITTER
+    ],
+    allowedOutputs: [],  // Terminal node - creates child nodes for results
+    minInputs: 1,
+    maxInputs: 5,  // Can accept up to 5 splitter nodes
+    description: '从分镜拆解节点获取分镜，支持多平台多模型视频生成（云雾API平台支持8个模型）'
+  },
+
+  // 分镜视频子节点 - 仅作为显示节点,由父节点自动创建
+  [NodeType.STORYBOARD_VIDEO_CHILD]: {
+    allowedInputs: [
+      NodeType.STORYBOARD_VIDEO_GENERATOR
+    ],
+    allowedOutputs: [],  // Terminal display node
+    minInputs: 1,
+    maxInputs: 1,
+    description: '显示单个分镜视频生成结果'
   }
 };
 
@@ -550,6 +573,8 @@ function getNodeDisplayName(type: NodeType): string {
     [NodeType.STORYBOARD_IMAGE]: '分镜图设计',
     [NodeType.STORYBOARD_SPLITTER]: '分镜图拆解',
     [NodeType.SORA_VIDEO_GENERATOR]: 'Sora 2 视频',
+    [NodeType.STORYBOARD_VIDEO_GENERATOR]: '分镜视频生成',
+    [NodeType.STORYBOARD_VIDEO_CHILD]: '分镜视频结果',
     [NodeType.CHARACTER_NODE]: '角色设计',
     [NodeType.DRAMA_ANALYZER]: '剧目分析',
     [NodeType.DRAMA_REFINED]: '剧目精炼',

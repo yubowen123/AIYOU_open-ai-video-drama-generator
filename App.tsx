@@ -32,7 +32,7 @@ import { WelcomeScreen } from './components/WelcomeScreen';
 import { MemoizedConnectionLayer } from './components/ConnectionLayer';
 import { CanvasContextMenu } from './components/CanvasContextMenu';
 import { ApiKeyPrompt } from './components/ApiKeyPrompt';
-import { getNodeIcon, getApproxNodeHeight, getNodeBounds } from './utils/nodeHelpers';
+import { getNodeIcon, getNodeNameCN, getApproxNodeHeight, getNodeBounds } from './utils/nodeHelpers';
 import { useCanvasState } from './hooks/useCanvasState';
 import { useNodeOperations } from './hooks/useNodeOperations';
 import { useHistory } from './hooks/useHistory';
@@ -359,7 +359,15 @@ export const App = () => {
           try {
             const sAssets = await loadFromStorage<any[]>('assets'); if (sAssets) setAssetHistory(sAssets);
             const sWfs = await loadFromStorage<Workflow[]>('workflows'); if (sWfs) setWorkflows(sWfs);
-            const sNodes = await loadFromStorage<AppNode[]>('nodes'); if (sNodes) setNodes(sNodes);
+            let sNodes = await loadFromStorage<AppNode[]>('nodes');
+            if (sNodes) {
+              // 数据迁移：将英文标题更新为中文标题
+              sNodes = sNodes.map(node => ({
+                ...node,
+                title: getNodeNameCN(node.type)
+              }));
+              setNodes(sNodes);
+            }
             const sConns = await loadFromStorage<Connection[]>('connections'); if (sConns) setConnections(sConns);
             const sGroups = await loadFromStorage<Group[]>('groups'); if (sGroups) setGroups(sGroups);
           } catch (e) {
@@ -1119,7 +1127,9 @@ export const App = () => {
 
       setNodes(prev => prev.map(n => {
           if (n.id === id) {
-              const updated = { ...n, data: { ...n.data, ...data }, title: title || n.title };
+              // 确保标题始终是中文的
+              const correctTitle = getNodeNameCN(n.type);
+              const updated = { ...n, data: { ...n.data, ...data }, title: title || correctTitle };
 
               // Debug log for character updates
               if (data.generatedCharacters) {
@@ -1519,10 +1529,16 @@ export const App = () => {
 
   // --- Main Action Handler ---
   const handleNodeAction = useCallback(async (id: string, promptOverride?: string) => {
+      console.log('[handleNodeAction] ===== 动作处理器被调用 =====');
+      console.log('[handleNodeAction] 节点ID:', id);
+      console.log('[handleNodeAction] 动作类型:', promptOverride);
       console.log('[handleNodeAction] Called with id:', id, 'promptOverride:', promptOverride);
       const node = nodesRef.current.find(n => n.id === id);
       console.log('[handleNodeAction] Found node:', node?.type, 'data.prompt length:', node?.data?.prompt?.length);
-      if (!node) return;
+      if (!node) {
+          console.error('[handleNodeAction] 未找到节点:', id);
+          return;
+      }
       handleNodeUpdate(id, { error: undefined });
       setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.WORKING } : n));
 
@@ -2375,6 +2391,410 @@ export const App = () => {
           }
 
           const inputs = node.inputs.map(i => nodesRef.current.find(n => n.id === i)).filter(Boolean) as AppNode[];
+
+          // Handle STORYBOARD_VIDEO_GENERATOR node actions
+          if (node.type === NodeType.STORYBOARD_VIDEO_GENERATOR) {
+              if (promptOverride === 'fetch-shots') {
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] Fetching shots from splitter node');
+
+                  // Find upstream STORYBOARD_SPLITTER node
+                  const splitterNode = inputs.find(n => n?.type === NodeType.STORYBOARD_SPLITTER);
+                  if (!splitterNode) {
+                      throw new Error('请连接分镜拆解节点');
+                  }
+
+                  const splitShots = splitterNode.data.splitShots || [];
+                  if (splitShots.length === 0) {
+                      throw new Error('分镜拆解节点中没有分镜数据');
+                  }
+
+                  // Find optional CHARACTER_NODE
+                  const characterNode = inputs.find(n => n?.type === NodeType.CHARACTER_NODE);
+                  const characterData = characterNode?.data?.generatedCharacters || [];
+
+                  // Update node with available shots
+                  handleNodeUpdate(id, {
+                      availableShots: splitShots,
+                      selectedShotIds: [],
+                      characterData,
+                      status: 'selecting'
+                  });
+                  setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.SUCCESS } : n));
+                  return;
+              }
+
+              if (promptOverride === 'generate-prompt') {
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] Generating prompt');
+
+                  const selectedShotIds = node.data.selectedShotIds || [];
+                  if (selectedShotIds.length === 0) {
+                      throw new Error('请至少选择一个分镜');
+                  }
+
+                  // Get selected shots
+                  const availableShots = node.data.availableShots || [];
+                  const selectedShots = availableShots.filter((s: any) => selectedShotIds.includes(s.id));
+
+                  // Use SORA2 prompt builder for consistent format
+                  const { buildProfessionalSoraPrompt } = await import('./services/soraPromptBuilder');
+
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] Calling AI with', selectedShots.length, 'shots');
+
+                  // Generate prompt using SORA2 format
+                  const generatedPrompt = await buildProfessionalSoraPrompt(selectedShots);
+
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] Generated prompt:', generatedPrompt);
+
+                  handleNodeUpdate(id, {
+                      generatedPrompt,
+                      status: 'prompting'
+                  });
+                  setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.SUCCESS } : n));
+                  return;
+              }
+
+              if (promptOverride === 'generate-video') {
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] ===== 开始生成视频 =====');
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] 节点ID:', id);
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] 提示词长度:', node.data.generatedPrompt?.length || 0);
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] Generating video');
+
+                  const generatedPrompt = node.data.generatedPrompt;
+                  if (!generatedPrompt) {
+                      throw new Error('请先生成提示词');
+                  }
+
+                  // Get model config
+                  const selectedPlatform = node.data.selectedPlatform || 'yunwuapi';
+                  const selectedModel = node.data.selectedModel || 'luma';
+                  const modelConfig = node.data.modelConfig || {
+                      aspect_ratio: '16:9',
+                      duration: '5',
+                      quality: 'standard'
+                  };
+
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] Model config:', {
+                      platform: selectedPlatform,
+                      model: selectedModel,
+                      subModel: node.data.subModel,
+                      config: modelConfig
+                  });
+
+                  // Set to generating status
+                  handleNodeUpdate(id, {
+                      status: 'generating',
+                      progress: 0
+                  });
+                  setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.WORKING } : n));
+
+                  try {
+                      // Handle image fusion (if exists)
+                      let referenceImageUrl: string | undefined;
+                      if (node.data.fusedImage) {
+                          console.log('[STORYBOARD_VIDEO_GENERATOR] Uploading fused image to OSS');
+
+                          handleNodeUpdate(id, { progress: 10 });
+
+                          // Import OSS service
+                          const { uploadFileToOSS } = await import('./services/ossService');
+                          const { getOSSConfig } = await import('./services/soraConfigService');
+
+                          const ossConfig = getOSSConfig();
+                          if (ossConfig) {
+                              const fileName = `storyboard-fusion-${node.id}-${Date.now()}.png`;
+                              referenceImageUrl = await uploadFileToOSS(node.data.fusedImage, fileName, ossConfig);
+
+                              handleNodeUpdate(id, {
+                                  fusedImageUrl: referenceImageUrl,
+                                  progress: 20
+                              });
+
+                              console.log('[STORYBOARD_VIDEO_GENERATOR] Fused image uploaded:', referenceImageUrl);
+                          } else {
+                              console.warn('[STORYBOARD_VIDEO_GENERATOR] No OSS config, using base64 data URL');
+                              referenceImageUrl = node.data.fusedImage;
+                          }
+                      }
+
+                      // Get API key
+                      const { getVideoPlatformApiKey } = await import('./services/soraConfigService');
+                      const apiKey = getVideoPlatformApiKey(selectedPlatform);
+                      if (!apiKey) {
+                          const platformNames: Record<string, string> = {
+                              'yunwuapi': '云雾API平台',
+                              'official': '官方 Sora',
+                              'custom': '自定义'
+                          };
+                          const platformName = platformNames[selectedPlatform] || selectedPlatform;
+                          throw new Error(`请先在设置中配置 ${platformName} 的 API Key\n配置路径: 设置 → API 配置 → 视频平台 API Keys → ${platformName} Key`);
+                      }
+
+                      handleNodeUpdate(id, { progress: 30 });
+
+                      // Generate video
+                      const { generateVideoFromStoryboard } = await import('./services/videoGenerationService');
+
+                      console.log('[STORYBOARD_VIDEO_GENERATOR] Calling video generation service');
+
+                      const result = await generateVideoFromStoryboard(
+                          selectedPlatform as any,
+                          selectedModel as any,
+                          generatedPrompt,
+                          referenceImageUrl,
+                          modelConfig,
+                          apiKey,
+                          {
+                              onProgress: (message, progress) => {
+                                  const adjustedProgress = 30 + Math.round(progress * 0.7);
+                                  handleNodeUpdate(id, { progress: adjustedProgress });
+                                  console.log(`[STORYBOARD_VIDEO_GENERATOR] ${message} (${progress}%)`);
+                              },
+                              subModel: node.data.subModel  // 传递子模型
+                          }
+                      );
+
+                      console.log('[STORYBOARD_VIDEO_GENERATOR] Video generation complete:', result);
+
+                      // Create child node
+                      const childNodeId = `node-storyboard-video-child-${Date.now()}`;
+                      const childIndex = (node.data.childNodeIds?.length || 0) + 1;
+
+                      const childNode: AppNode = {
+                          id: childNodeId,
+                          type: NodeType.STORYBOARD_VIDEO_CHILD,
+                          x: node.x + (node.width || 420) + 50,
+                          y: node.y + (childIndex - 1) * 150,
+                          title: `视频结果 #${childIndex}`,
+                          status: NodeStatus.SUCCESS,
+                          data: {
+                              prompt: generatedPrompt,
+                              platformInfo: {
+                                  platformCode: selectedPlatform,
+                                  modelName: selectedModel
+                              },
+                              modelConfig,
+                              videoUrl: result.videoUrl,
+                              videoDuration: result.duration,
+                              videoResolution: result.resolution,
+                              fusedImageUrl: node.data.fusedImageUrl,
+                              promptExpanded: false
+                          },
+                          inputs: [node.id]
+                      };
+
+                      const newConnection: Connection = {
+                          from: node.id,
+                          to: childNodeId
+                      };
+
+                      // Add to asset history
+                      if (result.videoUrl) {
+                          handleAssetGenerated('video', result.videoUrl, `分镜视频 #${childIndex}`);
+                      }
+
+                      // Update node
+                      handleNodeUpdate(id, {
+                          status: 'completed',
+                          progress: 100,
+                          currentTaskId: result.taskId,
+                          childNodeIds: [...(node.data.childNodeIds || []), childNodeId]
+                      });
+                      setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.SUCCESS } : n));
+
+                      // Add child node and connection
+                      saveHistory();
+                      setNodes(prev => [...prev, childNode]);
+                      setConnections(prev => [...prev, newConnection]);
+
+                  } catch (error: any) {
+                      console.error('[STORYBOARD_VIDEO_GENERATOR] Video generation failed:', error);
+
+                      handleNodeUpdate(id, {
+                          status: 'prompting',
+                          error: error.message || '视频生成失败'
+                      });
+                      setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.ERROR } : n));
+
+                      throw error;
+                  }
+
+                  return;
+              }
+
+              if (promptOverride === 'regenerate-video') {
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] ===== 重新生成视频 =====');
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] 节点ID:', id);
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] 提示词长度:', node.data.generatedPrompt?.length || 0);
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] Regenerating video');
+
+                  const generatedPrompt = node.data.generatedPrompt;
+                  if (!generatedPrompt) {
+                      throw new Error('请先生成提示词');
+                  }
+
+                  // Get model config
+                  const selectedPlatform = node.data.selectedPlatform || 'yunwuapi';
+                  const selectedModel = node.data.selectedModel || 'luma';
+                  const modelConfig = node.data.modelConfig || {
+                      aspect_ratio: '16:9',
+                      duration: '5',
+                      quality: 'standard'
+                  };
+
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] Model config:', {
+                      platform: selectedPlatform,
+                      model: selectedModel,
+                      subModel: node.data.subModel,
+                      config: modelConfig
+                  });
+
+                  // Set to generating status
+                  handleNodeUpdate(id, {
+                      status: 'generating',
+                      progress: 0
+                  });
+                  setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.WORKING } : n));
+
+                  try {
+                      // Handle image fusion (if exists)
+                      let referenceImageUrl: string | undefined;
+                      if (node.data.fusedImage) {
+                          console.log('[STORYBOARD_VIDEO_GENERATOR] Uploading fused image to OSS');
+
+                          handleNodeUpdate(id, { progress: 10 });
+
+                          // Import OSS service
+                          const { uploadFileToOSS } = await import('./services/ossService');
+                          const { getOSSConfig } = await import('./services/soraConfigService');
+
+                          const ossConfig = getOSSConfig();
+                          if (ossConfig) {
+                              // Check if already uploaded
+                              if (node.data.fusedImageUrl) {
+                                  referenceImageUrl = node.data.fusedImageUrl;
+                                  console.log('[STORYBOARD_VIDEO_GENERATOR] Using already uploaded fused image:', referenceImageUrl);
+                              } else {
+                                  const fileName = `storyboard-fusion-${node.id}-${Date.now()}.png`;
+                                  referenceImageUrl = await uploadFileToOSS(node.data.fusedImage, fileName, ossConfig);
+
+                                  handleNodeUpdate(id, {
+                                      fusedImageUrl: referenceImageUrl,
+                                      progress: 20
+                                  });
+
+                                  console.log('[STORYBOARD_VIDEO_GENERATOR] Fused image uploaded:', referenceImageUrl);
+                              }
+                          } else {
+                              console.warn('[STORYBOARD_VIDEO_GENERATOR] No OSS config, using base64 data URL');
+                              referenceImageUrl = node.data.fusedImage;
+                          }
+                      }
+
+                      // Get API key
+                      const { getVideoPlatformApiKey } = await import('./services/soraConfigService');
+                      const apiKey = getVideoPlatformApiKey(selectedPlatform);
+                      if (!apiKey) {
+                          const platformNames: Record<string, string> = {
+                              'yunwuapi': '云雾API平台',
+                              'official': '官方 Sora',
+                              'custom': '自定义'
+                          };
+                          const platformName = platformNames[selectedPlatform] || selectedPlatform;
+                          throw new Error(`请先在设置中配置 ${platformName} 的 API Key\n配置路径: 设置 → API 配置 → 视频平台 API Keys → ${platformName} Key`);
+                      }
+
+                      handleNodeUpdate(id, { progress: 30 });
+
+                      // Generate video
+                      const { generateVideoFromStoryboard } = await import('./services/videoGenerationService');
+
+                      console.log('[STORYBOARD_VIDEO_GENERATOR] Calling video generation service');
+
+                      const result = await generateVideoFromStoryboard(
+                          selectedPlatform as any,
+                          selectedModel as any,
+                          generatedPrompt,
+                          referenceImageUrl,
+                          modelConfig,
+                          apiKey,
+                          {
+                              onProgress: (message, progress) => {
+                                  const adjustedProgress = 30 + Math.round(progress * 0.7);
+                                  handleNodeUpdate(id, { progress: adjustedProgress });
+                                  console.log(`[STORYBOARD_VIDEO_GENERATOR] ${message} (${progress}%)`);
+                              },
+                              subModel: node.data.subModel  // 传递子模型
+                          }
+                      );
+
+                      console.log('[STORYBOARD_VIDEO_GENERATOR] Video generation complete:', result);
+
+                      // Create child node
+                      const childNodeId = `node-storyboard-video-child-${Date.now()}`;
+                      const childIndex = (node.data.childNodeIds?.length || 0) + 1;
+
+                      const childNode: AppNode = {
+                          id: childNodeId,
+                          type: NodeType.STORYBOARD_VIDEO_CHILD,
+                          x: node.x + (node.width || 420) + 50,
+                          y: node.y + (childIndex - 1) * 150,
+                          title: `视频结果 #${childIndex}`,
+                          status: NodeStatus.SUCCESS,
+                          data: {
+                              prompt: generatedPrompt,
+                              platformInfo: {
+                                  platformCode: selectedPlatform,
+                                  modelName: selectedModel
+                              },
+                              modelConfig,
+                              videoUrl: result.videoUrl,
+                              videoDuration: result.duration,
+                              videoResolution: result.resolution,
+                              fusedImageUrl: node.data.fusedImageUrl,
+                              promptExpanded: false
+                          },
+                          inputs: [node.id]
+                      };
+
+                      const newConnection: Connection = {
+                          from: node.id,
+                          to: childNodeId
+                      };
+
+                      // Add to asset history
+                      if (result.videoUrl) {
+                          handleAssetGenerated('video', result.videoUrl, `分镜视频 #${childIndex}`);
+                      }
+
+                      // Update node
+                      handleNodeUpdate(id, {
+                          status: 'completed',
+                          progress: 100,
+                          currentTaskId: result.taskId,
+                          childNodeIds: [...(node.data.childNodeIds || []), childNodeId]
+                      });
+                      setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.SUCCESS } : n));
+
+                      // Add child node and connection
+                      saveHistory();
+                      setNodes(prev => [...prev, childNode]);
+                      setConnections(prev => [...prev, newConnection]);
+
+                  } catch (error: any) {
+                      console.error('[STORYBOARD_VIDEO_GENERATOR] Video regeneration failed:', error);
+
+                      handleNodeUpdate(id, {
+                          status: 'prompting',
+                          error: error.message || '视频重新生成失败'
+                      });
+                      setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.ERROR } : n));
+
+                      throw error;
+                  }
+
+                  return;
+              }
+          }
 
           const upstreamTexts = inputs.map(n => {
               if (n?.type === NodeType.PROMPT_INPUT) return n.data.prompt;
@@ -4171,7 +4591,10 @@ COMPOSITION REQUIREMENTS:
             onGenerateExpression={(nodeId, charName) => handleCharacterAction(nodeId, 'GENERATE_EXPRESSION', charName)}
             onGenerateThreeView={(nodeId, charName) => handleCharacterAction(nodeId, 'GENERATE_THREE_VIEW', charName)}
           />
-          <SettingsPanel isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+          <SettingsPanel
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+          />
           <ApiKeyPrompt
             isOpen={isApiKeyPromptOpen}
             onClose={() => setIsApiKeyPromptOpen(false)}

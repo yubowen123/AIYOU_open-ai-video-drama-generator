@@ -816,6 +816,450 @@ app.get('/api/dayuapi/content', async (req, res) => {
 });
 
 /**
+ * KIE AI API 代理 - 创建任务
+ * POST /api/kie/create
+ */
+app.post('/api/kie/create', async (req, res) => {
+  const startTime = Date.now();
+  const logId = `kie-submit-${Date.now()}`;
+
+  try {
+    // 从请求头获取 API Key
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) {
+      console.error(`[${logId}] ❌ 缺少 API Key`);
+      return res.status(401).json({
+        success: false,
+        error: '缺少 API Key，请在请求头中提供 X-API-Key'
+      });
+    }
+
+    const { model, input } = req.body;
+
+    console.log(`[${logId}] 📤 KIE AI API 创建任务:`, {
+      model,
+      hasImageUrls: !!input?.image_urls,
+      aspectRatio: input?.aspect_ratio,
+      nFrames: input?.n_frames,
+      removeWatermark: input?.remove_watermark,
+      promptLength: input?.prompt?.length,
+    });
+
+    // 调用 KIE AI API
+    const response = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        input,
+      }),
+    });
+
+    const data = await response.json();
+
+    const durationMs = Date.now() - startTime;
+
+    console.log(`[${logId}] ✅ KIE AI API 响应:`, {
+      status: response.status,
+      code: data.code,
+      msg: data.msg,
+      hasTaskId: !!data.data?.taskId,
+      duration: `${durationMs}ms`,
+    });
+
+    if (!response.ok || data.code !== 200) {
+      console.error(`[${logId}] ❌ KIE AI API 错误:`, response.status, data);
+      return res.status(response.status || 500).json({
+        success: false,
+        error: data.msg || 'KIE AI API 创建任务失败',
+        details: data
+      });
+    }
+
+    res.json(data);
+
+  } catch (error) {
+    const durationMs = Date.now() - startTime;
+    console.error(`[${logId}] ❌ KIE AI API 代理创建错误 (${durationMs}ms):`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'KIE AI API 代理创建失败'
+    });
+  }
+});
+
+/**
+ * KIE AI API 代理 - 查询任务状态
+ * GET /api/kie/query?taskId={taskId}
+ */
+app.get('/api/kie/query', async (req, res) => {
+  const startTime = Date.now();
+  const logId = `kie-query-${Date.now()}`;
+
+  try {
+    const taskId = req.query.taskId;
+
+    if (!taskId) {
+      console.error(`[${logId}] ❌ 缺少任务 ID`);
+      return res.status(400).json({
+        success: false,
+        error: '缺少任务 ID，请在查询参数中提供 taskId'
+      });
+    }
+
+    // 从请求头获取 API Key
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) {
+      console.error(`[${logId}] ❌ 缺少 API Key`);
+      return res.status(401).json({
+        success: false,
+        error: '缺少 API Key，请在请求头中提供 X-API-Key'
+      });
+    }
+
+    console.log(`[${logId}] 📥 KIE AI API 查询任务:`, { taskId });
+
+    // 调用 KIE AI API 获取任务详情
+    const response = await fetch(`https://api.kie.ai/api/v1/jobs/getTaskDetails?taskId=${encodeURIComponent(taskId)}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    const data = await response.json();
+
+    const durationMs = Date.now() - startTime;
+
+    console.log(`[${logId}] ✅ KIE AI API 查询响应:`, {
+      status: response.status,
+      code: data.code,
+      msg: data.msg,
+      hasData: !!data.data,
+      taskStatus: data.data?.status,
+      progress: data.data?.progress,
+      hasVideoUrl: !!data.data?.output?.url || !!data.data?.videoUrl || !!data.data?.url,
+      duration: `${durationMs}ms`,
+    });
+
+    if (!response.ok) {
+      console.error(`[${logId}] ❌ KIE AI API 查询错误:`, response.status, data);
+      return res.status(response.status).json({
+        success: false,
+        error: data.msg || 'KIE AI API 查询任务失败',
+        details: data
+      });
+    }
+
+    res.json(data);
+
+  } catch (error) {
+    const durationMs = Date.now() - startTime;
+    console.error(`[${logId}] ❌ KIE AI API 代理查询错误 (${durationMs}ms):`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'KIE AI API 代理查询失败'
+    });
+  }
+});
+
+// ============================================================================
+// 云雾API多模型平台代理
+// ============================================================================
+
+/**
+ * 云雾API平台 - 提交视频生成任务
+ * POST /api/yunwuapi/create
+ * 支持多模型: veo, luma, runway, minimax, volcengine, grok, qwen, sora
+ */
+app.post('/api/yunwuapi/create', async (req, res) => {
+  const startTime = Date.now();
+  const logId = `yunwuapi-submit-${Date.now()}`;
+
+  try {
+    // 从请求头获取 API Key
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) {
+      console.error(`[${logId}] ❌ 缺少 API Key`);
+      return res.status(401).json({
+        success: false,
+        error: '缺少 API Key，请在请求头中提供 X-API-Key'
+      });
+    }
+
+    const { model, prompt, images, aspect_ratio, duration, size, orientation, watermark, isPrivate, enhance_prompt, enable_upsample } = req.body;
+
+    console.log(`[${logId}] 📤 云雾API平台 提交任务:`, {
+      model,
+      promptLength: prompt?.length,
+      hasImages: !!images && images.length > 0,
+      imagesCount: images?.length || 0,
+      aspect_ratio,
+      orientation,
+      duration,
+      size,
+    });
+
+    // 根据模型类型构建不同的请求
+    let requestBody;
+    let apiUrl = 'https://yunwu.ai/v1/video/create';
+
+    // 判断是否为 luma 模型
+    if (model && (model.startsWith('luma') || model === 'ray-v2')) {
+      // luma 使用不同的端点
+      apiUrl = 'https://yunwu.ai/luma/generations';
+      requestBody = {
+        user_prompt: prompt,
+        model_name: model,
+        duration: duration || '5s',
+        resolution: size === 'large' || size === '1080p' ? '1080p' : '720p',
+        expand_prompt: true,
+        loop: false,
+        ...(req.body.image_url && { image_url: req.body.image_url })
+      };
+    } else if (model && model.startsWith('veo')) {
+      // veo 统一格式
+      requestBody = {
+        model: model,
+        prompt: prompt || '',
+        images: images || [],
+        aspect_ratio: aspect_ratio || '16:9',
+        duration: duration || 5,
+        ...(enhance_prompt !== undefined && { enhance_prompt }),
+        ...(enable_upsample !== undefined && { enable_upsample })
+      };
+    } else if (model && model.startsWith('sora')) {
+      // sora 统一格式
+      requestBody = {
+        model: model,
+        prompt: prompt || '',
+        images: images || [],
+        orientation: orientation || 'landscape',
+        size: size || 'small',
+        duration: duration || 10,
+        watermark: watermark !== undefined ? watermark : true,
+        private: isPrivate !== undefined ? isPrivate : false
+      };
+    } else {
+      // 其他模型使用通用格式
+      requestBody = {
+        model: model || 'veo3.1-fast',
+        prompt: prompt || '',
+        images: images || [],
+        aspect_ratio: aspect_ratio || '16:9',
+        duration: duration || 5
+      };
+    }
+
+    console.log(`[${logId}] 📋 发送到云雾API:`, {
+      url: apiUrl,
+      model: requestBody.model || requestBody.model_name,
+      bodyPreview: JSON.stringify(requestBody).substring(0, 500)
+    });
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    const responseText = await response.text();
+    const durationMs = Date.now() - startTime;
+
+    console.log(`[${logId}] 📥 云雾API平台 原始响应:`, {
+      status: response.status,
+      statusText: response.statusText,
+      responseText: responseText.substring(0, 500),
+      duration: `${durationMs}ms`,
+    });
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error(`[${logId}] ❌ 解析响应 JSON 失败:`, e.message);
+      data = { rawResponse: responseText };
+    }
+
+    if (!response.ok) {
+      console.error(`[${logId}] ❌ 云雾API 错误:`, response.status, data);
+      return res.status(response.status).json({
+        success: false,
+        error: data.message || data.error || '云雾API 提交失败',
+        details: data
+      });
+    }
+
+    // 处理不同的响应格式
+    let taskId;
+    if (model && (model.startsWith('luma') || model === 'ray-v2')) {
+      // luma 的嵌套响应格式
+      taskId = data.data?.task_id || data.task_id;
+    } else {
+      // veo/sora 的扁平响应格式
+      taskId = data.id || data.task_id;
+    }
+
+    if (!taskId) {
+      console.error(`[${logId}] ❌ 响应中缺少 task_id:`, data);
+      return res.status(500).json({
+        success: false,
+        error: '响应中缺少task_id',
+        details: data
+      });
+    }
+
+    // 统一响应格式
+    const result = {
+      task_id: taskId,
+      status: data.status || 'queued',
+      message: '任务提交成功'
+    };
+
+    console.log(`[${logId}] ✅ 云雾API平台 成功:`, {
+      status: response.status,
+      taskId: result.task_id,
+      taskStatus: result.status,
+      duration: `${durationMs}ms`,
+    });
+
+    res.json(result);
+
+  } catch (error) {
+    const durationMs = Date.now() - startTime;
+    console.error(`[${logId}] ❌ 云雾API平台 代理错误 (${durationMs}ms):`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '云雾API平台 代理提交失败'
+    });
+  }
+});
+
+/**
+ * 云雾API平台 - 查询任务状态
+ * POST /api/yunwuapi/status
+ */
+app.post('/api/yunwuapi/status', async (req, res) => {
+  const startTime = Date.now();
+  const logId = `yunwuapi-query-${Date.now()}`;
+
+  try {
+    const { model, task_id } = req.body;
+
+    if (!task_id) {
+      console.error(`[${logId}] ❌ 缺少任务 ID`);
+      return res.status(400).json({
+        success: false,
+        error: '缺少任务 ID'
+      });
+    }
+
+    // 从请求头获取 API Key
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) {
+      console.error(`[${logId}] ❌ 缺少 API Key`);
+      return res.status(401).json({
+        success: false,
+        error: '缺少 API Key，请在请求头中提供 X-API-Key'
+      });
+    }
+
+    console.log(`[${logId}] 🔍 云雾API平台 查询任务:`, { model, task_id });
+
+    // 云雾API平台的查询接口
+    const apiUrl = `https://yunwu.ai/v1/video/query?id=${encodeURIComponent(task_id)}`;
+
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+      },
+    });
+
+    const data = await response.json();
+    const durationMs = Date.now() - startTime;
+    const detail = data.detail || {};
+
+    // 添加完整响应日志，方便调试
+    console.log(`[${logId}] 📥 云雾API完整响应:`, JSON.stringify(data, null, 2));
+    console.log(`[${logId}] 📦 Detail字段:`, JSON.stringify(detail, null, 2));
+
+    // 根据模型类型提取视频URL
+    let videoUrl;
+
+    if (model && (model.startsWith('veo') || model.startsWith('sora'))) {
+      // veo/sora 可能的字段（按优先级）
+      videoUrl = data.video_url || data.url || data.output || data.result?.video_url;
+      // 也检查 detail 字段
+      if (!videoUrl) {
+        videoUrl = detail.video_url || detail.url || detail.output;
+      }
+    } else if (model && model.startsWith('luma')) {
+      // luma 特殊处理
+      videoUrl = data.video_url || data.url;
+      if (!videoUrl) {
+        videoUrl = detail.video_url || detail.url;
+      }
+    } else {
+      // 其他模型可能在 detail.generations 中
+      videoUrl = detail.generations?.[0]?.url;
+    }
+
+    // 如果还是找不到，尝试更多可能的字段
+    if (!videoUrl) {
+      videoUrl = data.videoUrl || data.video || data.result?.video || data.result?.url;
+    }
+
+    console.log(`[${logId}] ✅ 云雾API平台 查询响应:`, {
+      status: response.status,
+      taskId: data.id,
+      taskStatus: detail.status,
+      progress: detail.progress_pct,
+      hasVideo: !!videoUrl,
+      videoUrl: videoUrl || '(none)',
+      duration: `${durationMs}ms`,
+    });
+
+    if (!response.ok) {
+      console.error(`[${logId}] ❌ 云雾API平台 查询错误:`, response.status, data);
+      return res.status(response.status).json({
+        success: false,
+        error: data.message || data.error || '云雾API平台 查询失败',
+        details: data
+      });
+    }
+
+    // 统一响应格式
+    const result = {
+      task_id: data.id || task_id,
+      status: detail.status || 'processing',
+      progress: detail.progress_pct || 0,
+      video_url: videoUrl,
+      duration: detail.duration,
+      resolution: detail.resolution,
+      cover_url: detail.cover_url,
+      error: detail.status === 'failed' ? (detail.error_message || '视频生成失败') : undefined
+    };
+
+    res.json(result);
+
+  } catch (error) {
+    const durationMs = Date.now() - startTime;
+    console.error(`[${logId}] ❌ 云雾API平台 代理查询错误 (${durationMs}ms):`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message || '云雾API平台 代理查询失败'
+    });
+  }
+});
+
+/**
  * 错误处理
  */
 app.use((err, req, res, next) => {
@@ -1196,6 +1640,495 @@ app.delete('/api/videos/:id', (req, res) => {
   }
 });
 
+// ============================================================
+// 模型配置管理后台路由
+// ============================================================
+
+// 默认配置数据
+const getDefaultConfig = () => ({
+  version: '1.0.0',
+  updatedAt: new Date().toISOString(),
+  platforms: [
+    {
+      id: 'yunwuapi-platform',
+      code: 'yunwuapi',
+      name: '云雾API',
+      description: '云雾AI视频生成平台',
+      enabled: true,
+      baseUrl: 'https://yunwu.ai',
+      apiKeyRequired: true,
+      models: [
+        {
+          id: 'veo-model',
+          platformId: 'yunwuapi-platform',
+          code: 'veo',
+          name: 'Veo',
+          description: 'Google Veo视频生成模型',
+          enabled: true,
+          useUnifiedEndpoint: true,
+          checkEndpoint: '/veo/status',
+          subModels: [
+            { id: 'veo2', modelId: 'veo-model', code: 'veo2', name: 'Veo 2', description: 'Google Veo 2 模型', enabled: true },
+            { id: 'veo2-fast', modelId: 'veo-model', code: 'veo2-fast', name: 'Veo 2 Fast', description: '快速版本', enabled: true },
+            { id: 'veo3', modelId: 'veo-model', code: 'veo3', name: 'Veo 3', description: 'Google Veo 3 模型', enabled: true },
+            { id: 'veo3-fast', modelId: 'veo-model', code: 'veo3-fast', name: 'Veo 3 Fast', description: 'Veo 3 快速版', enabled: true },
+            { id: 'veo3-pro', modelId: 'veo-model', code: 'veo3-pro', name: 'Veo 3 Pro', description: 'Veo 3 专业版', enabled: true },
+            { id: 'veo3-1-fast', modelId: 'veo-model', code: 'veo3.1-fast', name: 'Veo 3.1 Fast', description: '最新快速版', enabled: true, default: true }
+          ],
+          defaultSubModel: 'veo3.1-fast',
+          supportsImageRef: true,
+          maxDuration: 10,
+          maxPromptLength: 500
+        },
+        {
+          id: 'luma-model',
+          platformId: 'yunwuapi-platform',
+          code: 'luma',
+          name: 'Luma',
+          description: 'Luma Dream Machine视频生成',
+          enabled: true,
+          useUnifiedEndpoint: false,
+          submitEndpoint: '/luma/generations',
+          checkEndpoint: '/luma/status',
+          subModels: [
+            { id: 'ray-v2', modelId: 'luma-model', code: 'ray-v2', name: 'Ray V2', description: 'Luma Ray V2', enabled: true, default: true },
+            { id: 'photon', modelId: 'luma-model', code: 'photon', name: 'Photon', description: 'Photon 模型', enabled: true },
+            { id: 'photon-flash', modelId: 'luma-model', code: 'photon-flash', name: 'Photon Flash', description: '快速 Photon', enabled: true }
+          ],
+          defaultSubModel: 'ray-v2',
+          supportsImageRef: true,
+          maxDuration: 5,
+          maxPromptLength: 500
+        },
+        {
+          id: 'sora-model',
+          platformId: 'yunwuapi-platform',
+          code: 'sora',
+          name: 'Sora',
+          description: 'OpenAI Sora视频生成',
+          enabled: true,
+          useUnifiedEndpoint: true,
+          checkEndpoint: '/sora/status',
+          subModels: [
+            { id: 'sora', modelId: 'sora-model', code: 'sora', name: 'Sora', description: 'OpenAI Sora', enabled: true },
+            { id: 'sora-2', modelId: 'sora-model', code: 'sora-2', name: 'Sora 2', description: 'Sora 2 模型', enabled: true, default: true }
+          ],
+          defaultSubModel: 'sora-2',
+          supportsImageRef: true,
+          maxDuration: 10,
+          maxPromptLength: 500
+        },
+        {
+          id: 'runway-model',
+          platformId: 'yunwuapi-platform',
+          code: 'runway',
+          name: 'Runway',
+          description: 'Runway Gen-3视频生成',
+          enabled: true,
+          useUnifiedEndpoint: true,
+          checkEndpoint: '/runway/status',
+          subModels: [
+            { id: 'gen3-alpha-turbo', modelId: 'runway-model', code: 'gen3-alpha-turbo', name: 'Gen-3 Alpha Turbo', description: '极速版', enabled: true, default: true },
+            { id: 'gen3-alpha', modelId: 'runway-model', code: 'gen3-alpha', name: 'Gen-3 Alpha', description: '标准版', enabled: true },
+            { id: 'gen3-alpha-extreme', modelId: 'runway-model', code: 'gen3-alpha-extreme', name: 'Gen-3 Alpha Extreme', description: '极致版', enabled: true }
+          ],
+          defaultSubModel: 'gen3-alpha-turbo',
+          supportsImageRef: true,
+          maxDuration: 10,
+          maxPromptLength: 500
+        },
+        {
+          id: 'minimax-model',
+          platformId: 'yunwuapi-platform',
+          code: 'minimax',
+          name: 'MiniMax',
+          description: 'MiniMax视频生成',
+          enabled: true,
+          useUnifiedEndpoint: true,
+          checkEndpoint: '/minimax/status',
+          subModels: [
+            { id: 'minimax-video-01', modelId: 'minimax-model', code: 'minimax-video-01', name: 'MiniMax Video 01', description: '标准模型', enabled: true, default: true }
+          ],
+          defaultSubModel: 'minimax-video-01',
+          supportsImageRef: false,
+          maxDuration: 6,
+          maxPromptLength: 500
+        },
+        {
+          id: 'volcengine-model',
+          platformId: 'yunwuapi-platform',
+          code: 'volcengine',
+          name: '火山引擎',
+          description: '字节跳动火山引擎视频生成',
+          enabled: true,
+          useUnifiedEndpoint: true,
+          checkEndpoint: '/volcengine/status',
+          subModels: [
+            { id: 'volc-video-01', modelId: 'volcengine-model', code: 'volc-video-01', name: 'Volc Video 01', description: '标准模型', enabled: true, default: true }
+          ],
+          defaultSubModel: 'volc-video-01',
+          supportsImageRef: true,
+          maxDuration: 5,
+          maxPromptLength: 500
+        },
+        {
+          id: 'grok-model',
+          platformId: 'yunwuapi-platform',
+          code: 'grok',
+          name: 'Grok',
+          description: 'xAI Grok视频生成',
+          enabled: true,
+          useUnifiedEndpoint: true,
+          checkEndpoint: '/grok/status',
+          subModels: [
+            { id: 'grok-video', modelId: 'grok-model', code: 'grok-video', name: 'Grok Video', description: 'Grok 视频模型', enabled: true, default: true }
+          ],
+          defaultSubModel: 'grok-video',
+          supportsImageRef: false,
+          maxDuration: 5,
+          maxPromptLength: 500
+        },
+        {
+          id: 'qwen-model',
+          platformId: 'yunwuapi-platform',
+          code: 'qwen',
+          name: '通义千问',
+          description: '阿里通义千问视频生成',
+          enabled: true,
+          useUnifiedEndpoint: true,
+          checkEndpoint: '/qwen/status',
+          subModels: [
+            { id: 'qwen-video', modelId: 'qwen-model', code: 'qwen-video', name: 'Qwen Video', description: '通义千问视频', enabled: true, default: true }
+          ],
+          defaultSubModel: 'qwen-video',
+          supportsImageRef: true,
+          maxDuration: 5,
+          maxPromptLength: 500
+        }
+      ]
+    }
+  ]
+});
+
+// 获取配置文件路径
+const getConfigPath = () => path.join(__dirname, 'model-config.json');
+
+// 读取配置
+const loadConfig = () => {
+  try {
+    const configPath = getConfigPath();
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    }
+    // 返回默认配置
+    return getDefaultConfig();
+  } catch (error) {
+    console.error('[Admin] 读取配置失败:', error);
+    return getDefaultConfig();
+  }
+};
+
+// 保存配置
+const saveConfig = (config) => {
+  try {
+    const configPath = getConfigPath();
+    config.updatedAt = new Date().toISOString();
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+    return { success: true };
+  } catch (error) {
+    console.error('[Admin] 保存配置失败:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// 服务管理后台静态页面
+app.use('/admin', express.static(path.join(__dirname, 'public')));
+
+// 管理后台API - 获取配置
+app.get('/api/admin/config', (req, res) => {
+  try {
+    const config = loadConfig();
+    res.json(config);
+  } catch (error) {
+    console.error('[Admin] 获取配置失败:', error);
+    res.status(500).json({ success: false, error: '获取配置失败' });
+  }
+});
+
+// 管理后台API - 导出配置
+app.get('/api/admin/config/export', (req, res) => {
+  try {
+    const config = loadConfig();
+    const json = JSON.stringify(config, null, 2);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename=model-config-${new Date().toISOString().split('T')[0]}.json`);
+    res.send(json);
+  } catch (error) {
+    console.error('[Admin] 导出配置失败:', error);
+    res.status(500).json({ success: false, error: '导出配置失败' });
+  }
+});
+
+// 管理后台API - 导入配置
+app.post('/api/admin/config/import', upload.single('file'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: '请上传配置文件' });
+    }
+
+    const config = JSON.parse(req.file.buffer.toString('utf8'));
+
+    // 验证配置格式
+    if (!config.platforms || !Array.isArray(config.platforms)) {
+      return res.status(400).json({ success: false, error: '配置格式无效' });
+    }
+
+    // 保存配置
+    saveConfig(config);
+
+    res.json({ success: true, message: '导入成功' });
+  } catch (error) {
+    console.error('[Admin] 导入配置失败:', error);
+    res.status(500).json({ success: false, error: '导入配置失败' });
+  }
+});
+
+// 管理后台API - 重置配置
+app.post('/api/admin/config/reset', (req, res) => {
+  try {
+    // 删除配置文件
+    const configPath = getConfigPath();
+    if (fs.existsSync(configPath)) {
+      fs.unlinkSync(configPath);
+    }
+
+    res.json({ success: true, message: '重置成功' });
+  } catch (error) {
+    console.error('[Admin] 重置配置失败:', error);
+    res.status(500).json({ success: false, error: '重置配置失败' });
+  }
+});
+
+// 管理后台API - 添加平台
+app.post('/api/admin/platforms', (req, res) => {
+  try {
+    const config = loadConfig();
+    const newPlatform = {
+      ...req.body,
+      id: `platform-${Date.now()}`,
+      models: req.body.models || []
+    };
+
+    config.platforms.push(newPlatform);
+    saveConfig(config);
+
+    res.json({ success: true, message: '平台添加成功', data: newPlatform });
+  } catch (error) {
+    console.error('[Admin] 添加平台失败:', error);
+    res.status(500).json({ success: false, error: '添加平台失败' });
+  }
+});
+
+// 管理后台API - 更新平台
+app.put('/api/admin/platforms/:id', (req, res) => {
+  try {
+    const config = loadConfig();
+    const { id } = req.params;
+
+    const index = config.platforms.findIndex(p => p.id === id);
+    if (index === -1) {
+      return res.status(404).json({ success: false, error: '平台不存在' });
+    }
+
+    config.platforms[index] = { ...config.platforms[index], ...req.body };
+    saveConfig(config);
+
+    res.json({ success: true, message: '平台更新成功' });
+  } catch (error) {
+    console.error('[Admin] 更新平台失败:', error);
+    res.status(500).json({ success: false, error: '更新平台失败' });
+  }
+});
+
+// 管理后台API - 删除平台
+app.delete('/api/admin/platforms/:id', (req, res) => {
+  try {
+    const config = loadConfig();
+    const { id } = req.params;
+
+    config.platforms = config.platforms.filter(p => p.id !== id);
+    saveConfig(config);
+
+    res.json({ success: true, message: '平台删除成功' });
+  } catch (error) {
+    console.error('[Admin] 删除平台失败:', error);
+    res.status(500).json({ success: false, error: '删除平台失败' });
+  }
+});
+
+// 管理后台API - 添加模型
+app.post('/api/admin/platforms/:platformId/models', (req, res) => {
+  try {
+    const config = loadConfig();
+    const { platformId } = req.params;
+
+    const platform = config.platforms.find(p => p.id === platformId);
+    if (!platform) {
+      return res.status(404).json({ success: false, error: '平台不存在' });
+    }
+
+    const newModel = {
+      ...req.body,
+      id: `model-${Date.now()}`,
+      subModels: req.body.subModels || []
+    };
+
+    platform.models.push(newModel);
+    saveConfig(config);
+
+    res.json({ success: true, message: '模型添加成功', data: newModel });
+  } catch (error) {
+    console.error('[Admin] 添加模型失败:', error);
+    res.status(500).json({ success: false, error: '添加模型失败' });
+  }
+});
+
+// 管理后台API - 更新模型
+app.put('/api/admin/platforms/:platformId/models/:id', (req, res) => {
+  try {
+    const config = loadConfig();
+    const { platformId, id } = req.params;
+
+    const platform = config.platforms.find(p => p.id === platformId);
+    if (!platform) {
+      return res.status(404).json({ success: false, error: '平台不存在' });
+    }
+
+    const modelIndex = platform.models.findIndex(m => m.id === id);
+    if (modelIndex === -1) {
+      return res.status(404).json({ success: false, error: '模型不存在' });
+    }
+
+    platform.models[modelIndex] = { ...platform.models[modelIndex], ...req.body };
+    saveConfig(config);
+
+    res.json({ success: true, message: '模型更新成功' });
+  } catch (error) {
+    console.error('[Admin] 更新模型失败:', error);
+    res.status(500).json({ success: false, error: '更新模型失败' });
+  }
+});
+
+// 管理后台API - 删除模型
+app.delete('/api/admin/platforms/:platformId/models/:id', (req, res) => {
+  try {
+    const config = loadConfig();
+    const { platformId, id } = req.params;
+
+    const platform = config.platforms.find(p => p.id === platformId);
+    if (!platform) {
+      return res.status(404).json({ success: false, error: '平台不存在' });
+    }
+
+    platform.models = platform.models.filter(m => m.id !== id);
+    saveConfig(config);
+
+    res.json({ success: true, message: '模型删除成功' });
+  } catch (error) {
+    console.error('[Admin] 删除模型失败:', error);
+    res.status(500).json({ success: false, error: '删除模型失败' });
+  }
+});
+
+// 管理后台API - 添加子模型
+app.post('/api/admin/platforms/:platformId/models/:modelId/submodels', (req, res) => {
+  try {
+    const config = loadConfig();
+    const { platformId, modelId } = req.params;
+
+    const platform = config.platforms.find(p => p.id === platformId);
+    if (!platform) {
+      return res.status(404).json({ success: false, error: '平台不存在' });
+    }
+
+    const model = platform.models.find(m => m.id === modelId);
+    if (!model) {
+      return res.status(404).json({ success: false, error: '模型不存在' });
+    }
+
+    const newSubModel = {
+      ...req.body,
+      id: `sub-${Date.now()}`
+    };
+
+    model.subModels.push(newSubModel);
+    saveConfig(config);
+
+    res.json({ success: true, message: '子模型添加成功', data: newSubModel });
+  } catch (error) {
+    console.error('[Admin] 添加子模型失败:', error);
+    res.status(500).json({ success: false, error: '添加子模型失败' });
+  }
+});
+
+// 管理后台API - 更新子模型
+app.put('/api/admin/platforms/:platformId/models/:modelId/submodels/:id', (req, res) => {
+  try {
+    const config = loadConfig();
+    const { platformId, modelId, id } = req.params;
+
+    const platform = config.platforms.find(p => p.id === platformId);
+    if (!platform) {
+      return res.status(404).json({ success: false, error: '平台不存在' });
+    }
+
+    const model = platform.models.find(m => m.id === modelId);
+    if (!model) {
+      return res.status(404).json({ success: false, error: '模型不存在' });
+    }
+
+    const subModelIndex = model.subModels.findIndex(sm => sm.id === id);
+    if (subModelIndex === -1) {
+      return res.status(404).json({ success: false, error: '子模型不存在' });
+    }
+
+    model.subModels[subModelIndex] = { ...model.subModels[subModelIndex], ...req.body };
+    saveConfig(config);
+
+    res.json({ success: true, message: '子模型更新成功' });
+  } catch (error) {
+    console.error('[Admin] 更新子模型失败:', error);
+    res.status(500).json({ success: false, error: '更新子模型失败' });
+  }
+});
+
+// 管理后台API - 删除子模型
+app.delete('/api/admin/platforms/:platformId/models/:modelId/submodels/:id', (req, res) => {
+  try {
+    const config = loadConfig();
+    const { platformId, modelId, id } = req.params;
+
+    const platform = config.platforms.find(p => p.id === platformId);
+    if (!platform) {
+      return res.status(404).json({ success: false, error: '平台不存在' });
+    }
+
+    const model = platform.models.find(m => m.id === modelId);
+    if (!model) {
+      return res.status(404).json({ success: false, error: '模型不存在' });
+    }
+
+    model.subModels = model.subModels.filter(sm => sm.id !== id);
+    saveConfig(config);
+
+    res.json({ success: true, message: '子模型删除成功' });
+  } catch (error) {
+    console.error('[Admin] 删除子模型失败:', error);
+    res.status(500).json({ success: false, error: '删除子模型失败' });
+  }
+});
+
 /**
  * 404 处理
  */
@@ -1214,6 +2147,7 @@ app.listen(PORT, () => {
   console.log(`📍 HTTP: http://localhost:${PORT}`);
   console.log(`🔧 Health: http://localhost:${PORT}/api/health`);
   console.log(`📤 Upload: http://localhost:${PORT}/api/upload-oss`);
+  console.log(`🎛️  Admin: http://localhost:${PORT}/admin`);
   console.log('');
   console.log('⚙️  OSS Configuration:');
   console.log(`   Bucket: ${ossConfig.bucket}`);

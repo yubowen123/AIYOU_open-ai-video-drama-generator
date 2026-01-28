@@ -18,12 +18,12 @@ import {
   resetModelStats
 } from '../services/modelFallback';
 import { StorageSettingsPanel } from './StorageSettingsPanel';
-import { getSoraStorageConfig, saveSoraStorageConfig, getOSSConfig, saveOSSConfig, DEFAULT_SORA_MODELS, getSoraProvider, saveSoraProvider, getYunwuApiKey, getDayuapiApiKey } from '../services/soraConfigService';
+import { getSoraStorageConfig, saveSoraStorageConfig, getOSSConfig, saveOSSConfig, DEFAULT_SORA_MODELS, getSoraProvider, saveSoraProvider, getYunwuApiKey, getDayuapiApiKey, getKieApiKey, saveKieApiKey, getVideoPlatformApiKey, saveVideoPlatformApiKey } from '../services/soraConfigService';
 import { testOSSConnection } from '../services/ossService';
 import { OSSConfig } from '../types';
 
 // API 提供商类型
-type SoraProviderType = 'sutu' | 'yunwu' | 'dayuapi';
+type SoraProviderType = 'sutu' | 'yunwu' | 'dayuapi' | 'kie';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -67,6 +67,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
   const [soraApiKey, setSoraApiKey] = useState('');
   const [yunwuApiKey, setYunwuApiKey] = useState('');
   const [dayuapiApiKey, setDayuapiApiKey] = useState('');
+  const [kieApiKey, setKieApiKey] = useState('');
   const [ossConfig, setOssConfig] = useState<OSSConfig>({
     provider: 'imgbb',
     imgbbApiKey: '',
@@ -79,7 +80,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
   const [showSoraApiKey, setShowSoraApiKey] = useState(false);
   const [showYunwuApiKey, setShowYunwuApiKey] = useState(false);
   const [showDayuapiApiKey, setShowDayuapiApiKey] = useState(false);
+  const [showKieApiKey, setShowKieApiKey] = useState(false);
   const [showOssHelp, setShowOssHelp] = useState(false);
+
+  // 视频平台 API Key state
+  const [yunwuapiPlatformKey, setYunwuapiPlatformKey] = useState('');
+  const [showYunwuapiPlatformKey, setShowYunwuapiPlatformKey] = useState(false);
 
   // OSS 测试状态
   const [ossTestState, setOssTestState] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -162,6 +168,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
     const savedDayuapiKey = getDayuapiApiKey();
     if (savedDayuapiKey) {
       setDayuapiApiKey(savedDayuapiKey);
+    }
+
+    // 加载 KIE AI API Key
+    const savedKieApiKey = getKieApiKey();
+    if (savedKieApiKey) {
+      setKieApiKey(savedKieApiKey);
+    }
+
+    // 加载视频平台 API Keys
+    const savedYunwuapiPlatformKey = getVideoPlatformApiKey('yunwuapi');
+    if (savedYunwuapiPlatformKey) {
+      setYunwuapiPlatformKey(savedYunwuapiPlatformKey);
     }
 
     // 加载 OSS 配置
@@ -256,6 +274,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
       sutuApiKey: soraProvider === 'sutu' ? soraApiKey : savedConfig.sutuApiKey,
       yunwuApiKey: yunwuApiKey,
       dayuapiApiKey: dayuapiApiKey,
+      kieApiKey: kieApiKey,
     });
 
     // 保存 OSS 配置
@@ -696,11 +715,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                   <option value="sutu">速推 API (Sutu)</option>
                   <option value="yunwu">云雾 API (Yunwu)</option>
                   <option value="dayuapi">大洋芋 API (Dayuapi)</option>
+                  <option value="kie">KIE AI API</option>
                 </select>
                 <p className="text-[10px] text-slate-500">
                   {soraProvider === 'sutu' ? '速推 API：原有接口，稳定性一般' :
                    soraProvider === 'yunwu' ? '云雾 API：新增接口，稳定性较好' :
-                   '大洋芋 API：通过模型名称控制参数，支持 10/15/25 秒视频'}
+                   soraProvider === 'dayuapi' ? '大洋芋 API：通过模型名称控制参数，支持 10/15/25 秒视频' :
+                   'KIE AI API：支持图生视频和文生视频，参数通过 input 对象传递'}
                 </p>
               </div>
 
@@ -794,6 +815,88 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                 </div>
               )}
 
+              {/* KIE AI API Key */}
+              {soraProvider === 'kie' && (
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">KIE AI API Key</span>
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <input
+                        type={showKieApiKey ? 'text' : 'password'}
+                        value={kieApiKey}
+                        onChange={(e) => setKieApiKey(e.target.value)}
+                        placeholder="输入 KIE AI API Key"
+                        className="w-full px-4 py-2.5 bg-black/20 border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-green-500/50"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowKieApiKey(!showKieApiKey)}
+                      className="px-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-white transition-colors"
+                    >
+                      {showKieApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    在 <a href="https://kie.ai" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">KIE AI 官网</a> 获取 API Key
+                  </p>
+                </div>
+              )}
+
+              {/* 视频平台 API Keys - 分镜视频生成节点专用 */}
+              <div className="mt-8 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+                    <Wand2 size={16} className="text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">视频平台 API Keys</h3>
+                    <p className="text-[11px] text-slate-400">
+                      用于分镜视频生成节点的多模型平台配置
+                    </p>
+                  </div>
+                </div>
+
+                {/* 云雾API平台 Key */}
+                <div className="p-4 bg-black/40 border border-white/10 rounded-xl space-y-3">
+                  <label className="block">
+                    <span className="text-sm font-medium text-slate-300">云雾API平台 Key</span>
+                    <span className="text-xs text-slate-500 ml-2">(支持 Veo/Luma/Runway/海螺/豆包/Grok/通义/Sora)</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <input
+                        type={showYunwuapiPlatformKey ? 'text' : 'password'}
+                        value={yunwuapiPlatformKey}
+                        onChange={(e) => setYunwuapiPlatformKey(e.target.value)}
+                        onBlur={() => saveVideoPlatformApiKey('yunwuapi', yunwuapiPlatformKey)}
+                        placeholder="输入云雾API平台 Key"
+                        className="w-full px-4 py-2.5 bg-black/20 border border-white/10 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50"
+                      />
+                      <button
+                        onClick={() => setShowYunwuapiPlatformKey(!showYunwuapiPlatformKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                      >
+                        {showYunwuapiPlatformKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-500">
+                    在 <a href="https://yunwu.ai" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">云雾API官网</a> 获取平台 Key（支持8个主流视频生成模型）
+                  </p>
+                </div>
+
+                {/* 提示信息 */}
+                <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                  <p className="text-[10px] text-slate-400">
+                    💡 视频平台 API Keys 与 Sora 2 API Key 分开管理，用于分镜视频生成节点的多平台多模型支持
+                  </p>
+                </div>
+              </div>
+
               {/* API 提供商说明 */}
               <div className="p-4 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl border border-blue-500/20">
                 <h4 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
@@ -825,6 +928,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                       <p className="font-medium text-white">大洋芋 API (Dayuapi)</p>
                       <p className="text-[10px] text-slate-400 mt-1">
                         通过模型名称控制参数，支持 10/15/25 秒视频，25 秒自动使用高清模式
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-1 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-white">KIE AI API</p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        支持图生视频和文生视频，参数包装在 input 对象中，支持角色动画集成
                       </p>
                     </div>
                   </div>

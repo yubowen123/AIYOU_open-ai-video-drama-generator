@@ -17,19 +17,7 @@ export async function buildProfessionalSoraPrompt(shots: SplitStoryboardShot[]):
     throw new Error('至少需要一个分镜');
   }
 
-  // 添加1秒空镜头到分镜信息开头
-  const blackScreenInfo = `
-空镜头 (1秒)
-- 景别: 全黑
-- 拍摄角度: 无
-- 运镜方式: 固定
-- 场景: 纯黑画面
-- 视觉描述: 完全黑色的空镜头，无任何内容，纯黑画面
-- 对话: 无
-- 视觉特效: 无
-- 音效: 无声`;
-
-  // 构建完整的分镜信息（从镜头1开始，但实际输出时会变成Shot 2）
+  // 构建完整的分镜信息
   const shotsInfo = shots.map((shot, index) => {
     return `
 镜头 ${shot.shotNumber} (${shot.duration}秒)
@@ -43,19 +31,18 @@ export async function buildProfessionalSoraPrompt(shots: SplitStoryboardShot[]):
 - 音效: ${shot.audioEffects || '无'}`;
   }).join('\n');
 
-  const totalDuration = shots.reduce((sum, s) => sum + s.duration, 0) + 1; // 包含1秒空镜头
+  const totalDuration = shots.reduce((sum, s) => sum + s.duration, 0);
 
   const userPrompt = `你是一位专业的 Sora 2 提示词生成器。你的任务是将分镜信息转换为 Sora 2 Story Mode 格式。
 
 分镜信息：
-${blackScreenInfo}
 ${shotsInfo}
 
-总时长：约 ${totalDuration.toFixed(1)} 秒（包含1秒空镜头）
+总时长：约 ${totalDuration.toFixed(1)} 秒
 
 输出要求：
 1. 只输出 Sora 2 Story Mode 格式
-2. 必须以 Shot 1（空镜头）开始
+2. 必须以 Shot 1 开始（第一个实际分镜）
 3. 不要添加任何前缀、后缀、说明、建议或解释
 4. 不要使用 "---" 分隔线
 5. 不要添加"导演建议"、"色彩控制"等额外内容
@@ -63,16 +50,12 @@ ${shotsInfo}
 
 输出格式：
 Shot 1:
-duration: 1.0s
-Scene: 完全黑色的空镜头，纯黑画面，无任何视觉内容，无声音
+duration: X.Xs
+Scene: [第一个镜头的场景描述]
 
 Shot 2:
 duration: X.Xs
-Scene: [第一个实际镜头的场景描述]
-
-Shot 3:
-duration: X.Xs
-Scene: [第二个实际镜头的场景描述]`;
+Scene: [第二个镜头的场景描述]`;
 
   const systemPrompt = `你是一个 Sora 2 提示词格式化工具。只负责将分镜信息转换为指定格式，不添加任何额外内容。`;
 
@@ -208,22 +191,17 @@ function cleanSoraPrompt(text: string): string {
  * 构建基础 Sora 提示词（回退方案）
  */
 function buildBasicSoraPrompt(shots: SplitStoryboardShot[]): string {
-  // 在开头添加1秒空镜头
-  const blackScreenShot = `Shot 1:
-duration: 1.0s
-Scene: 完全黑色的空镜头，纯黑画面，无任何视觉内容，完全静音`;
-
-  // 原有分镜从 Shot 2 开始
+  // 直接从 Shot 1 开始
   const actualShots = shots.map((shot, index) => {
     const duration = shot.duration || 5;
     const scene = shot.visualDescription || '';
 
-    return `Shot ${index + 2}:
+    return `Shot ${index + 1}:
 duration: ${duration.toFixed(1)}s
 Scene: ${scene}`;
   }).join('\n\n');
 
-  return blackScreenShot + '\n\n' + actualShots;
+  return actualShots;
 }
 
 /**

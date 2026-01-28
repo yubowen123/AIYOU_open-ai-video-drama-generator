@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型配置管理后台 - AIYOU</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .toolbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+        }
+
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+        }
+
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #cbd5e0;
+        }
+
+        .content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .platform-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .platform-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        .platform-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .platform-header {
+            background: #f7fafc;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .platform-header:hover {
+            background: #edf2f7;
+        }
+
+        .platform-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .platform-icon {
+            width: 40px;
+            height: 40px;
+            background: #667eea;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .platform-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a202c;
+        }
+
+        .platform-code {
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .platform-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .platform-body {
+            padding: 20px;
+            display: none;
+        }
+
+        .platform-body.active {
+            display: block;
+        }
+
+        .model-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .model-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            background: #fafafa;
+        }
+
+        .model-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .model-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .model-icon {
+            width: 32px;
+            height: 32px;
+            background: #48bb78;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .submodel-list {
+            margin-top: 12px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px;
+        }
+
+        .submodel-item {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .submodel-name {
+            color: #2d3748;
+            font-weight: 500;
+        }
+
+        .submodel-code {
+            color: #718096;
+            font-size: 10px;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a202c;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 6px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .modal-actions .btn {
+            flex: 1;
+            justify-content: center;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 16px 24px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 2000;
+        }
+
+        .toast.active {
+            display: flex;
+        }
+
+        .toast.success {
+            border-left: 4px solid #48bb78;
+        }
+
+        .toast.error {
+            border-left: 4px solid #f56565;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #718096;
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .badge-danger {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .arrow {
+            transition: transform 0.2s;
+        }
+
+        .arrow.rotated {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🎬 模型配置管理后台</h1>
+            <p>管理视频生成平台的模型配置 - 支持增删改查、导入导出</p>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn btn-primary" onclick="openAddPlatformModal()">
+                ➕ 添加平台
+            </button>
+            <button class="btn btn-success" onclick="exportConfig()">
+                📥 导出配置
+            </button>
+            <label class="btn btn-secondary" style="cursor: pointer;">
+                📤 导入配置
+                <input type="file" accept=".json" onchange="importConfig(event)" style="display: none;">
+            </label>
+            <button class="btn btn-danger" onclick="resetConfig()">
+                🔄 重置为默认
+            </button>
+            <button class="btn btn-secondary" onclick="loadConfig()">
+                🔃 刷新
+            </button>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div id="platformList" class="platform-list">
+                <!-- Platforms will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal-overlay">
+        <div class="modal">
+            <h2 id="modalTitle" class="modal-header">标题</h2>
+            <form id="modalForm" onsubmit="handleSubmit(event)">
+                <div id="modalFields"></div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">保存</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast">
+        <span id="toastMessage"></span>
+    </div>
+
+    <script>
+        const API_BASE = '/api/admin';
+        let currentConfig = null;
+        let currentEditingItem = null;
+
+        // Load configuration on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConfig();
+        });
+
+        // Load configuration from API
+        async function loadConfig() {
+            try {
+                const response = await fetch(`${API_BASE}/config`);
+                const data = await response.json();
+                currentConfig = data;
+                renderPlatforms(data.platforms || []);
+            } catch (error) {
+                console.error('Failed to load config:', error);
+                showToast('error', '加载配置失败');
+            }
+        }
+
+        // Render platforms
+        function renderPlatforms(platforms) {
+            const container = document.getElementById('platformList');
+
+            if (platforms.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                        <h3>暂无平台配置</h3>
+                        <p>点击上方"添加平台"按钮开始配置</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = platforms.map((platform, index) => `
+                <div class="platform-card">
+                    <div class="platform-header" onclick="togglePlatform(${index})">
+                        <div class="platform-info">
+                            <div class="platform-icon">${platform.name.charAt(0)}</div>
+                            <div>
+                                <div class="platform-name">
+                                    ${platform.name}
+                                    ${!platform.enabled ? '<span class="badge badge-danger">已禁用</span>' : '<span class="badge badge-success">启用中</span>'}
+                                </div>
+                                <div class="platform-code">${platform.code}</div>
+                            </div>
+                        </div>
+                        <div class="platform-actions">
+                            <button class="btn btn-secondary" onclick="event.stopPropagation(); editPlatform('${platform.id}')" style="padding: 6px 12px; font-size: 12px;">✏️ 编辑</button>
+                            <button class="btn btn-primary" onclick="event.stopPropagation(); openAddModelModal('${platform.id}')" style="padding: 6px 12px; font-size: 12px;">➕ 添加模型</button>
+                            <button class="btn btn-danger" onclick="event.stopPropagation(); deletePlatform('${platform.id}')" style="padding: 6px 12px; font-size: 12px;">🗑️ 删除</button>
+                            <span class="arrow" id="arrow-${index}" style="margin-left: 8px;">▼</span>
+                        </div>
+                    </div>
+                    <div class="platform-body" id="platform-${index}">
+                        ${renderModels(platform.models || [], platform.id)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render models
+        function renderModels(models, platformId) {
+            if (models.length === 0) {
+                return '<div class="empty-state">暂无模型配置</div>';
+            }
+
+            return `
+                <div class="model-list">
+                    ${models.map(model => `
+                        <div class="model-card">
+                            <div class="model-header">
+                                <div class="model-info">
+                                    <div class="model-icon">${model.name.charAt(0)}</div>
+                                    <div>
+                                        <div style="font-weight: 600; color: #1a202c;">${model.name}</div>
+                                        <div style="font-size: 12px; color: #718096;">${model.code}</div>
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-secondary" onclick="editModel('${platformId}', '${model.id}')" style="padding: 6px 12px; font-size: 12px;">✏️ 编辑</button>
+                                    <button class="btn btn-primary" onclick="openAddSubModelModal('${platformId}', '${model.id}')" style="padding: 6px 12px; font-size: 12px;">➕ 子模型</button>
+                                    <button class="btn btn-danger" onclick="deleteModel('${platformId}', '${model.id}')" style="padding: 6px 12px; font-size: 12px;">🗑️ 删除</button>
+                                </div>
+                            </div>
+                            ${model.subModels && model.subModels.length > 0 ? `
+                                <div class="submodel-list">
+                                    ${model.subModels.map(subModel => `
+                                        <div class="submodel-item">
+                                            <div>
+                                                <div class="submodel-name">${subModel.name}</div>
+                                                <div class="submodel-code">${subModel.code}</div>
+                                            </div>
+                                            <div style="display: flex; gap: 4px;">
+                                                <button onclick="editSubModel('${platformId}', '${model.id}', '${subModel.id}')" style="background: none; border: none; cursor: pointer; padding: 4px;">✏️</button>
+                                                <button onclick="deleteSubModel('${platformId}', '${model.id}', '${subModel.id}')" style="background: none; border: none; cursor: pointer; padding: 4px;">🗑️</button>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : '<div style="color: #718096; font-size: 12px; margin-top: 8px;">暂无子模型</div>'}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Toggle platform expansion
+        function togglePlatform(index) {
+            const body = document.getElementById(`platform-${index}`);
+            const arrow = document.getElementById(`arrow-${index}`);
+            body.classList.toggle('active');
+            arrow.classList.toggle('rotated');
+        }
+
+        // Modal functions
+        function openAddPlatformModal() {
+            currentEditingItem = null;
+            document.getElementById('modalTitle').textContent = '添加平台';
+            document.getElementById('modalFields').innerHTML = `
+                <div class="form-group">
+                    <label>平台代码 *</label>
+                    <input type="text" name="code" required placeholder="如: yunwuapi">
+                </div>
+                <div class="form-group">
+                    <label>显示名称 *</label>
+                    <input type="text" name="name" required placeholder="如: 云雾API">
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea name="description" placeholder="平台描述"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Base URL *</label>
+                    <input type="text" name="baseUrl" required placeholder="如: http://localhost:3001/api/yunwuapi">
+                </div>
+                <div class="form-group">
+                    <label>API Key</label>
+                    <input type="text" name="apiKey" placeholder="API Key（可选）">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="enabled" id="platformEnabled" checked>
+                    <label for="platformEnabled">启用此平台</label>
+                </div>
+            `;
+            openModal();
+        }
+
+        function openAddModelModal(platformId) {
+            currentEditingItem = { type: 'model', platformId };
+            document.getElementById('modalTitle').textContent = '添加模型';
+            document.getElementById('modalFields').innerHTML = `
+                <div class="form-group">
+                    <label>模型代码 *</label>
+                    <input type="text" name="code" required placeholder="如: veo">
+                </div>
+                <div class="form-group">
+                    <label>显示名称 *</label>
+                    <input type="text" name="name" required placeholder="如: Veo">
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea name="description" placeholder="模型描述"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>状态查询端点 *</label>
+                    <input type="text" name="checkEndpoint" required placeholder="如: /veo/status">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="useUnifiedEndpoint" id="useUnified" checked>
+                    <label for="useUnified">使用统一端点</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="supportsImageRef" id="supportsImage" checked>
+                    <label for="supportsImage">支持图片参考</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="enabled" id="modelEnabled" checked>
+                    <label for="modelEnabled">启用此模型</label>
+                </div>
+            `;
+            openModal();
+        }
+
+        function openAddSubModelModal(platformId, modelId) {
+            currentEditingItem = { type: 'submodel', platformId, modelId };
+            document.getElementById('modalTitle').textContent = '添加子模型';
+            document.getElementById('modalFields').innerHTML = `
+                <div class="form-group">
+                    <label>子模型代码 *</label>
+                    <input type="text" name="code" required placeholder="如: veo3-fast">
+                </div>
+                <div class="form-group">
+                    <label>显示名称 *</label>
+                    <input type="text" name="name" required placeholder="如: Veo 3 Fast">
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea name="description" placeholder="子模型描述"></textarea>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="enabled" id="subModelEnabled" checked>
+                    <label for="subModelEnabled">启用此子模型</label>
+                </div>
+            `;
+            openModal();
+        }
+
+        function editPlatform(id) {
+            const platform = currentConfig.platforms.find(p => p.id === id);
+            if (!platform) return;
+
+            currentEditingItem = { type: 'platform', item: platform };
+            document.getElementById('modalTitle').textContent = '编辑平台';
+            document.getElementById('modalFields').innerHTML = `
+                <div class="form-group">
+                    <label>平台代码 *</label>
+                    <input type="text" name="code" required value="${platform.code}">
+                </div>
+                <div class="form-group">
+                    <label>显示名称 *</label>
+                    <input type="text" name="name" required value="${platform.name}">
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea name="description">${platform.description || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Base URL *</label>
+                    <input type="text" name="baseUrl" required value="${platform.baseUrl}">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="enabled" id="platformEnabled" ${platform.enabled ? 'checked' : ''}>
+                    <label for="platformEnabled">启用此平台</label>
+                </div>
+            `;
+            openModal();
+        }
+
+        function editModel(platformId, modelId) {
+            const platform = currentConfig.platforms.find(p => p.id === platformId);
+            const model = platform?.models.find(m => m.id === modelId);
+            if (!model) return;
+
+            currentEditingItem = { type: 'model', platformId, item: model };
+            document.getElementById('modalTitle').textContent = '编辑模型';
+            document.getElementById('modalFields').innerHTML = `
+                <div class="form-group">
+                    <label>模型代码 *</label>
+                    <input type="text" name="code" required value="${model.code}">
+                </div>
+                <div class="form-group">
+                    <label>显示名称 *</label>
+                    <input type="text" name="name" required value="${model.name}">
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea name="description">${model.description || ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>状态查询端点 *</label>
+                    <input type="text" name="checkEndpoint" required value="${model.checkEndpoint}">
+                </div>
+                ${!model.useUnifiedEndpoint ? `
+                <div class="form-group">
+                    <label>提交端点</label>
+                    <input type="text" name="submitEndpoint" value="${model.submitEndpoint || ''}">
+                </div>
+                ` : ''}
+                <div class="checkbox-group">
+                    <input type="checkbox" name="useUnifiedEndpoint" id="useUnified" ${model.useUnifiedEndpoint ? 'checked' : ''}>
+                    <label for="useUnified">使用统一端点</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="supportsImageRef" id="supportsImage" ${model.supportsImageRef ? 'checked' : ''}>
+                    <label for="supportsImage">支持图片参考</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="enabled" id="modelEnabled" ${model.enabled ? 'checked' : ''}>
+                    <label for="modelEnabled">启用此模型</label>
+                </div>
+            `;
+            openModal();
+        }
+
+        function editSubModel(platformId, modelId, subModelId) {
+            const platform = currentConfig.platforms.find(p => p.id === platformId);
+            const model = platform?.models.find(m => m.id === modelId);
+            const subModel = model?.subModels?.find(s => s.id === subModelId);
+            if (!subModel) return;
+
+            currentEditingItem = { type: 'submodel', platformId, modelId, item: subModel };
+            document.getElementById('modalTitle').textContent = '编辑子模型';
+            document.getElementById('modalFields').innerHTML = `
+                <div class="form-group">
+                    <label>子模型代码 *</label>
+                    <input type="text" name="code" required value="${subModel.code}">
+                </div>
+                <div class="form-group">
+                    <label>显示名称 *</label>
+                    <input type="text" name="name" required value="${subModel.name}">
+                </div>
+                <div class="form-group">
+                    <label>描述</label>
+                    <textarea name="description">${subModel.description || ''}</textarea>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" name="enabled" id="subModelEnabled" ${subModel.enabled ? 'checked' : ''}>
+                    <label for="subModelEnabled">启用此子模型</label>
+                </div>
+            `;
+            openModal();
+        }
+
+        function openModal() {
+            document.getElementById('modal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            currentEditingItem = null;
+        }
+
+        // Handle form submit
+        async function handleSubmit(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+            data.enabled = formData.get('enabled') === 'on';
+            data.useUnifiedEndpoint = formData.get('useUnifiedEndpoint') === 'on';
+            data.supportsImageRef = formData.get('supportsImageRef') === 'on';
+
+            try {
+                let url, method;
+                if (currentEditingItem?.item) {
+                    // Update existing
+                    if (currentEditingItem.type === 'platform') {
+                        url = `${API_BASE}/platforms/${currentEditingItem.item.id}`;
+                    } else if (currentEditingItem.type === 'model') {
+                        url = `${API_BASE}/platforms/${currentEditingItem.platformId}/models/${currentEditingItem.item.id}`;
+                    } else if (currentEditingItem.type === 'submodel') {
+                        url = `${API_BASE}/platforms/${currentEditingItem.platformId}/models/${currentEditingItem.modelId}/submodels/${currentEditingItem.item.id}`;
+                    }
+                    method = 'PUT';
+                } else {
+                    // Create new
+                    if (currentEditingItem.type === 'model') {
+                        url = `${API_BASE}/platforms/${currentEditingItem.platformId}/models`;
+                    } else if (currentEditingItem.type === 'submodel') {
+                        url = `${API_BASE}/platforms/${currentEditingItem.platformId}/models/${currentEditingItem.modelId}/submodels`;
+                    } else {
+                        url = `${API_BASE}/platforms`;
+                    }
+                    method = 'POST';
+                }
+
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    showToast('success', '保存成功');
+                    closeModal();
+                    loadConfig();
+                } else {
+                    const error = await response.json();
+                    showToast('error', error.message || '保存失败');
+                }
+            } catch (error) {
+                console.error('Failed to save:', error);
+                showToast('error', '保存失败');
+            }
+        }
+
+        // Delete functions
+        async function deletePlatform(id) {
+            if (!confirm('确定要删除此平台吗？')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/platforms/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    showToast('success', '删除成功');
+                    loadConfig();
+                } else {
+                    showToast('error', '删除失败');
+                }
+            } catch (error) {
+                console.error('Failed to delete:', error);
+                showToast('error', '删除失败');
+            }
+        }
+
+        async function deleteModel(platformId, modelId) {
+            if (!confirm('确定要删除此模型吗？')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/platforms/${platformId}/models/${modelId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    showToast('success', '删除成功');
+                    loadConfig();
+                } else {
+                    showToast('error', '删除失败');
+                }
+            } catch (error) {
+                console.error('Failed to delete:', error);
+                showToast('error', '删除失败');
+            }
+        }
+
+        async function deleteSubModel(platformId, modelId, subModelId) {
+            if (!confirm('确定要删除此子模型吗？')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/platforms/${platformId}/models/${modelId}/submodels/${subModelId}`, { method: 'DELETE' });
+                if (response.ok) {
+                    showToast('success', '删除成功');
+                    loadConfig();
+                } else {
+                    showToast('error', '删除失败');
+                }
+            } catch (error) {
+                console.error('Failed to delete:', error);
+                showToast('error', '删除失败');
+            }
+        }
+
+        // Export/Import
+        async function exportConfig() {
+            try {
+                const response = await fetch(`${API_BASE}/config/export`);
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `model-config-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showToast('success', '导出成功');
+            } catch (error) {
+                console.error('Failed to export:', error);
+                showToast('error', '导出失败');
+            }
+        }
+
+        async function importConfig(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch(`${API_BASE}/config/import`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    showToast('success', '导入成功');
+                    loadConfig();
+                } else {
+                    const error = await response.json();
+                    showToast('error', error.message || '导入失败');
+                }
+            } catch (error) {
+                console.error('Failed to import:', error);
+                showToast('error', '导入失败');
+            }
+
+            event.target.value = '';
+        }
+
+        async function resetConfig() {
+            if (!confirm('确定要重置为默认配置吗？所有自定义更改将丢失！')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/config/reset`, { method: 'POST' });
+                if (response.ok) {
+                    showToast('success', '重置成功');
+                    loadConfig();
+                } else {
+                    showToast('error', '重置失败');
+                }
+            } catch (error) {
+                console.error('Failed to reset:', error);
+                showToast('error', '重置失败');
+            }
+        }
+
+        // Toast notification
+        function showToast(type, message) {
+            const toast = document.getElementById('toast');
+            const messageEl = document.getElementById('toastMessage');
+            toast.className = `toast ${type} active`;
+            messageEl.textContent = message;
+            setTimeout(() => {
+                toast.classList.remove('active');
+            }, 3000);
+        }
+
+        // Close modal on overlay click
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target.id === 'modal') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

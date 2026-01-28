@@ -1,0 +1,307 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-01-28T10:45:06.992Z",
+  "platforms": [
+    {
+      "id": "yunwuapi-platform",
+      "code": "yunwuapi",
+      "name": "云雾API",
+      "description": "云雾AI视频生成平台",
+      "enabled": true,
+      "baseUrl": "https://yunwu.ai",
+      "apiKeyRequired": true,
+      "models": [
+        {
+          "id": "veo-model",
+          "platformId": "yunwuapi-platform",
+          "code": "veo",
+          "name": "Veo",
+          "description": "Google Veo视频生成模型",
+          "enabled": true,
+          "useUnifiedEndpoint": true,
+          "checkEndpoint": "/veo/status",
+          "subModels": [
+            {
+              "id": "veo2",
+              "modelId": "veo-model",
+              "code": "veo2",
+              "name": "Veo 2",
+              "description": "Google Veo 2 模型",
+              "enabled": true
+            },
+            {
+              "id": "veo2-fast",
+              "modelId": "veo-model",
+              "code": "veo2-fast",
+              "name": "Veo 2 Fast",
+              "description": "快速版本",
+              "enabled": true
+            },
+            {
+              "id": "veo3",
+              "modelId": "veo-model",
+              "code": "veo3",
+              "name": "Veo 3",
+              "description": "Google Veo 3 模型",
+              "enabled": true
+            },
+            {
+              "id": "veo3-fast",
+              "modelId": "veo-model",
+              "code": "veo3-fast",
+              "name": "Veo 3 Fast",
+              "description": "Veo 3 快速版",
+              "enabled": true
+            },
+            {
+              "id": "veo3-pro",
+              "modelId": "veo-model",
+              "code": "veo3-pro",
+              "name": "Veo 3 Pro",
+              "description": "Veo 3 专业版",
+              "enabled": true
+            },
+            {
+              "id": "veo3-1-fast",
+              "modelId": "veo-model",
+              "code": "veo3.1-fast",
+              "name": "Veo 3.1 Fast",
+              "description": "最新快速版",
+              "enabled": true,
+              "default": true
+            },
+            {
+              "code": "veo3.1-fast-components",
+              "name": "veo3.1-fast-（便宜）",
+              "description": "",
+              "enabled": true,
+              "useUnifiedEndpoint": false,
+              "supportsImageRef": false,
+              "id": "sub-1769597106992"
+            }
+          ],
+          "defaultSubModel": "veo3.1-fast",
+          "supportsImageRef": true,
+          "maxDuration": 10,
+          "maxPromptLength": 500
+        },
+        {
+          "id": "luma-model",
+          "platformId": "yunwuapi-platform",
+          "code": "luma",
+          "name": "Luma",
+          "description": "Luma Dream Machine视频生成",
+          "enabled": true,
+          "useUnifiedEndpoint": false,
+          "submitEndpoint": "/luma/generations",
+          "checkEndpoint": "/luma/status",
+          "subModels": [
+            {
+              "id": "ray-v2",
+              "modelId": "luma-model",
+              "code": "ray-v2",
+              "name": "Ray V2",
+              "description": "Luma Ray V2",
+              "enabled": true,
+              "default": true
+            },
+            {
+              "id": "photon",
+              "modelId": "luma-model",
+              "code": "photon",
+              "name": "Photon",
+              "description": "Photon 模型",
+              "enabled": true
+            },
+            {
+              "id": "photon-flash",
+              "modelId": "luma-model",
+              "code": "photon-flash",
+              "name": "Photon Flash",
+              "description": "快速 Photon",
+              "enabled": true
+            }
+          ],
+          "defaultSubModel": "ray-v2",
+          "supportsImageRef": true,
+          "maxDuration": 5,
+          "maxPromptLength": 500
+        },
+        {
+          "id": "sora-model",
+          "platformId": "yunwuapi-platform",
+          "code": "sora",
+          "name": "Sora",
+          "description": "OpenAI Sora视频生成",
+          "enabled": true,
+          "useUnifiedEndpoint": true,
+          "checkEndpoint": "/sora/status",
+          "subModels": [
+            {
+              "id": "sora",
+              "modelId": "sora-model",
+              "code": "sora",
+              "name": "Sora",
+              "description": "OpenAI Sora",
+              "enabled": true
+            },
+            {
+              "id": "sora-2",
+              "modelId": "sora-model",
+              "code": "sora-2",
+              "name": "Sora 2",
+              "description": "Sora 2 模型",
+              "enabled": true,
+              "default": true
+            }
+          ],
+          "defaultSubModel": "sora-2",
+          "supportsImageRef": true,
+          "maxDuration": 10,
+          "maxPromptLength": 500
+        },
+        {
+          "id": "runway-model",
+          "platformId": "yunwuapi-platform",
+          "code": "runway",
+          "name": "Runway",
+          "description": "Runway Gen-3视频生成",
+          "enabled": true,
+          "useUnifiedEndpoint": true,
+          "checkEndpoint": "/runway/status",
+          "subModels": [
+            {
+              "id": "gen3-alpha-turbo",
+              "modelId": "runway-model",
+              "code": "gen3-alpha-turbo",
+              "name": "Gen-3 Alpha Turbo",
+              "description": "极速版",
+              "enabled": true,
+              "default": true
+            },
+            {
+              "id": "gen3-alpha",
+              "modelId": "runway-model",
+              "code": "gen3-alpha",
+              "name": "Gen-3 Alpha",
+              "description": "标准版",
+              "enabled": true
+            },
+            {
+              "id": "gen3-alpha-extreme",
+              "modelId": "runway-model",
+              "code": "gen3-alpha-extreme",
+              "name": "Gen-3 Alpha Extreme",
+              "description": "极致版",
+              "enabled": true
+            }
+          ],
+          "defaultSubModel": "gen3-alpha-turbo",
+          "supportsImageRef": true,
+          "maxDuration": 10,
+          "maxPromptLength": 500
+        },
+        {
+          "id": "minimax-model",
+          "platformId": "yunwuapi-platform",
+          "code": "minimax",
+          "name": "MiniMax",
+          "description": "MiniMax视频生成",
+          "enabled": true,
+          "useUnifiedEndpoint": true,
+          "checkEndpoint": "/minimax/status",
+          "subModels": [
+            {
+              "id": "minimax-video-01",
+              "modelId": "minimax-model",
+              "code": "minimax-video-01",
+              "name": "MiniMax Video 01",
+              "description": "标准模型",
+              "enabled": true,
+              "default": true
+            }
+          ],
+          "defaultSubModel": "minimax-video-01",
+          "supportsImageRef": false,
+          "maxDuration": 6,
+          "maxPromptLength": 500
+        },
+        {
+          "id": "volcengine-model",
+          "platformId": "yunwuapi-platform",
+          "code": "volcengine",
+          "name": "火山引擎",
+          "description": "字节跳动火山引擎视频生成",
+          "enabled": true,
+          "useUnifiedEndpoint": true,
+          "checkEndpoint": "/volcengine/status",
+          "subModels": [
+            {
+              "id": "volc-video-01",
+              "modelId": "volcengine-model",
+              "code": "volc-video-01",
+              "name": "Volc Video 01",
+              "description": "标准模型",
+              "enabled": true,
+              "default": true
+            }
+          ],
+          "defaultSubModel": "volc-video-01",
+          "supportsImageRef": true,
+          "maxDuration": 5,
+          "maxPromptLength": 500
+        },
+        {
+          "id": "grok-model",
+          "platformId": "yunwuapi-platform",
+          "code": "grok",
+          "name": "Grok",
+          "description": "xAI Grok视频生成",
+          "enabled": true,
+          "useUnifiedEndpoint": true,
+          "checkEndpoint": "/grok/status",
+          "subModels": [
+            {
+              "id": "grok-video",
+              "modelId": "grok-model",
+              "code": "grok-video",
+              "name": "Grok Video",
+              "description": "Grok 视频模型",
+              "enabled": true,
+              "default": true
+            }
+          ],
+          "defaultSubModel": "grok-video",
+          "supportsImageRef": false,
+          "maxDuration": 5,
+          "maxPromptLength": 500
+        },
+        {
+          "id": "qwen-model",
+          "platformId": "yunwuapi-platform",
+          "code": "qwen",
+          "name": "通义千问",
+          "description": "阿里通义千问视频生成",
+          "enabled": true,
+          "useUnifiedEndpoint": true,
+          "checkEndpoint": "/qwen/status",
+          "subModels": [
+            {
+              "id": "qwen-video",
+              "modelId": "qwen-model",
+              "code": "qwen-video",
+              "name": "Qwen Video",
+              "description": "通义千问视频",
+              "enabled": true,
+              "default": true
+            }
+          ],
+          "defaultSubModel": "qwen-video",
+          "supportsImageRef": true,
+          "maxDuration": 5,
+          "maxPromptLength": 500
+        }
+      ]
+    }
+  ]
+}

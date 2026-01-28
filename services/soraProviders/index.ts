@@ -6,12 +6,14 @@ import { SoraProvider, SoraProviderType } from './types';
 import { SutuProvider } from './sutuProvider';
 import { YunwuProvider } from './yunwuProvider';
 import { DayuapiProvider } from './dayuapiProvider';
+import { KieProvider } from './kieProvider';
 
 // 提供商实例注册表
 const providers: Record<SoraProviderType, SoraProvider> = {
   sutu: new SutuProvider(),
   yunwu: new YunwuProvider(),
   dayuapi: new DayuapiProvider(),
+  kie: new KieProvider(),
 };
 
 /**
@@ -54,4 +56,5 @@ export type { SoraProvider, SoraProviderType, SoraSubmitParams, SoraSubmitResult
 export { SutuProvider } from './sutuProvider';
 export { YunwuProvider } from './yunwuProvider';
 export { DayuapiProvider } from './dayuapiProvider';
+export { KieProvider } from './kieProvider';
 export { SoraAPIError } from './types';

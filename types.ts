@@ -17,6 +17,8 @@ export enum NodeType {
   STYLE_PRESET = 'STYLE_PRESET',
   SORA_VIDEO_GENERATOR = 'SORA_VIDEO_GENERATOR',
   SORA_VIDEO_CHILD = 'SORA_VIDEO_CHILD',
+  STORYBOARD_VIDEO_GENERATOR = 'STORYBOARD_VIDEO_GENERATOR',
+  STORYBOARD_VIDEO_CHILD = 'STORYBOARD_VIDEO_CHILD',
 }
 
 export enum NodeStatus {
@@ -342,16 +344,27 @@ export interface SoraStorageConfig {
   apiKey?: string;
 
   // API 提供商选择
-  provider?: 'sutu' | 'yunwu' | 'dayuapi';
+  provider?: 'sutu' | 'yunwu' | 'dayuapi' | 'kie';
 
   // 速推 API Key（独立字段，与 apiKey 共享值）
   sutuApiKey?: string;
 
-  // 云雾 API Key
+  // 云雾 API Key（Sora 官方）
   yunwuApiKey?: string;
 
   // 大洋芋 API Key
   dayuapiApiKey?: string;
+
+  // KIE AI API Key
+  kieApiKey?: string;
+
+  // 视频生成平台 API Keys（用于分镜视频生成节点）
+  videoPlatformKeys?: {
+    yunwuapi?: string;  // 云雾API平台（多模型聚合）
+    // 未来可添加更多平台
+    // official?: string;
+    // custom?: string;
+  };
 }
 
 export interface OSSConfig {
@@ -364,6 +377,84 @@ export interface OSSConfig {
   region?: string;
   accessKey?: string;
   secretKey?: string;
+}
+
+// ============================================================
+// 分镜视频生成节点相关类型
+// ============================================================
+
+/**
+ * 分镜视频生成节点的数据结构
+ */
+export interface StoryboardVideoGeneratorData {
+  // 状态管理
+  status: 'idle' | 'selecting' | 'prompting' | 'generating' | 'completed';
+
+  // 分镜数据
+  availableShots: SplitStoryboardShot[];
+  selectedShotIds: string[];
+
+  // 角色数据（可选）
+  characterData?: Array<any>;
+
+  // 提示词
+  generatedPrompt: string;
+  promptModified: boolean;
+
+  // 平台和模型配置
+  selectedPlatform?: 'yunwuapi' | 'official' | 'custom';  // 默认yunwuapi
+  selectedModel?: 'veo' | 'luma' | 'runway' | 'minimax' | 'volcengine' | 'grok' | 'qwen' | 'sora';
+  subModel?: string;  // 子模型，例如 veo3.1-fast, ray-v2, sora-2 等
+  modelConfig: {
+    aspect_ratio: '16:9' | '9:16';
+    duration: '5' | '10' | '15' | '25';
+    quality: 'standard' | 'pro' | 'hd';
+  };
+
+  // 图片融合
+  enableImageFusion: boolean;
+  fusionLayout: 'grid' | 'horizontal' | 'vertical';
+  fusionColumns: number;
+  includeCharacterViews: boolean;
+  fusedImage?: string; // Base64 data URL of the fused image
+  fusedImageUrl?: string; // OSS URL after uploading
+  isLoadingFusion?: boolean; // Whether image fusion is in progress
+
+  // 生成结果
+  currentTaskId?: string;
+  progress?: number;
+  error?: string;
+
+  // 子节点列表
+  childNodeIds: string[];
+}
+
+/**
+ * 分镜视频子节点的数据结构
+ */
+export interface StoryboardVideoChildData {
+  // 来自父节点的快照
+  prompt: string;
+  platformInfo: {
+    platformCode: string;
+    modelName: string;
+  };
+  modelConfig: {
+    aspect_ratio: string;
+    duration: string;
+    quality: string;
+  };
+
+  // 生成结果
+  videoUrl: string;
+  videoDuration?: number;
+  videoResolution?: string;
+
+  // 可选：融合图片URL
+  fusedImageUrl?: string;
+
+  // UI状态
+  promptExpanded: boolean;
 }
 
 // Window interface for Google AI Studio key selection

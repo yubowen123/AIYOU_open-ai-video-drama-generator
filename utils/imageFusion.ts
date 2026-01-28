@@ -210,3 +210,232 @@ export async function fuseMultipleTaskGroups(
 
     return results;
 }
+
+/**
+ * 融合分镜图和角色三视图
+ * @param splitShots - 分镜数组
+ * @param characterViews - 角色三视图 { frontView?, sideView?, backView? }
+ * @param options - 融合选项
+ * @returns Promise<string> - 融合后的Base64图片
+ */
+export async function fuseStoryboardWithCharacterViews(
+    splitShots: SplitStoryboardShot[],
+    characterViews: {
+        frontView?: string;
+        sideView?: string;
+        backView?: string;
+    },
+    options: {
+        layout?: 'grid' | 'horizontal' | 'vertical';
+        columns?: number;
+        padding?: number;
+        bgColor?: string;
+        showNumbers?: boolean;
+        numberSize?: number;
+        characterPosition?: 'bottom' | 'right' | 'left';
+        characterSize?: 'small' | 'medium' | 'large';
+    } = {}
+): Promise<string> {
+    const {
+        layout = 'grid',
+        columns = 3,
+        padding = 8,
+        bgColor = '#1a1a1c',
+        showNumbers = true,
+        numberSize = 16,
+        characterPosition = 'bottom',
+        characterSize = 'medium'
+    } = options;
+
+    // 1. 先融合分镜图
+    const storyboardCanvas = document.createElement('canvas');
+    const storyboardCtx = storyboardCanvas.getContext('2d');
+    if (!storyboardCtx) throw new Error('无法创建canvas上下文');
+
+    // 加载分镜图
+    const shotImages = await Promise.all(
+        splitShots.map(shot => loadImage(shot.splitImage))
+    );
+
+    const firstImg = shotImages[0];
+    const imgWidth = firstImg.width;
+    const imgHeight = firstImg.height;
+
+    // 计算布局
+    const numShots = shotImages.length;
+    let cols = columns;
+    if (layout === 'horizontal') cols = numShots;
+    if (layout === 'vertical') cols = 1;
+    const rows = Math.ceil(numShots / cols);
+
+    const storyboardWidth = imgWidth * cols + (cols + 1) * padding;
+    const storyboardHeight = imgHeight * rows + (rows + 1) * padding;
+
+    storyboardCanvas.width = storyboardWidth;
+    storyboardCanvas.height = storyboardHeight;
+
+    // 绘制背景
+    storyboardCtx.fillStyle = bgColor;
+    storyboardCtx.fillRect(0, 0, storyboardWidth, storyboardHeight);
+
+    // 绘制分镜图
+    shotImages.forEach((img, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const x = padding + col * (imgWidth + padding);
+        const y = padding + row * (imgHeight + padding);
+
+        storyboardCtx.drawImage(img, x, y, imgWidth, imgHeight);
+
+        // 绘制序号
+        if (showNumbers) {
+            const numBoxW = numberSize + 12;
+            const numBoxH = numberSize + 6 * 1.5;
+
+            storyboardCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            storyboardCtx.fillRect(x + 4, y + 4, numBoxW, numBoxH);
+
+            storyboardCtx.fillStyle = '#ffffff';
+            storyboardCtx.font = `bold ${numberSize}px Arial`;
+            storyboardCtx.textAlign = 'left';
+            storyboardCtx.textBaseline = 'top';
+            storyboardCtx.fillText(String(i + 1), x + 4 + 6, y + 4 + 6 * 0.75);
+        }
+    });
+
+    // 2. 添加角色三视图（如果有）
+    const characterImages: HTMLImageElement[] = [];
+    if (characterViews.frontView) {
+        characterImages.push(await loadImage(characterViews.frontView));
+    }
+    if (characterViews.sideView) {
+        characterImages.push(await loadImage(characterViews.sideView));
+    }
+    if (characterViews.backView) {
+        characterImages.push(await loadImage(characterViews.backView));
+    }
+
+    // 如果没有角色图，直接返回分镜融合图
+    if (characterImages.length === 0) {
+        return storyboardCanvas.toDataURL('image/png', 0.95);
+    }
+
+    // 3. 创建最终画布（分镜 + 角色）
+    const charHeight = characterSize === 'small' ? 150 : characterSize === 'medium' ? 200 : 250;
+    const finalCanvas = document.createElement('canvas');
+    const finalCtx = finalCanvas.getContext('2d');
+    if (!finalCtx) throw new Error('无法创建最终canvas上下文');
+
+    if (characterPosition === 'bottom') {
+        // 角色在底部
+        finalCanvas.width = storyboardWidth;
+        finalCanvas.height = storyboardHeight + padding + charHeight;
+
+        finalCtx.fillStyle = bgColor;
+        finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+        // 绘制分镜图
+        finalCtx.drawImage(storyboardCanvas, 0, 0);
+
+        // 绘制角色区域标题
+        finalCtx.fillStyle = '#22d3ee';
+        finalCtx.font = 'bold 12px Arial, sans-serif';
+        finalCtx.textAlign = 'left';
+        finalCtx.textBaseline = 'top';
+        finalCtx.fillText('角色三视图', 10, storyboardHeight + padding / 2);
+
+        // 绘制角色图
+        const charImgWidth = (finalCanvas.width - padding * 2) / characterImages.length - padding;
+        const charImgHeight = charHeight - 30;
+
+        characterImages.forEach((img, i) => {
+            const x = padding + i * (charImgWidth + padding);
+            const y = storyboardHeight + padding + 20;
+
+            // 保持宽高比
+            const aspect = img.width / img.height;
+            let drawW = charImgWidth;
+            let drawH = drawW / aspect;
+
+            if (drawH > charImgHeight) {
+                drawH = charImgHeight;
+                drawW = drawH * aspect;
+            }
+
+            const centerX = x + charImgWidth / 2;
+            const centerY = y + charImgHeight / 2;
+
+            finalCtx.drawImage(img, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH);
+        });
+    } else if (characterPosition === 'right') {
+        // 角色在右侧
+        const charWidth = 200;
+        finalCanvas.width = storyboardWidth + padding + charWidth;
+        finalCanvas.height = Math.max(storyboardHeight, charHeight * characterImages.length);
+
+        finalCtx.fillStyle = bgColor;
+        finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+        // 绘制分镜图
+        finalCtx.drawImage(storyboardCanvas, 0, 0);
+
+        // 绘制角色图
+        const charImgHeight = (finalCanvas.height - padding * (characterImages.length + 1)) / characterImages.length;
+        const charImgWidth = charWidth - padding * 2;
+
+        characterImages.forEach((img, i) => {
+            const x = storyboardWidth + padding;
+            const y = padding + i * (charImgHeight + padding);
+
+            const aspect = img.width / img.height;
+            let drawH = charImgHeight;
+            let drawW = drawH * aspect;
+
+            if (drawW > charImgWidth) {
+                drawW = charImgWidth;
+                drawH = drawW / aspect;
+            }
+
+            const centerX = x + charWidth / 2;
+            const centerY = y + charImgHeight / 2;
+
+            finalCtx.drawImage(img, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH);
+        });
+    } else {
+        // 角色在左侧（同右侧逻辑）
+        const charWidth = 200;
+        finalCanvas.width = storyboardWidth + padding + charWidth;
+        finalCanvas.height = Math.max(storyboardHeight, charHeight * characterImages.length);
+
+        finalCtx.fillStyle = bgColor;
+        finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+        // 绘制角色图
+        const charImgHeight = (finalCanvas.height - padding * (characterImages.length + 1)) / characterImages.length;
+        const charImgWidth = charWidth - padding * 2;
+
+        characterImages.forEach((img, i) => {
+            const x = padding;
+            const y = padding + i * (charImgHeight + padding);
+
+            const aspect = img.width / img.height;
+            let drawH = charImgHeight;
+            let drawW = drawH * aspect;
+
+            if (drawW > charImgWidth) {
+                drawW = charImgWidth;
+                drawH = drawW / aspect;
+            }
+
+            const centerX = x + charWidth / 2;
+            const centerY = y + charImgHeight / 2;
+
+            finalCtx.drawImage(img, centerX - drawW / 2, centerY - drawH / 2, drawW, drawH);
+        });
+
+        // 绘制分镜图
+        finalCtx.drawImage(storyboardCanvas, charWidth, 0);
+    }
+
+    return finalCanvas.toDataURL('image/png', 0.95);
+}

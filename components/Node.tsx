@@ -1,11 +1,13 @@
 
 import { AppNode, NodeStatus, NodeType, StoryboardShot, CharacterProfile } from '../types';
-import { RefreshCw, Play, Image as ImageIcon, Video as VideoIcon, Type, AlertCircle, CheckCircle, Plus, Maximize2, Download, MoreHorizontal, Wand2, Scaling, FileSearch, Edit, Loader2, Layers, Trash2, X, Upload, Scissors, Film, MousePointerClick, Crop as CropIcon, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, GripHorizontal, Link, Copy, Monitor, Music, Pause, Volume2, Mic2, BookOpen, ScrollText, Clapperboard, LayoutGrid, Box, User, Users, Save, RotateCcw, Eye, List, Sparkles, ZoomIn, ZoomOut, Minus, Circle, Square, Maximize, Move, RotateCw, TrendingUp, TrendingDown, ArrowRight, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight, Palette, Grid, MoveHorizontal, ArrowUpDown, Database, ShieldAlert, ExternalLink } from 'lucide-react';
+import { RefreshCw, Play, Image as ImageIcon, Video as VideoIcon, Type, AlertCircle, CheckCircle, Plus, Maximize2, Download, MoreHorizontal, Wand2, Scaling, FileSearch, Edit, Loader2, Layers, Trash2, X, Upload, Scissors, Film, MousePointerClick, Crop as CropIcon, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, GripHorizontal, Link, Copy, Monitor, Music, Pause, Volume2, Mic2, BookOpen, ScrollText, Clapperboard, LayoutGrid, Box, User, Users, Save, RotateCcw, Eye, List, Sparkles, ZoomIn, ZoomOut, Minus, Circle, Square, Maximize, Move, RotateCw, TrendingUp, TrendingDown, ArrowRight, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight, Palette, Grid, Grid3X3, MoveHorizontal, ArrowUpDown, Database, ShieldAlert, ExternalLink } from 'lucide-react';
 import { VideoModeSelector, SceneDirectorOverlay } from './VideoNodeModules';
 import { PromptEditor } from './PromptEditor';
+import { StoryboardVideoNode, StoryboardVideoChildNode } from './StoryboardVideoNode';
 import React, { memo, useRef, useState, useEffect, useCallback } from 'react';
 import { IMAGE_MODELS, TEXT_MODELS, VIDEO_MODELS, AUDIO_MODELS } from '../services/modelConfig';
 import { promptManager } from '../services/promptManager';
+import { getNodeNameCN } from '../utils/nodeHelpers';
 
 const IMAGE_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '9:16', '16:9'];
@@ -885,7 +887,7 @@ const NodeComponent: React.FC<NodeProps> = ({
               onClick={() => setIsEditingTitle(true)}
               title="点击编辑节点名称"
             >
-              {node.title}
+              {getNodeNameCN(node.type)}
             </span>
           )}
           {isWorking && <Loader2 className="animate-spin w-3 h-3 text-cyan-400 ml-1" />}
@@ -925,6 +927,31 @@ const NodeComponent: React.FC<NodeProps> = ({
   const [editingShotIndex, setEditingShotIndex] = useState<number>(-1);
 
   const renderMediaContent = () => {
+      // 分镜视频生成节点（新节点）
+      if (node.type === NodeType.STORYBOARD_VIDEO_GENERATOR) {
+          return (
+              <StoryboardVideoNode
+                  node={node}
+                  onUpdate={onUpdate}
+                  onAction={onAction}
+                  onExpand={onExpand}
+                  nodeQuery={nodeQuery}
+              />
+          );
+      }
+
+      // 分镜视频子节点（新节点）
+      if (node.type === NodeType.STORYBOARD_VIDEO_CHILD) {
+          return (
+              <StoryboardVideoChildNode
+                  node={node}
+                  onUpdate={onUpdate}
+                  onAction={onAction}
+                  onExpand={onExpand}
+              />
+          );
+      }
+
       if (node.type === NodeType.PROMPT_INPUT) {
           // If episodeStoryboard exists, show storyboard view
           if (node.data.episodeStoryboard && node.data.episodeStoryboard.shots.length > 0) {
@@ -3950,6 +3977,119 @@ const NodeComponent: React.FC<NodeProps> = ({
                      {locallySaved && (
                          <div className="text-[9px] text-green-400 text-center">
                              ✓ 已保存到: {node.data.videoFilePath || '本地'}
+                         </div>
+                     )}
+                 </div>
+             </div>
+         );
+     }
+
+     // Special handling for STORYBOARD_VIDEO_GENERATOR
+     if (node.type === NodeType.STORYBOARD_VIDEO_GENERATOR) {
+         const data = node.data as any;
+         const status = data.status || 'idle';
+         const isLoading = data.isLoading;
+
+         return (
+             <div className={`absolute top-full left-1/2 -translate-x-1/2 w-[98%] pt-2 z-50 flex flex-col items-center justify-start transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isOpen ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-[-10px] scale-95 pointer-events-none'}`}>
+                 <div className={`w-full rounded-[20px] p-3 flex flex-col gap-3 ${GLASS_PANEL} relative z-[100]`} onMouseDown={e => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+                     {/* Stage 1 (idle): 获取分镜按钮 */}
+                     {status === 'idle' && (
+                         <button
+                             onClick={() => onAction?.(node.id, 'fetch-shots')}
+                             disabled={isLoading}
+                             className={`w-full px-4 py-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                                 isLoading
+                                     ? 'bg-white/5 text-slate-500 cursor-not-allowed'
+                                     : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/20 hover:scale-[1.02]'
+                             }`}
+                         >
+                             {isLoading ? (
+                                 <>
+                                     <Loader2 className="animate-spin" size={14} />
+                                     <span>获取中...</span>
+                                 </>
+                             ) : (
+                                 <>
+                                     <Grid3X3 size={14} />
+                                     <span>获取分镜</span>
+                                 </>
+                             )}
+                         </button>
+                     )}
+
+                     {/* Stage 2 (selecting): 提示信息 */}
+                     {status === 'selecting' && (
+                         <div className="px-3 py-2 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                             <div className="flex items-center gap-2 text-purple-300 text-[10px]">
+                                 <Grid3X3 size={12} />
+                                 <span>请在节点内容区选择要生成的分镜</span>
+                             </div>
+                         </div>
+                     )}
+
+                     {/* Stage 3 (prompting): 操作按钮 */}
+                     {status === 'prompting' && (
+                         <div className="flex gap-2">
+                             <button
+                                 onClick={(e) => {
+                                     e.stopPropagation();
+                                     onUpdate(node.id, {
+                                         status: 'selecting',
+                                         generatedPrompt: '',
+                                         promptModified: false
+                                     });
+                                 }}
+                                 disabled={isLoading}
+                                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
+                             >
+                                 <ChevronDown size={14} className="rotate-90" />
+                                 <span>返回</span>
+                             </button>
+
+                             <button
+                                 onClick={(e) => {
+                                     e.stopPropagation();
+                                     onAction?.(node.id, 'generate-video');
+                                 }}
+                                 disabled={isLoading}
+                                 className="flex-[2] flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/20 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                             >
+                                 {isLoading ? <Loader2 className="animate-spin" size={14} /> : <Play size={14} />}
+                                 <span>生成视频</span>
+                             </button>
+                         </div>
+                     )}
+
+                     {/* Stage 4 (generating): 进度提示 */}
+                     {status === 'generating' && (
+                         <div className="px-3 py-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                             <div className="flex items-center gap-2 text-blue-300 text-[10px]">
+                                 <Loader2 className="animate-spin" size={12} />
+                                 <span>视频生成中，请稍候...</span>
+                             </div>
+                         </div>
+                     )}
+
+                     {/* Stage 5 (completed): 完成提示 + 重新生成按钮 */}
+                     {status === 'completed' && (
+                         <div className="flex gap-2">
+                             <div className="flex-1 px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center justify-center">
+                                 <div className="flex items-center gap-2 text-green-300 text-[10px]">
+                                     <Sparkles size={12} />
+                                     <span>生成完成！</span>
+                                 </div>
+                             </div>
+                             <button
+                                 onClick={(e) => {
+                                     e.stopPropagation();
+                                     onAction?.(node.id, 'regenerate-video');
+                                 }}
+                                 className="px-3 py-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 rounded-lg flex items-center gap-2 transition-all hover:scale-[1.02]"
+                             >
+                                 <RefreshCw size={12} className="text-purple-300" />
+                                 <span className="text-[10px] text-purple-300">重新生成</span>
+                             </button>
                          </div>
                      )}
                  </div>

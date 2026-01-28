@@ -8,6 +8,7 @@ import {
     Clapperboard, Mic2, Settings, BookOpen, ScrollText, User, Search, Sparkles, Palette, Bug, LayoutGrid, Grid, Wand2
 } from 'lucide-react';
 import { NodeType, Workflow } from '../types';
+import { getNodeNameCN } from '../utils/nodeHelpers';
 
 interface SidebarDockProps {
     onAddNode: (type: NodeType) => void;
@@ -49,28 +50,6 @@ interface SidebarDockProps {
 }
 
 // ... (Helper Helpers UNCHANGED) ...
-const getNodeNameCN = (t: string) => {
-    switch(t) {
-        case NodeType.PROMPT_INPUT: return '创意描述';
-        case NodeType.IMAGE_GENERATOR: return '文字生图';
-        case NodeType.VIDEO_GENERATOR: return '文生视频';
-        case NodeType.AUDIO_GENERATOR: return '灵感音乐';
-        case NodeType.VIDEO_ANALYZER: return '视频分析';
-        case NodeType.IMAGE_EDITOR: return '图像编辑';
-        case NodeType.SCRIPT_PLANNER: return '剧本大纲';
-        case NodeType.SCRIPT_EPISODE: return '剧本分集';
-        case NodeType.STORYBOARD_GENERATOR: return '分镜生成';
-        case NodeType.STORYBOARD_IMAGE: return '分镜图设计';
-        case NodeType.STORYBOARD_SPLITTER: return '分镜图拆解';
-        case NodeType.SORA_VIDEO_GENERATOR: return 'Sora 2 视频';
-        case NodeType.CHARACTER_NODE: return '角色设计';
-        case NodeType.DRAMA_ANALYZER: return '剧目分析';
-        case NodeType.DRAMA_REFINED: return '剧目精炼';
-        case NodeType.STYLE_PRESET: return '全局风格';
-        default: return t;
-    }
-};
-
 const getNodeIcon = (t: string) => {
     switch(t) {
         case NodeType.PROMPT_INPUT: return Type;
@@ -85,6 +64,7 @@ const getNodeIcon = (t: string) => {
         case NodeType.STORYBOARD_IMAGE: return LayoutGrid;
         case NodeType.STORYBOARD_SPLITTER: return Grid;
         case NodeType.SORA_VIDEO_GENERATOR: return Wand2;
+        case NodeType.STORYBOARD_VIDEO_GENERATOR: return Film;
         case NodeType.CHARACTER_NODE: return User;
         case NodeType.DRAMA_ANALYZER: return Search;
         case NodeType.DRAMA_REFINED: return Sparkles;
@@ -310,17 +290,17 @@ export const SidebarDock: React.FC<SidebarDockProps> = ({
                     </span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-2">
-                    {[NodeType.IMAGE_GENERATOR, NodeType.SCRIPT_PLANNER, NodeType.SCRIPT_EPISODE, NodeType.CHARACTER_NODE, NodeType.STYLE_PRESET, NodeType.STORYBOARD_GENERATOR, NodeType.STORYBOARD_IMAGE, NodeType.STORYBOARD_SPLITTER, NodeType.SORA_VIDEO_GENERATOR, NodeType.DRAMA_ANALYZER].map(t => {
+                    {[NodeType.IMAGE_GENERATOR, NodeType.SCRIPT_PLANNER, NodeType.SCRIPT_EPISODE, NodeType.CHARACTER_NODE, NodeType.STYLE_PRESET, NodeType.STORYBOARD_GENERATOR, NodeType.STORYBOARD_IMAGE, NodeType.STORYBOARD_SPLITTER, NodeType.SORA_VIDEO_GENERATOR, NodeType.STORYBOARD_VIDEO_GENERATOR, NodeType.DRAMA_ANALYZER].map(t => {
                         const ItemIcon = getNodeIcon(t);
                         return (
-                            <button 
-                                key={t} 
-                                onClick={(e) => { e.stopPropagation(); onAddNode(t); setActivePanel(null); }} 
+                            <button
+                                key={t}
+                                onClick={(e) => { e.stopPropagation(); onAddNode(t); setActivePanel(null); }}
                                 className="w-full text-left p-3 rounded-xl bg-white/5 hover:bg-white/10 flex items-center gap-3 text-sm text-slate-200 transition-colors border border-transparent hover:border-white/5 hover:shadow-lg"
                             >
                                 <div className="p-2 bg-white/10 rounded-lg text-cyan-200 shadow-inner">
                                     <ItemIcon size={16} />
-                                </div> 
+                                </div>
                                 <div className="flex flex-col">
                                     <span className="font-medium text-xs">{getNodeNameCN(t)}</span>
                                 </div>

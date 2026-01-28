@@ -293,6 +293,9 @@ export function getProviderApiKey(): string | null {
   } else if (provider === 'dayuapi') {
     // 大洋芋 API 使用独立的 dayuapiApiKey 字段
     return config.dayuapiApiKey || null;
+  } else if (provider === 'kie') {
+    // KIE AI API 使用独立的 kieApiKey 字段
+    return config.kieApiKey || null;
   }
 
   return null;
@@ -312,6 +315,10 @@ export function saveProviderApiKey(provider: SoraProviderType, apiKey: string): 
     config.sutuApiKey = apiKey;
   } else if (provider === 'yunwu') {
     config.yunwuApiKey = apiKey;
+  } else if (provider === 'dayuapi') {
+    config.dayuapiApiKey = apiKey;
+  } else if (provider === 'kie') {
+    config.kieApiKey = apiKey;
   }
 
   saveSoraStorageConfig(config);
@@ -364,4 +371,73 @@ export function getDayuapiApiKey(): string | null {
  */
 export function saveDayuapiApiKey(apiKey: string): void {
   saveProviderApiKey('dayuapi', apiKey);
+}
+
+/**
+ * 获取 KIE AI API Key
+ * @returns KIE AI API Key，如果未配置则返回 null
+ */
+export function getKieApiKey(): string | null {
+  const config = getSoraStorageConfig();
+  return config.kieApiKey || null;
+}
+
+/**
+ * 保存 KIE AI API Key
+ */
+export function saveKieApiKey(apiKey: string): void {
+  saveProviderApiKey('kie', apiKey);
+}
+
+// ============================================================
+// 视频平台配置（用于分镜视频生成节点）
+// ============================================================
+
+/**
+ * 获取视频平台 API Key
+ * @param platformCode 平台代码
+ * @returns API Key，如果未配置则返回 null
+ */
+export function getVideoPlatformApiKey(platformCode: string): string | null {
+  const config = getSoraStorageConfig();
+  const platformKeys = config.videoPlatformKeys || {};
+
+  return platformKeys[platformCode] || null;
+}
+
+/**
+ * 保存视频平台 API Key
+ * @param platformCode 平台代码
+ * @param apiKey API Key
+ */
+export function saveVideoPlatformApiKey(platformCode: string, apiKey: string): void {
+  const config = getSoraStorageConfig();
+
+  if (!config.videoPlatformKeys) {
+    config.videoPlatformKeys = {};
+  }
+
+  config.videoPlatformKeys[platformCode] = apiKey;
+  saveSoraStorageConfig(config);
+
+  console.log(`[SoraConfig] 视频平台 ${platformCode} API Key 已保存`);
+}
+
+/**
+ * 获取所有视频平台 API Keys
+ * @returns 平台 API Keys 对象
+ */
+export function getAllVideoPlatformKeys(): Record<string, string> {
+  const config = getSoraStorageConfig();
+  return config.videoPlatformKeys || {};
+}
+
+/**
+ * 检查视频平台是否已配置 API Key
+ * @param platformCode 平台代码
+ * @returns 是否已配置
+ */
+export function hasVideoPlatformApiKey(platformCode: string): boolean {
+  const apiKey = getVideoPlatformApiKey(platformCode);
+  return apiKey !== null && apiKey.length > 0;
 }

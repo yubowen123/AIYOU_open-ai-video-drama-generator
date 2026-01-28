@@ -9,6 +9,7 @@ import { VideoGeneratorNodeService } from './videoGenerator.service';
 import { AudioGeneratorNodeService } from './audioGenerator.service';
 import { StoryboardSplitterNodeService } from './storyboardSplitter.service';
 import { PromptInputNodeService } from './promptInput.service';
+import { StoryboardVideoGeneratorNodeService } from './storyboardVideoGenerator.service';
 
 /**
  * 注册所有节点服务
@@ -20,6 +21,7 @@ export function registerAllNodeServices(): void {
   NodeServiceRegistry.register('VIDEO_GENERATOR', VideoGeneratorNodeService);
   NodeServiceRegistry.register('AUDIO_GENERATOR', AudioGeneratorNodeService);
   NodeServiceRegistry.register('STORYBOARD_SPLITTER', StoryboardSplitterNodeService);
+  NodeServiceRegistry.register('STORYBOARD_VIDEO_GENERATOR', StoryboardVideoGeneratorNodeService);
   // NodeServiceRegistry.register('SCRIPT_PLANNER', ScriptPlannerNodeService);
   // NodeServiceRegistry.register('SCRIPT_EPISODE', ScriptEpisodeNodeService);
   // NodeServiceRegistry.register('STORYBOARD_GENERATOR', StoryboardGeneratorNodeService);
@@ -45,3 +47,4 @@ export { VideoGeneratorNodeService } from './videoGenerator.service';
 export { AudioGeneratorNodeService } from './audioGenerator.service';
 export { StoryboardSplitterNodeService } from './storyboardSplitter.service';
 export { PromptInputNodeService } from './promptInput.service';
+export { StoryboardVideoGeneratorNodeService } from './storyboardVideoGenerator.service';

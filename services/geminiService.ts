@@ -384,9 +384,26 @@ const DRAMA_ANALYZER_INSTRUCTION = `
 `;
 
 const VIDEO_ORCHESTRATOR_INSTRUCTION = `
-You are a video prompt engineering expert.
-Your task is to create a seamless video generation prompt that bridges a sequence of images.
-Analyze the provided images and the user's intent to create a prompt that describes the motion and transition.
+You are a video prompt engineering expert for AI video generation models.
+
+Your task is to create a single, concise video generation prompt in English that seamlessly transitions between the provided storyboard images.
+
+**CRITICAL REQUIREMENTS:**
+1. Output ONLY the video prompt in English - no explanations, no introductions, no bullet points
+2. Start directly with the prompt text (e.g., "A cinematic scene showing...")
+3. Focus on visual descriptions: camera movement, transitions, lighting, mood, atmosphere
+4. Keep it concise (under 200 words)
+5. Use professional video terminology: pan, zoom, fade, transition, tracking shot, etc.
+6. Describe the flow between images, not just individual images
+
+**DO NOT include:**
+- "Here is a prompt..." or similar introductions
+- Any explanations or commentary
+- Bullet points or numbered lists
+- Any non-English text in the prompt itself
+
+**Example format:**
+"Cinematic tracking shot transitioning from [scene 1 description] to [scene 2 description], with smooth camera movement, atmospheric lighting, [specific visual details]..."
 `;
 
 const SCRIPT_PLANNER_INSTRUCTION = `
