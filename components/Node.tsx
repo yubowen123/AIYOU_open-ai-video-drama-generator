@@ -3783,6 +3783,12 @@ const NodeComponent: React.FC<NodeProps> = ({
                                  const currentConfig = node.data.sora2Config || { aspect_ratio: '16:9', duration: '10', hd: true };
                                  const updateConfig = (updates: any) => {
                                      const newConfig = { ...currentConfig, ...updates };
+                                     console.log('[Sora配置更新]', {
+                                         更新内容: updates,
+                                         新配置: newConfig,
+                                         节点ID: node.id,
+                                         任务组数量: taskGroups.length
+                                     });
                                      // 同时更新节点级别和所有任务组的配置
                                      const updatedTaskGroups = taskGroups.map((tg: any) => ({
                                          ...tg,
@@ -3792,6 +3798,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                          sora2Config: newConfig,
                                          taskGroups: updatedTaskGroups
                                      });
+                                     console.log('[Sora配置更新] ✅ 已更新所有任务组配置');
                                  };
                                  return (
                                      <>
