@@ -3782,8 +3782,15 @@ const NodeComponent: React.FC<NodeProps> = ({
                              {(() => {
                                  const currentConfig = node.data.sora2Config || { aspect_ratio: '16:9', duration: '10', hd: true };
                                  const updateConfig = (updates: any) => {
+                                     const newConfig = { ...currentConfig, ...updates };
+                                     // 同时更新节点级别和所有任务组的配置
+                                     const updatedTaskGroups = taskGroups.map((tg: any) => ({
+                                         ...tg,
+                                         sora2Config: newConfig
+                                     }));
                                      onUpdate(node.id, {
-                                         sora2Config: { ...currentConfig, ...updates }
+                                         sora2Config: newConfig,
+                                         taskGroups: updatedTaskGroups
                                      });
                                  };
                                  return (
