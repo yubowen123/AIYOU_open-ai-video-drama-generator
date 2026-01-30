@@ -147,11 +147,13 @@ export async function pollSoraTaskUntilComplete(
                     result.status === 'failure' ||
                     result.status === 'FAILED';  // 支持大写
 
-    // 将进度转换为数字进行比较
-    const progressNum = parseInt(String(result.progress)) || 0;
+    // ⚠️ 重要：只根据状态判断完成，不要根据进度判断
+    // 进度值只是估算的，不应该作为完成条件
+    // 只有状态为 completed/succeeded/done/finished 时才认为任务完成
+    // 并且必须有 videoUrl 才是真正的完成
+    const hasVideoUrl = !!result.videoUrl;
 
-    // 当进度达到 100% 或状态为完成时，返回结果
-    if (isCompleted || progressNum >= 100) {
+    if (isCompleted && hasVideoUrl) {
       console.log('[Sora Service] Task completed:', {
         taskId,
         status: result.status,

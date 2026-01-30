@@ -29,7 +29,7 @@ export async function generateVideoFromStoryboard(
   apiKey: string,
   options: {
     onProgress?: (message: string, progress: number) => void;
-    onCancel?: () => void;
+    signal?: AbortSignal; // 取消信号
     timeout?: number; // 超时时间（毫秒）
     subModel?: string; // 子模型
   } = {}
@@ -71,6 +71,12 @@ export async function generateVideoFromStoryboard(
       : 120; // 默认最多120次（10分钟）
 
     while (attempts < maxAttempts) {
+      // 检查是否被取消
+      if (options.signal?.aborted) {
+        console.log(`[VideoGeneration] 任务被取消: ${submitResult.taskId}`);
+        throw new Error('任务已取消');
+      }
+
       const result = await platform.checkStatus(
         model,
         submitResult.taskId,
@@ -108,8 +114,25 @@ export async function generateVideoFromStoryboard(
         throw new Error(result.error || '视频生成失败');
       }
 
-      // 等待5秒后重试
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      // 等待5秒后重试（支持取消）
+      await new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(resolve, 5000);
+        
+        // 如果收到取消信号，清除定时器并拒绝
+        if (options.signal) {
+          const abortHandler = () => {
+            clearTimeout(timeoutId);
+            reject(new Error('任务已取消'));
+          };
+          
+          if (options.signal.aborted) {
+            abortHandler();
+          } else {
+            options.signal.addEventListener('abort', abortHandler, { once: true });
+          }
+        }
+      });
+      
       attempts++;
     }
 
@@ -122,7 +145,9 @@ export async function generateVideoFromStoryboard(
 }
 
 /**
- * 取消视频生成任务（如果模型支持）
+ * 取消视频生成任务
+ * 注意：目前大多数视频生成API不支持真正的取消，
+ * 此函数主要用于清理状态和停止轮询
  *
  * @param platformCode 视频生成平台
  * @param model 视频生成模型
@@ -135,7 +160,9 @@ export async function cancelVideoGeneration(
   taskId: string,
   apiKey: string
 ): Promise<void> {
-  // TODO: 根据不同平台和模型实现取消逻辑
-  console.log(`[VideoGeneration] 取消任务: ${platformCode}/${model}/${taskId}`);
-  // 目前大多数视频生成API不支持取消，这里是占位符
+  console.log(`[VideoGeneration] 尝试取消任务: ${platformCode}/${model}/${taskId}`);
+  
+  // 目前云雾API等平台不支持取消任务
+  // 这里只是记录日志，实际的取消通过 AbortController 实现
+  console.log(`[VideoGeneration] 任务 ${taskId} 的轮询已停止`);
 }

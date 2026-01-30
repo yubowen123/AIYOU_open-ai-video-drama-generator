@@ -246,7 +246,8 @@ const arePropsEqual = (prev: NodeProps, next: NodeProps) => {
         'stylePrompt', 'negativePrompt', 'visualStyle', // 风格预设字段
         'error', 'progress', 'duration', 'quality', 'isCompliant',
         'isExpanded', 'videoMode', 'shotType', 'cameraAngle', 'cameraMovement',
-        'selectedFields', 'dramaName', 'taskGroups'
+        'selectedFields', 'dramaName', 'taskGroups',
+        'modelConfig' // 视频生成配置（尺寸、时长、清晰度）
     ];
 
     for (const key of criticalDataKeys) {
@@ -3385,6 +3386,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                               className="w-full h-full object-cover bg-zinc-900"
                               loop
                               playsInline
+                              controls  // ✅ 使用原生视频控件（包含下载按钮）
                               onContextMenu={(e) => {
                                   e.preventDefault();
                                   setContextMenu({ x: e.clientX, y: e.clientY });
@@ -3441,104 +3443,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                   onClick={() => setContextMenu(null)}
                               />
                           )}
-
-                          {/* Controls Overlay */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/70 to-transparent p-3">
-                              {/* Progress Bar */}
-                              <div className="w-full mb-3">
-                                  <div
-                                      className="w-full h-1 bg-white/20 rounded-full cursor-pointer group/relative"
-                                      onClick={(e) => {
-                                          if (videoRef.current) {
-                                              const rect = e.currentTarget.getBoundingClientRect();
-                                              const x = e.clientX - rect.left;
-                                              const newTime = (x / rect.width) * durationValue;
-                                              videoRef.current.currentTime = newTime;
-                                              setCurrentTime(newTime);
-                                          }
-                                      }}
-                                  >
-                                      <div
-                                          className="h-full bg-cyan-500 rounded-full relative"
-                                          style={{ width: `${durationValue > 0 ? (currentTime / durationValue) * 100 : 0}%` }}
-                                      >
-                                          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />
-                                      </div>
-                                  </div>
-                                  {/* Time Display */}
-                                  <div className="flex justify-between text-[10px] text-white/70 mt-1">
-                                      <span>{formatTime(currentTime)}</span>
-                                      <span>{formatTime(durationValue)}</span>
-                                  </div>
-                              </div>
-
-                              {/* Control Buttons */}
-                              <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                      {/* Play/Pause Button */}
-                                      <button
-                                          onClick={() => {
-                                              if (videoRef.current) {
-                                                  if (isPlaying) {
-                                                      videoRef.current.pause();
-                                                  } else {
-                                                      videoRef.current.play();
-                                                  }
-                                              }
-                                          }}
-                                          className="w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-                                      >
-                                          {isPlaying ? (
-                                              <Pause size={14} className="text-white" />
-                                          ) : (
-                                              <Play size={14} className="text-white ml-0.5" />
-                                          )}
-                                      </button>
-
-                                      {/* Duration Badge */}
-                                      {duration && (
-                                          <span className="text-[10px] text-white/70 px-2 py-0.5 bg-white/10 rounded">
-                                              {duration}
-                                          </span>
-                                      )}
-
-                                      {/* Status Badges */}
-                                      {isCompliant === false && (
-                                          <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-300 text-[9px] rounded-full" title={violationReason}>
-                                              ⚠️ 违规
-                                          </span>
-                                      )}
-                                      {locallySaved && (
-                                          <span className="px-2 py-0.5 bg-green-500/20 text-green-300 text-[9px] rounded-full">
-                                              ✓ 已保存
-                                          </span>
-                                      )}
-                                      {/* Local Server Toggle */}
-                                      {soraTaskId && (
-                                          <button
-                                              onClick={() => setUseLocalServer(!useLocalServer)}
-                                              className={`px-2 py-0.5 text-[9px] rounded-full transition-colors ${
-                                                  useLocalServer
-                                                      ? 'bg-blue-500/30 text-blue-300 border border-blue-400/30'
-                                                      : 'bg-white/10 text-white/50 border border-white/10'
-                                              }`}
-                                              title={useLocalServer ? '使用本地服务器（推荐）' : '使用原始URL（可能较慢）'}
-                                          >
-                                              {useLocalServer ? '🔄 本地服务器' : '☁️ 原始URL'}
-                                          </button>
-                                      )}
-                                  </div>
-
-                                  {/* Download Button */}
-                                  <button
-                                      onClick={handleDownload}
-                                      className="w-8 h-8 flex items-center justify-center bg-cyan-500/20 hover:bg-cyan-500/40 rounded-full transition-colors"
-                                      title="下载视频"
-                                  >
-                                      <Download size={14} className="text-cyan-400" />
-                                  </button>
-                              </div>
-                          </div>
                       </>
                   ) : violationReason || node.data.error ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-red-400 bg-black/40 p-6 text-center">
@@ -4096,6 +4000,9 @@ const NodeComponent: React.FC<NodeProps> = ({
                                  duration: '5',
                                  quality: 'standard'
                              };
+                             
+                             // 如果有错误，显示错误提示
+                             const hasError = data.error;
 
                              const platforms = [
                                  { code: 'yunwuapi', name: '云雾API', models: ['veo', 'luma', 'runway', 'minimax', 'volcengine', 'grok', 'qwen', 'sora'] }
@@ -4112,41 +4019,49 @@ const NodeComponent: React.FC<NodeProps> = ({
                                  sora: 'Sora'
                              };
 
-                             // 默认子模型列表
-                             const defaultSubModels: Record<string, string[]> = {
-                                 veo: ['veo2', 'veo2-fast', 'veo3', 'veo3-fast', 'veo3-pro'],
-                                 luma: ['ray-v2', 'photon', 'photon-flash'],
-                                 sora: ['sora', 'sora-2'],
-                                 runway: ['gen3-alpha-turbo', 'gen3-alpha', 'gen3-alpha-extreme'],
-                                 minimax: ['video-01', 'video-01-live'],
-                                 volcengine: ['doubao-video-1', 'doubao-video-pro'],
-                                 grok: ['grok-2-video', 'grok-vision-video'],
-                                 qwen: ['qwen-video', 'qwen-video-plus']
-                             };
+                             // 默认子模型列表（根据云雾API最新截图更新）
+                            const defaultSubModels: Record<string, string[]> = {
+                                veo: [
+                                    'veo3.1-4k', 'veo3.1-components-4k', 'veo3.1-pro-4k', 'veo3.1',
+                                    'veo3.1-pro', 'veo3.1-components', 'veo3.1-fast-components', 'veo3.1-fast'
+                                ],
+                                luma: ['ray-v2', 'photon', 'photon-flash'],
+                                sora: ['sora', 'sora-2'],
+                                runway: ['gen3-alpha-turbo', 'gen3-alpha', 'gen3-alpha-extreme'],
+                                minimax: ['video-01', 'video-01-live'],
+                                volcengine: ['doubao-video-1', 'doubao-video-pro'],
+                                grok: ['grok-2-video', 'grok-vision-video'],
+                                qwen: ['qwen-video', 'qwen-video-plus']
+                            };
 
                              const defaultSubModelDisplayNames: Record<string, string> = {
-                                 'veo2': 'Veo 2',
-                                 'veo2-fast': 'Veo 2 Fast',
-                                 'veo3': 'Veo 3',
-                                 'veo3-fast': 'Veo 3 Fast',
-                                 'veo3-pro': 'Veo 3 Pro',
-                                 'ray-v2': 'Ray V2',
-                                 'photon': 'Photon',
-                                 'photon-flash': 'Photon Flash',
-                                 'sora': 'Sora 1',
-                                 'sora-2': 'Sora 2',
-                                 'gen3-alpha-turbo': 'Gen-3 Alpha Turbo',
-                                 'gen3-alpha': 'Gen-3 Alpha',
-                                 'gen3-alpha-extreme': 'Gen-3 Alpha Extreme',
-                                 'video-01': 'Video-01',
-                                 'video-01-live': 'Video-01 Live',
-                                 'doubao-video-1': 'Doubao Video 1',
-                                 'doubao-video-pro': 'Doubao Video Pro',
-                                 'grok-2-video': 'Grok 2 Video',
-                                 'grok-vision-video': 'Grok Vision Video',
-                                 'qwen-video': 'Qwen Video',
-                                 'qwen-video-plus': 'Qwen Video Plus'
-                             };
+                                // Veo 3.1 系列（根据截图更新）
+                                'veo3.1-4k': 'Veo 3.1 4K',
+                                'veo3.1-components-4k': 'Veo 3.1 Components 4K',
+                                'veo3.1-pro-4k': 'Veo 3.1 Pro 4K',
+                                'veo3.1': 'Veo 3.1',
+                                'veo3.1-pro': 'Veo 3.1 Pro',
+                                'veo3.1-components': 'Veo 3.1 Components',
+                                'veo3.1-fast-components': 'Veo 3.1 Fast Components',
+                                'veo3.1-fast': 'Veo 3.1 Fast',
+                                // 其他模型
+                                'ray-v2': 'Ray V2',
+                                'photon': 'Photon',
+                                'photon-flash': 'Photon Flash',
+                                'sora': 'Sora 1',
+                                'sora-2': 'Sora 2',
+                                'gen3-alpha-turbo': 'Gen-3 Alpha Turbo',
+                                'gen3-alpha': 'Gen-3 Alpha',
+                                'gen3-alpha-extreme': 'Gen-3 Alpha Extreme',
+                                'video-01': 'Video-01',
+                                'video-01-live': 'Video-01 Live',
+                                'doubao-video-1': 'Doubao Video 1',
+                                'doubao-video-pro': 'Doubao Video Pro',
+                                'grok-2-video': 'Grok 2 Video',
+                                'grok-vision-video': 'Grok Vision Video',
+                                'qwen-video': 'Qwen Video',
+                                'qwen-video-plus': 'Qwen Video Plus'
+                            };
 
                              // 使用动态加载的配置（如果已加载），否则回退到硬编码的默认值
                              // 动态配置结构: { yunwuapi: { veo: [...], luma: [...] } }
@@ -4162,13 +4077,23 @@ const NodeComponent: React.FC<NodeProps> = ({
                              const selectedSubModel = data.subModel || (subModels[selectedModel]?.[0] || selectedModel);
 
                              return (
-                                 <div className="flex flex-col gap-3">
-                                     {/* 模型配置 */}
-                                     <div className="flex flex-col gap-2">
-                                         <div className="flex items-center justify-between">
-                                             <div className="flex items-center gap-2">
-                                                 <Wand2 size={12} className="text-purple-400" />
-                                                 <span className="text-[10px] font-bold text-slate-400">模型配置</span>
+                                <div className="flex flex-col gap-3">
+                                    {/* 错误提示 */}
+                                    {hasError && (
+                                        <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-lg">
+                                            <div className="flex items-start gap-2">
+                                                <AlertCircle size={12} className="text-red-400 mt-0.5 flex-shrink-0" />
+                                                <span className="text-[10px] text-red-300">{data.error}</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* 模型配置 */}
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <Wand2 size={12} className="text-purple-400" />
+                                                <span className="text-[10px] font-bold text-slate-400">模型配置</span>
                                                  {configLoaded && Object.keys(dynamicSubModels).length > 0 && (
                                                      <span className="text-[8px] text-green-400">● 后台</span>
                                                  )}
@@ -4331,30 +4256,57 @@ const NodeComponent: React.FC<NodeProps> = ({
                                          </button>
 
                                          <button
-                                             onClick={(e) => {
-                                                 e.stopPropagation();
-                                                 onAction?.(node.id, 'generate-video');
-                                             }}
-                                             disabled={isLoading}
-                                             className="flex-[2] flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:shadow-lg hover:shadow-purple-500/20 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                             onMouseDown={(e) => e.stopPropagation()}
-                                         >
-                                             {isLoading ? <Loader2 className="animate-spin" size={14} /> : <Play size={14} />}
-                                             <span>生成视频</span>
-                                         </button>
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                // 如果有错误，先清除错误再生成
+                                                if (hasError) {
+                                                    onUpdate(node.id, { error: undefined });
+                                                }
+                                                onAction?.(node.id, 'generate-video');
+                                            }}
+                                            disabled={isLoading}
+                                            className={`flex-[2] flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                hasError 
+                                                    ? 'bg-gradient-to-r from-red-500 to-orange-500 hover:shadow-lg hover:shadow-red-500/20' 
+                                                    : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:shadow-lg hover:shadow-purple-500/20'
+                                            } text-white hover:scale-[1.02]`}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        >
+                                            {isLoading ? <Loader2 className="animate-spin" size={14} /> : hasError ? <RefreshCw size={14} /> : <Play size={14} />}
+                                            <span>{hasError ? '重新生成' : '生成视频'}</span>
+                                        </button>
                                      </div>
                                  </div>
                              );
                          })()
                      )}
 
-                     {/* Stage 4 (generating): 进度提示 */}
+                     {/* Stage 4 (generating): 进度提示 + 取消按钮 */}
                      {status === 'generating' && (
-                         <div className="px-3 py-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                             <div className="flex items-center gap-2 text-blue-300 text-[10px]">
-                                 <Loader2 className="animate-spin" size={12} />
-                                 <span>视频生成中，请稍候...</span>
+                         <div className="flex gap-2">
+                             <div className="flex-1 px-3 py-2 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                                 <div className="flex items-center gap-2 text-blue-300 text-[10px]">
+                                     <Loader2 className="animate-spin" size={12} />
+                                     <span>视频生成中 {data.progress || 0}%</span>
+                                 </div>
+                                 {/* 进度条 */}
+                                 <div className="mt-1.5 h-1 bg-blue-500/20 rounded-full overflow-hidden">
+                                     <div
+                                         className="h-full bg-blue-400 transition-all duration-300"
+                                         style={{ width: `${data.progress || 0}%` }}
+                                     />
+                                 </div>
                              </div>
+                             <button
+                                 onClick={(e) => {
+                                     e.stopPropagation();
+                                     onAction?.(node.id, 'cancel-generate');
+                                 }}
+                                 className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg flex items-center gap-2 transition-all hover:scale-[1.02]"
+                             >
+                                 <X size={12} className="text-red-300" />
+                                 <span className="text-[10px] text-red-300">取消</span>
+                             </button>
                          </div>
                      )}
 

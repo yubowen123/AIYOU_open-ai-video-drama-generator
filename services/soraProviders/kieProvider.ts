@@ -38,8 +38,9 @@ export class KieProvider implements SoraProvider {
     // n_frames 直接使用 duration 的值（都是 "10" | "15" | "25"）
     const n_frames = userConfig.duration;
 
-    // hd 和 remove_watermark 含义相同（true = 移除水印）
-    const remove_watermark = userConfig.hd;
+    // KIE API: remove_watermark 始终为 true（移除水印）
+    // 忽略用户配置的 hd 值，强制移除水印以获得更好的视频质量
+    const remove_watermark = true;
 
     return {
       aspect_ratio,
@@ -80,6 +81,16 @@ export class KieProvider implements SoraProvider {
       model,
       input,
     };
+
+    console.log(`[${this.displayName}] 提交任务参数:`, {
+      model,
+      hasPrompt: !!input.prompt,
+      aspect_ratio: input.aspect_ratio,
+      n_frames: input.n_frames,
+      remove_watermark: input.remove_watermark,  // 确认 remove_watermark 始终为 true
+      hasImageUrls: !!input.image_urls,
+      imageUrlsCount: input.image_urls?.length || 0,
+    });
 
     return logAPICall(
       'kieSubmitTask',
@@ -185,13 +196,15 @@ export class KieProvider implements SoraProvider {
         console.log(`[${this.displayName}] API Response:`, {
           taskId,
           code: data.code,
-          msg: data.msg,
+          message: data.message || data.msg,
           hasData: !!data.data,
           dataKeys: data.data ? Object.keys(data.data) : 'no data',
+          state: data.data?.state,
+          hasResultJson: !!data.data?.resultJson,
           fullResponse: data,
         });
 
-        // KIE API 返回格式: {code: 200, msg: "success", data: {...}}
+        // KIE API 返回格式: {code: 200, message: "success", data: {...}}
         if (data.code !== 200) {
           // 非 200 状态码表示错误
           return {
@@ -203,27 +216,37 @@ export class KieProvider implements SoraProvider {
             duration: undefined,
             quality: 'unknown',
             isCompliant: false,
-            violationReason: data.msg || '查询任务失败',
+            violationReason: data.message || data.msg || '查询任务失败',
             _rawData: data,
           };
         }
 
         const taskData = data.data || {};
 
-        // 状态映射：KIE API 的状态值
-        // 假设状态值: pending, processing, completed, failed
+        // KIE API 状态映射
+        // 官方状态值: waiting, queuing, generating, success, fail
         const statusMap: Record<string, 'queued' | 'processing' | 'completed' | 'error'> = {
-          'pending': 'queued',
-          'queued': 'queued',
-          'processing': 'processing',
-          'completed': 'completed',
-          'succeeded': 'completed',
-          'failed': 'error',
-          'error': 'error',
+          'waiting': 'queued',
+          'queuing': 'queued',
+          'generating': 'processing',
+          'success': 'completed',
+          'fail': 'error',
         };
 
-        const status = statusMap[taskData.status] || 'processing';
-        const progress = taskData.progress || 0;
+        const state = taskData.state || taskData.status; // 兼容新旧字段
+        const status = statusMap[state] || 'processing';
+
+        // 计算进度（根据状态估算）
+        // 重要：不要使用 taskData.progress，因为它可能是前端累积的值
+        // 始终根据 state 重新计算进度，避免累积误差
+        const progressMap: Record<string, number> = {
+          'waiting': 10,
+          'queuing': 20,
+          'generating': 60,
+          'success': 100,
+          'fail': 0,
+        };
+        const progress = progressMap[state] || 50;
 
         // 更新进度
         if (onProgress) {
@@ -241,21 +264,51 @@ export class KieProvider implements SoraProvider {
             duration: undefined,
             quality: 'unknown',
             isCompliant: false,
-            violationReason: taskData.error || taskData.message || '视频生成失败',
+            violationReason: taskData.failMsg || taskData.error || taskData.message || '视频生成失败',
             _rawData: data,
           };
         }
 
         // 提取视频 URL
-        // 假设 URL 字段在 taskData.output 或 taskData.videoUrl 或 taskData.url
-        const videoUrl = taskData.output?.url || taskData.videoUrl || taskData.url || taskData.video_url;
+        // KIE API 将结果存储在 resultJson 字段中（JSON 字符串格式）
+        let videoUrl: string | undefined;
+        if (taskData.resultJson) {
+          try {
+            console.log(`[${this.displayName}] 发现 resultJson，准备解析:`, taskData.resultJson.substring(0, 200));
+            const resultObj = JSON.parse(taskData.resultJson);
+            console.log(`[${this.displayName}] resultJson 解析成功:`, {
+              hasResultUrls: !!resultObj.resultUrls,
+              resultUrlsCount: resultObj.resultUrls?.length,
+              firstUrlPreview: resultObj.resultUrls?.[0] ? resultObj.resultUrls[0].substring(0, 100) : 'N/A'
+            });
+            // resultJson 格式: {"resultUrls":["https://..."]}
+            if (resultObj.resultUrls && Array.isArray(resultObj.resultUrls) && resultObj.resultUrls.length > 0) {
+              videoUrl = resultObj.resultUrls[0];
+              console.log(`[${this.displayName}] ✅ 成功提取视频 URL:`, videoUrl);
+            }
+          } catch (e) {
+            console.error(`[${this.displayName}] ❌ 解析 resultJson 失败:`, e, '原始数据:', taskData.resultJson);
+          }
+        } else {
+          console.log(`[${this.displayName}] ⚠️ state=${state} 但没有 resultJson 字段`);
+        }
+
+        // 兼容其他可能的字段
+        if (!videoUrl) {
+          videoUrl = taskData.output?.url || taskData.videoUrl || taskData.url || taskData.video_url;
+          if (videoUrl) {
+            console.log(`[${this.displayName}] 从备用字段提取到视频 URL:`, videoUrl);
+          }
+        }
 
         console.log(`[${this.displayName}] 最终返回:`, {
           taskId,
+          state,
           status,
           progress,
           hasVideoUrl: !!videoUrl,
-          videoUrlPreview: videoUrl ? videoUrl.substring(0, 100) : 'N/A',
+          videoUrlPreview: videoUrl ? videoUrl.substring(0, 100) + '...' : 'N/A',
+          hasResultJson: !!taskData.resultJson,
         });
 
         return {

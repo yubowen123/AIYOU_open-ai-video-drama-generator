@@ -862,11 +862,16 @@ app.post('/api/kie/create', async (req, res) => {
 
     const durationMs = Date.now() - startTime;
 
-    console.log(`[${logId}] ✅ KIE AI API 响应:`, {
+    console.log(`[${logId}] ✅ KIE AI API 完整响应:`, JSON.stringify(data, null, 2));
+    console.log(`[${logId}] 📋 data.data 字段详情:`, JSON.stringify(data.data, null, 2));
+
+    console.log(`[${logId}] ✅ KIE AI API 响应摘要:`, {
       status: response.status,
       code: data.code,
       msg: data.msg,
       hasTaskId: !!data.data?.taskId,
+      hasTask_id: !!data.data?.task_id,
+      hasId: !!data.data?.id,
       duration: `${durationMs}ms`,
     });
 
@@ -921,32 +926,43 @@ app.get('/api/kie/query', async (req, res) => {
     }
 
     console.log(`[${logId}] 📥 KIE AI API 查询任务:`, { taskId });
+    console.log(`[${logId}] 🔍 查询 URL:`, `https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`);
 
     // 调用 KIE AI API 获取任务详情
-    const response = await fetch(`https://api.kie.ai/api/v1/jobs/getTaskDetails?taskId=${encodeURIComponent(taskId)}`, {
+    const response = await fetch(`https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
       },
     });
 
-    const data = await response.json();
-
+    const responseText = await response.text();
     const durationMs = Date.now() - startTime;
 
-    console.log(`[${logId}] ✅ KIE AI API 查询响应:`, {
+    console.log(`[${logId}] 📋 KIE API 查询原始响应 (${response.status}):`, responseText.substring(0, 500));
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error(`[${logId}] ❌ 解析响应 JSON 失败:`, e.message);
+      data = { rawResponse: responseText };
+    }
+
+    console.log(`[${logId}] ✅ KIE AI API 查询响应解析后:`, {
       status: response.status,
       code: data.code,
       msg: data.msg,
       hasData: !!data.data,
-      taskStatus: data.data?.status,
-      progress: data.data?.progress,
-      hasVideoUrl: !!data.data?.output?.url || !!data.data?.videoUrl || !!data.data?.url,
+      state: data.data?.state,  // KIE API 使用 state 字段
+      hasResultJson: !!data.data?.resultJson,  // success 状态才有 resultJson
+      failCode: data.data?.failCode,
+      failMsg: data.data?.failMsg,
       duration: `${durationMs}ms`,
     });
 
     if (!response.ok) {
-      console.error(`[${logId}] ❌ KIE AI API 查询错误:`, response.status, data);
+      console.error(`[${logId}] ❌ KIE AI API 查询错误 - HTTP ${response.status}:`, JSON.stringify(data, null, 2));
       return res.status(response.status).json({
         success: false,
         error: data.msg || 'KIE AI API 查询任务失败',
@@ -1184,43 +1200,50 @@ app.post('/api/yunwuapi/status', async (req, res) => {
 
     const data = await response.json();
     const durationMs = Date.now() - startTime;
-    const detail = data.detail || {};
 
     // 添加完整响应日志，方便调试
     console.log(`[${logId}] 📥 云雾API完整响应:`, JSON.stringify(data, null, 2));
-    console.log(`[${logId}] 📦 Detail字段:`, JSON.stringify(detail, null, 2));
-
-    // 根据模型类型提取视频URL
-    let videoUrl;
-
-    if (model && (model.startsWith('veo') || model.startsWith('sora'))) {
-      // veo/sora 可能的字段（按优先级）
-      videoUrl = data.video_url || data.url || data.output || data.result?.video_url;
-      // 也检查 detail 字段
-      if (!videoUrl) {
-        videoUrl = detail.video_url || detail.url || detail.output;
-      }
-    } else if (model && model.startsWith('luma')) {
-      // luma 特殊处理
-      videoUrl = data.video_url || data.url;
-      if (!videoUrl) {
-        videoUrl = detail.video_url || detail.url;
-      }
-    } else {
-      // 其他模型可能在 detail.generations 中
-      videoUrl = detail.generations?.[0]?.url;
+    
+    // 调试：输出所有可能的字段
+    console.log(`[${logId}] 🔍 字段检查:`, {
+      'data.id': data.id,
+      'data.status': data.status,
+      'data.video_url': data.video_url,
+      'data.enhanced_prompt': data.enhanced_prompt?.substring(0, 50),
+      'data.status_update_time': data.status_update_time,
+    });
+    
+    // 云雾API返回扁平结构：{ id, status, video_url, enhanced_prompt, status_update_time }
+    // 注意：云雾API没有progress字段，需要根据status推断进度
+    const actualStatus = data.status || 'pending';
+    
+    // 根据状态推断进度（云雾API没有progress字段）
+    let inferredProgress = 0;
+    switch (actualStatus) {
+      case 'pending':
+        inferredProgress = 10;
+        break;
+      case 'processing':
+        inferredProgress = 50;
+        break;
+      case 'completed':
+        inferredProgress = 100;
+        break;
+      case 'failed':
+        inferredProgress = 0;
+        break;
+      default:
+        inferredProgress = 30;
     }
-
-    // 如果还是找不到，尝试更多可能的字段
-    if (!videoUrl) {
-      videoUrl = data.videoUrl || data.video || data.result?.video || data.result?.url;
-    }
+    
+    // 提取视频URL（云雾API使用 video_url 字段）
+    const videoUrl = data.video_url;
 
     console.log(`[${logId}] ✅ 云雾API平台 查询响应:`, {
       status: response.status,
-      taskId: data.id,
-      taskStatus: detail.status,
-      progress: detail.progress_pct,
+      taskId: data.id || task_id,
+      taskStatus: actualStatus,
+      inferredProgress: inferredProgress,
       hasVideo: !!videoUrl,
       videoUrl: videoUrl || '(none)',
       duration: `${durationMs}ms`,
@@ -1236,15 +1259,23 @@ app.post('/api/yunwuapi/status', async (req, res) => {
     }
 
     // 统一响应格式
+    let taskStatus = actualStatus;
+    const progress = inferredProgress;
+
+    // 统一状态值：将 succeeded 映射为 completed
+    if (taskStatus === 'succeeded') {
+      taskStatus = 'completed';
+    }
+
     const result = {
       task_id: data.id || task_id,
-      status: detail.status || 'processing',
-      progress: detail.progress_pct || 0,
+      status: taskStatus,
+      progress: progress,
       video_url: videoUrl,
-      duration: detail.duration,
-      resolution: detail.resolution,
-      cover_url: detail.cover_url,
-      error: detail.status === 'failed' ? (detail.error_message || '视频生成失败') : undefined
+      duration: data.duration,
+      resolution: data.resolution,
+      cover_url: data.cover_url,
+      error: taskStatus === 'failed' ? (data.error || '视频生成失败') : undefined
     };
 
     res.json(result);
@@ -1668,12 +1699,14 @@ const getDefaultConfig = () => ({
           useUnifiedEndpoint: true,
           checkEndpoint: '/veo/status',
           subModels: [
-            { id: 'veo2', modelId: 'veo-model', code: 'veo2', name: 'Veo 2', description: 'Google Veo 2 模型', enabled: true },
-            { id: 'veo2-fast', modelId: 'veo-model', code: 'veo2-fast', name: 'Veo 2 Fast', description: '快速版本', enabled: true },
-            { id: 'veo3', modelId: 'veo-model', code: 'veo3', name: 'Veo 3', description: 'Google Veo 3 模型', enabled: true },
-            { id: 'veo3-fast', modelId: 'veo-model', code: 'veo3-fast', name: 'Veo 3 Fast', description: 'Veo 3 快速版', enabled: true },
-            { id: 'veo3-pro', modelId: 'veo-model', code: 'veo3-pro', name: 'Veo 3 Pro', description: 'Veo 3 专业版', enabled: true },
-            { id: 'veo3-1-fast', modelId: 'veo-model', code: 'veo3.1-fast', name: 'Veo 3.1 Fast', description: '最新快速版', enabled: true, default: true }
+            { id: 'veo3.1-4k', modelId: 'veo-model', code: 'veo3.1-4k', name: 'Veo 3.1 4K', description: '4K 分辨率', enabled: true },
+            { id: 'veo3.1-components-4k', modelId: 'veo-model', code: 'veo3.1-components-4k', name: 'Veo 3.1 Components 4K', description: '元素控制 4K', enabled: true },
+            { id: 'veo3.1-pro-4k', modelId: 'veo-model', code: 'veo3.1-pro-4k', name: 'Veo 3.1 Pro 4K', description: 'Pro 4K 分辨率', enabled: true },
+            { id: 'veo3.1', modelId: 'veo-model', code: 'veo3.1', name: 'Veo 3.1', description: 'Veo 3.1 标准版', enabled: true },
+            { id: 'veo3.1-pro', modelId: 'veo-model', code: 'veo3.1-pro', name: 'Veo 3.1 Pro', description: 'Veo 3.1 专业版', enabled: true },
+            { id: 'veo3.1-components', modelId: 'veo-model', code: 'veo3.1-components', name: 'Veo 3.1 Components', description: '元素控制', enabled: true },
+            { id: 'veo3.1-fast-components', modelId: 'veo-model', code: 'veo3.1-fast-components', name: 'Veo 3.1 Fast Components', description: '快速元素控制', enabled: true },
+            { id: 'veo3.1-fast', modelId: 'veo-model', code: 'veo3.1-fast', name: 'Veo 3.1 Fast', description: 'Veo 3.1 快速版', enabled: true, default: true }
           ],
           defaultSubModel: 'veo3.1-fast',
           supportsImageRef: true,

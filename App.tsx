@@ -62,7 +62,7 @@ async function saveVideoToDatabase(videoUrl: string, taskId: string, taskNumber:
     console.log('[视频保存] 使用 Sora URL，跳过 IndexedDB 保存', {
         taskId,
         taskNumber,
-        videoUrl: videoUrl.substring(0, 100) + '...'
+        videoUrl: videoUrl ? videoUrl.substring(0, 100) + '...' : 'undefined'
     });
     return taskId;
 }
@@ -289,6 +289,9 @@ export const App = () => {
   const connectionsRef = useRef(connections);
   const groupsRef = useRef(groups);
   const connectionStartRef = useRef(connectionStart);
+
+  // AbortController 存储（用于取消视频生成任务）
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
 
   // 性能优化：创建轻量级的节点查询函数
   // 避免传递整个nodes数组导致所有节点重渲染
@@ -2453,6 +2456,29 @@ export const App = () => {
                   return;
               }
 
+              if (promptOverride === 'cancel-generate') {
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] ===== 取消视频生成 =====');
+                  console.log('[STORYBOARD_VIDEO_GENERATOR] 节点ID:', id);
+
+                  // 获取并触发 AbortController
+                  const abortController = abortControllersRef.current.get(id);
+                  if (abortController) {
+                      abortController.abort();
+                      abortControllersRef.current.delete(id);
+                      console.log('[STORYBOARD_VIDEO_GENERATOR] 已触发取消信号');
+                  }
+
+                  // 更新节点状态
+                  handleNodeUpdate(id, {
+                      status: 'prompting',
+                      progress: 0,
+                      error: undefined
+                  });
+                  setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.SUCCESS } : n));
+
+                  return;
+              }
+
               if (promptOverride === 'generate-video') {
                   console.log('[STORYBOARD_VIDEO_GENERATOR] ===== 开始生成视频 =====');
                   console.log('[STORYBOARD_VIDEO_GENERATOR] 节点ID:', id);
@@ -2536,6 +2562,10 @@ export const App = () => {
 
                       console.log('[STORYBOARD_VIDEO_GENERATOR] Calling video generation service');
 
+                      // 创建 AbortController 用于取消任务
+                      const abortController = new AbortController();
+                      abortControllersRef.current.set(id, abortController);
+
                       const result = await generateVideoFromStoryboard(
                           selectedPlatform as any,
                           selectedModel as any,
@@ -2549,9 +2579,13 @@ export const App = () => {
                                   handleNodeUpdate(id, { progress: adjustedProgress });
                                   console.log(`[STORYBOARD_VIDEO_GENERATOR] ${message} (${progress}%)`);
                               },
+                              signal: abortController.signal,  // 传递取消信号
                               subModel: node.data.subModel  // 传递子模型
                           }
                       );
+
+                      // 任务完成，清理 AbortController
+                      abortControllersRef.current.delete(id);
 
                       console.log('[STORYBOARD_VIDEO_GENERATOR] Video generation complete:', result);
 
@@ -2609,11 +2643,23 @@ export const App = () => {
                   } catch (error: any) {
                       console.error('[STORYBOARD_VIDEO_GENERATOR] Video generation failed:', error);
 
-                      handleNodeUpdate(id, {
-                          status: 'prompting',
-                          error: error.message || '视频生成失败'
-                      });
-                      setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.ERROR } : n));
+                      // 清理 AbortController
+                      abortControllersRef.current.delete(id);
+
+                      // 如果是取消错误，不显示错误信息
+                      if (error.message === '任务已取消') {
+                          handleNodeUpdate(id, {
+                              status: 'prompting',
+                              error: undefined
+                          });
+                          setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.SUCCESS } : n));
+                      } else {
+                          handleNodeUpdate(id, {
+                              status: 'prompting',
+                              error: error.message || '视频生成失败'
+                          });
+                          setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.ERROR } : n));
+                      }
 
                       throw error;
                   }

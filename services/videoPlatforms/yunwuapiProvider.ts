@@ -316,6 +316,15 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
 
       const data = await response.json();
 
+      console.log('[YunwuAPI] 状态查询响应:', {
+        taskId,
+        rawStatus: data.status,
+        rawProgress: data.progress,
+        rawProgressPct: data.progress_pct,
+        rawVideoUrl: data.video_url,
+        fullData: data
+      });
+
       // 映射状态
       let status: 'queued' | 'processing' | 'completed' | 'error';
       switch (data.status) {
@@ -339,10 +348,19 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
           status = 'processing';
       }
 
+      const progress = data.progress || data.progress_pct || 0;
+
+      console.log('[YunwuAPI] 映射后的状态:', {
+        taskId,
+        mappedStatus: status,
+        mappedProgress: progress,
+        videoUrl: data.video_url
+      });
+
       const result: VideoGenerationResult = {
         taskId,
         status,
-        progress: data.progress || 0
+        progress: progress
       };
 
       if (status === 'completed') {
@@ -350,6 +368,7 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
         result.videoDuration = data.duration;
         result.videoResolution = data.resolution;
         result.coverUrl = data.cover_url;
+        console.log('[YunwuAPI] 任务完成，视频URL:', data.video_url);
       }
 
       if (status === 'error') {
