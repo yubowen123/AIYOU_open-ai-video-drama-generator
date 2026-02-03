@@ -525,6 +525,15 @@ const NodeComponent: React.FC<NodeProps> = ({
   useEffect(() => { setLocalPrompt(node.data.prompt || ''); }, [node.data.prompt]);
   const commitPrompt = () => { if (localPrompt !== (node.data.prompt || '')) onUpdate(node.id, { prompt: localPrompt }); };
 
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // 加载后台模型配置（用于 STORYBOARD_VIDEO_GENERATOR）
   useEffect(() => {
     const loadConfig = async () => {
@@ -790,6 +799,11 @@ const NodeComponent: React.FC<NodeProps> = ({
   }, []);
 
   const handleMouseEnter = () => {
+    // 清除延迟关闭定时器
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
     setIsHovered(true);
     isHoveringRef.current = true;
     if(node.data.images?.length > 1 || (node.data.videoUris && node.data.videoUris.length > 1)) setShowImageGrid(true);
@@ -797,10 +811,13 @@ const NodeComponent: React.FC<NodeProps> = ({
   };
 
   const handleMouseLeave = () => {
-    setIsHovered(false);
-    isHoveringRef.current = false;
-    setShowImageGrid(false);
-    if (mediaRef.current instanceof HTMLVideoElement) safePause(mediaRef.current);
+    // 设置延迟关闭，给用户时间移动到操作区
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+      isHoveringRef.current = false;
+      setShowImageGrid(false);
+      if (mediaRef.current instanceof HTMLVideoElement) safePause(mediaRef.current);
+    }, 300); // 300ms 延迟
   };
   
   const handleExpand = (e: React.MouseEvent) => { 
@@ -5179,7 +5196,10 @@ const NodeComponent: React.FC<NodeProps> = ({
                     </div>
 
                     {/* Operation Area: Edit & Export Buttons */}
-                    <div className="flex flex-col gap-2 p-2 border-t border-white/5">
+                    <div
+                        className="flex flex-col gap-2 p-2 border-t border-white/5"
+                        onMouseEnter={handleMouseEnter}  // 保持操作区显示
+                    >
                         <div className="flex items-center justify-between px-1">
                             <span className="text-[9px] text-slate-400">
                                 已连接 {node.inputs.length} 个视频节点
