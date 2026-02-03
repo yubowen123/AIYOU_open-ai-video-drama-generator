@@ -881,7 +881,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                     </div>
                   </div>
                   <p className="text-[10px] text-slate-500">
-                    从速创API (api.wuyinkeji.com) 获取 API Key
+                    在 <a href="https://api.wuyinkeji.com/" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:underline">速创API官网 (api.wuyinkeji.com)</a> 获取 API Key
                   </p>
                 </div>
               )}
@@ -1071,6 +1071,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose })
                       <p className="font-medium text-white">速创 API (Sinco)</p>
                       <p className="text-[10px] text-slate-400 mt-1">
                         支持 Sora2 标准版（10/15秒）和 Pro 版（15/25秒高清），根据高清开关自动选择
+                      </p>
+                      <p className="text-[9px] text-slate-500 mt-0.5">
+                        📖 <a href="https://api.wuyinkeji.com/" target="_blank" rel="noopener noreferrer" className="text-yellow-400 hover:underline">查看 API 文档</a>
                       </p>
                     </div>
                   </div>
