@@ -470,7 +470,7 @@ const EpisodeViewer = ({ episodes }: { episodes: { title: string, content: strin
 };
 
 const NodeComponent: React.FC<NodeProps> = ({
-  node, onUpdate, onAction, onDelete, onExpand, onCrop, onNodeMouseDown, onPortMouseDown, onPortMouseUp, onNodeContextMenu, onMediaContextMenu, onResizeMouseDown, inputAssets, onInputReorder, onCharacterAction, onViewCharacter, isDragging, isGroupDragging, isSelected, isResizing, isConnecting, nodeQuery, characterLibrary
+  node, onUpdate, onAction, onDelete, onExpand, onCrop, onNodeMouseDown, onPortMouseDown, onPortMouseUp, onNodeContextMenu, onMediaContextMenu, onResizeMouseDown, onInputReorder, onCharacterAction, onViewCharacter, onOpenVideoEditor, inputAssets, isDragging, isGroupDragging, isSelected, isResizing, isConnecting, nodeQuery, characterLibrary
 }) => {
   const isWorking = node.status === NodeStatus.WORKING;
   const [isActionProcessing, setIsActionProcessing] = useState(false);

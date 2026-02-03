@@ -9,6 +9,7 @@
 import React from 'react';
 import { MousePointerClick } from 'lucide-react';
 import { useLanguage } from '../src/i18n/LanguageContext';
+import { LightRays } from './LightRays';
 
 interface WelcomeScreenProps {
   visible: boolean;
@@ -29,6 +30,21 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ visible }) => {
         visible ? 'opacity-100 scale-100' : 'opacity-0 scale-105'
       }`}
     >
+      {/* 背景光效 */}
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        <LightRays
+          raysOrigin="top-center"
+          raysColor="#ffffff"
+          raysSpeed={1}
+          lightSpread={0.5}
+          rayLength={3}
+          pulsating={false}
+          fadeDistance={1}
+          saturation={1}
+          mouseInfluence={0.1}
+        />
+      </div>
+
       {/* 标题 */}
       <div className="flex flex-col items-center justify-center mb-10 select-none animate-in fade-in slide-in-from-bottom-8 duration-1000">
         <div className="relative mb-8">
