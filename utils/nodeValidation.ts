@@ -259,7 +259,9 @@ export const NODE_DEPENDENCY_RULES: Record<NodeType, {
     allowedInputs: [
       NodeType.STORYBOARD_SPLITTER
     ],
-    allowedOutputs: [],  // Terminal node - creates child nodes for results
+    allowedOutputs: [
+      NodeType.VIDEO_EDITOR  // Can output to video editor
+    ],
     minInputs: 1,
     maxInputs: 5,  // Can accept up to 5 splitter nodes
     description: '将分镜数据转换为 Sora 2 视频，支持多镜头分组生成'
@@ -283,7 +285,9 @@ export const NODE_DEPENDENCY_RULES: Record<NodeType, {
     allowedInputs: [
       NodeType.STORYBOARD_SPLITTER
     ],
-    allowedOutputs: [],  // Terminal node - creates child nodes for results
+    allowedOutputs: [
+      NodeType.VIDEO_EDITOR  // Can output to video editor
+    ],
     minInputs: 1,
     maxInputs: 5,  // Can accept up to 5 splitter nodes
     description: '从分镜拆解节点获取分镜，支持多平台多模型视频生成（云雾API平台支持8个模型）'
