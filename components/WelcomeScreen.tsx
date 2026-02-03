@@ -48,7 +48,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ visible }) => {
           rotationSpeed={0.1}
           repulsionStrength={2}
           autoCenterRepulsion={0}
-          transparent={true}
+          transparent={false}
         />
       </div>
 
@@ -63,11 +63,11 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ visible }) => {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="h-px w-12 bg-gradient-to-r from-transparent to-zinc-600"></div>
-          <span className="text-[11px] font-bold tracking-[0.6em] text-zinc-500 uppercase">
+          <div className="h-px w-16 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"></div>
+          <span className="text-xl md:text-2xl font-bold tracking-[0.3em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-cyan-400 animate-pulse">
             {t.welcome}
           </span>
-          <div className="h-px w-12 bg-gradient-to-l from-transparent to-zinc-600"></div>
+          <div className="h-px w-16 bg-gradient-to-l from-transparent via-cyan-500/50 to-transparent"></div>
         </div>
       </div>
 
