@@ -4634,7 +4634,7 @@ COMPOSITION REQUIREMENTS:
               <img
                 src="/logo.png"
                 alt="AIYOU Logo"
-                className="h-10 md:h-12 object-contain opacity-80 hover:opacity-100 transition-opacity"
+                className="h-20 md:h-24 object-contain opacity-80 hover:opacity-100 transition-opacity"
               />
             </div>
           )}

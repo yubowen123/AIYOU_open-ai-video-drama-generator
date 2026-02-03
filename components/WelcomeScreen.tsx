@@ -55,7 +55,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ visible }) => {
           <img
             src="/logo.png"
             alt="AIYOU Logo"
-            className="h-24 md:h-32 object-contain drop-shadow-2xl"
+            className="h-48 md:h-64 object-contain drop-shadow-2xl"
           />
         </div>
 
