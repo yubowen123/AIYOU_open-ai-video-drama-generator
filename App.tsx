@@ -4492,6 +4492,17 @@ COMPOSITION REQUIREMENTS:
           {/* Welcome Screen Component */}
           <WelcomeScreen visible={nodes.length === 0} />
 
+          {/* Canvas Logo - Fixed at top-left, hidden when showing welcome screen */}
+          {nodes.length > 0 && (
+            <div className="absolute top-4 left-4 z-40 pointer-events-none select-none">
+              <img
+                src="/logo.png"
+                alt="AIYOU Logo"
+                className="h-10 md:h-12 object-contain opacity-80 hover:opacity-100 transition-opacity"
+              />
+            </div>
+          )}
+
           <input type="file" ref={replaceVideoInputRef} className="hidden" accept="video/*" onChange={(e) => handleReplaceFile(e, 'video')} />
           <input type="file" ref={replaceImageInputRef} className="hidden" accept="image/*" onChange={(e) => handleReplaceFile(e, 'image')} />
 
