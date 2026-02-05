@@ -5,8 +5,7 @@
 
 import React, { useState, memo, useEffect } from 'react';
 import { AppNode, NodeType, SplitStoryboardShot } from '../types';
-import { Film, Play, Loader2, ChevronDown, Grid3X3, Copy, Check, Settings, Image as ImageIcon, Wand2, Sparkles, RefreshCw, AlertCircle, Video as VideoIcon, Download } from 'lucide-react';
-import { getAllModelsConfig, getAllSubModelNames } from '../services/modelConfigLoader';
+import { Film, Play, Loader2, Grid3X3, Copy, Check, Image as ImageIcon, Wand2, AlertCircle, Video as VideoIcon, Download } from 'lucide-react';
 
 interface StoryboardVideoNodeProps {
   node: AppNode;
@@ -31,53 +30,8 @@ const StoryboardVideoNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
 
   // UI 状态 - 使用本地状态实时跟踪已选择的分镜
   const [expandedShotId, setExpandedShotId] = useState<string | null>(null);
-  const [showModelConfig, setShowModelConfig] = useState(false);
   const [showFusionOptions, setShowFusionOptions] = useState(false);
   const [localSelectedIds, setLocalSelectedIds] = useState<string[]>(data.selectedShotIds || []);
-
-  // 动态加载的模型配置
-  const [dynamicSubModels, setDynamicSubModels] = useState<Record<string, string[]>>({});
-  const [dynamicSubModelNames, setDynamicSubModelNames] = useState<Record<string, string>>({});
-  const [configLoaded, setConfigLoaded] = useState(false);
-  const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
-
-  // 加载后台模型配置
-  const loadConfig = async () => {
-    try {
-      const [subModels, subModelNames] = await Promise.all([
-        getAllModelsConfig(),
-        getAllSubModelNames()
-      ]);
-      setDynamicSubModels(subModels);
-      setDynamicSubModelNames(subModelNames);
-      setConfigLoaded(true);
-      console.log('[StoryboardVideoNode] ✅ Model config loaded from backend:', {
-        platforms: Object.keys(subModels),
-        totalModels: Object.values(subModels).reduce((sum, models) => sum + Object.keys(models).length, 0)
-      });
-      return true;
-    } catch (error) {
-      console.error('[StoryboardVideoNode] ❌ Failed to load model config:', error);
-      // 失败时使用空对象，组件会回退到硬编码的默认值
-      setConfigLoaded(true);
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    loadConfig();
-  }, []);
-
-  // 手动刷新配置
-  const handleRefreshConfig = async () => {
-    setIsRefreshingConfig(true);
-    const success = await loadConfig();
-    setIsRefreshingConfig(false);
-    if (success) {
-      // 可以添加一个简单的提示
-      console.log('[StoryboardVideoNode] ✅ Config refreshed successfully');
-    }
-  };
 
   // 当 node.data.selectedShotIds 从外部变化时（不是通过本组件的 updateSelectedIds），同步到本地状态
   const prevSelectedShotIdsRef = React.useRef<string[]>(data.selectedShotIds || []);
@@ -272,131 +226,9 @@ const StoryboardVideoNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
    */
   const renderPrompting = () => {
     const prompt = data.generatedPrompt || '';
-    const selectedPlatform = data.selectedPlatform || 'yunwuapi';
-    const selectedModel = data.selectedModel || 'luma';
-    const modelConfig = data.modelConfig || {
-      aspect_ratio: '16:9',
-      duration: '5',
-      quality: 'standard'
-    };
-
     const shots = data.availableShots || [];
     const selectedShots = shots.filter((s: any) => localSelectedIds.includes(s.id));
     const fusedImage = data.fusedImage; // 融合后的图片
-
-    const platforms = [
-      { code: 'yunwuapi', name: '云雾API', models: ['veo', 'luma', 'runway', 'minimax', 'volcengine', 'grok', 'qwen', 'sora'] }
-    ];
-
-    const modelNames: Record<string, string> = {
-      veo: 'Veo',
-      luma: 'Luma Dream Machine',
-      runway: 'Runway Gen-3',
-      minimax: '海螺',
-      volcengine: '豆包',
-      grok: 'Grok',
-      qwen: '通义万象',
-      sora: 'Sora'
-    };
-
-    // 硬编码的默认子模型列表（作为fallback）
-    const defaultSubModels: Record<string, string[]> = {
-      veo: [
-        'veo2',
-        'veo2-fast',
-        'veo2-fast-frames',
-        'veo2-fast-components',
-        'veo2-pro',
-        'veo3',
-        'veo3-fast',
-        'veo3-pro',
-        'veo3-pro-frames',
-        'veo3-fast-frames',
-        'veo3-frames'
-      ],
-      luma: [
-        'ray-v2',
-        'photon',
-        'photon-flash'
-      ],
-      sora: [
-        'sora',
-        'sora-2'
-      ],
-      runway: [
-        'gen3-alpha-turbo',
-        'gen3-alpha',
-        'gen3-alpha-extreme'
-      ],
-      minimax: [
-        'video-01',
-        'video-01-live'
-      ],
-      volcengine: [
-        'doubao-video-1',
-        'doubao-video-pro'
-      ],
-      grok: [
-        'grok-2-video',
-        'grok-vision-video'
-      ],
-      qwen: [
-        'qwen-video',
-        'qwen-video-plus'
-      ]
-    };
-
-    // 默认子模型显示名称
-    const defaultSubModelDisplayNames: Record<string, string> = {
-      // veo
-      'veo2': 'Veo 2',
-      'veo2-fast': 'Veo 2 Fast',
-      'veo2-fast-frames': 'Veo 2 Fast Frames',
-      'veo2-fast-components': 'Veo 2 Fast Components',
-      'veo2-pro': 'Veo 2 Pro',
-      'veo3': 'Veo 3',
-      'veo3-fast': 'Veo 3 Fast',
-      'veo3-pro': 'Veo 3 Pro',
-      'veo3-pro-frames': 'Veo 3 Pro Frames',
-      'veo3-fast-frames': 'Veo 3 Fast Frames',
-      'veo3-frames': 'Veo 3 Frames',
-      // luma
-      'ray-v2': 'Ray V2',
-      'photon': 'Photon',
-      'photon-flash': 'Photon Flash',
-      // sora
-      'sora': 'Sora 1',
-      'sora-2': 'Sora 2',
-      // runway
-      'gen3-alpha-turbo': 'Gen-3 Alpha Turbo',
-      'gen3-alpha': 'Gen-3 Alpha',
-      'gen3-alpha-extreme': 'Gen-3 Alpha Extreme',
-      // minimax
-      'video-01': 'Video-01',
-      'video-01-live': 'Video-01 Live',
-      // volcengine
-      'doubao-video-1': 'Doubao Video 1',
-      'doubao-video-pro': 'Doubao Video Pro',
-      // grok
-      'grok-2-video': 'Grok 2 Video',
-      'grok-vision-video': 'Grok Vision Video',
-      // qwen
-      'qwen-video': 'Qwen Video',
-      'qwen-video-plus': 'Qwen Video Plus'
-    };
-
-    // 使用动态加载的配置（如果已加载），否则回退到硬编码的默认值
-    const subModels = configLoaded && Object.keys(dynamicSubModels).length > 0 && dynamicSubModels[selectedPlatform]
-      ? dynamicSubModels[selectedPlatform]
-      : defaultSubModels;
-
-    // 使用动态加载的显示名称，否则回退到默认值
-    const subModelDisplayNames = configLoaded && Object.keys(dynamicSubModelNames).length > 0
-      ? { ...defaultSubModelDisplayNames, ...dynamicSubModelNames }
-      : defaultSubModelDisplayNames;
-
-    // 获取当前选择的子模型，如果没有则使用默认的第一个
-    const selectedSubModel = data.subModel || (subModels[selectedModel]?.[0] || selectedModel);
 
     // 处理图片融合
     const handleImageFusion = async () => {
@@ -572,146 +404,8 @@ const StoryboardVideoNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
             </div>
           </div>
 
-          {/* Right: Prompt Editor & Model Configuration */}
+          {/* Right: Prompt Editor */}
           <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Model Configuration */}
-            <div className="flex-none mb-3 p-3 bg-black/20 border border-white/10 rounded-xl">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">模型配置</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRefreshConfig();
-                  }}
-                  disabled={isRefreshingConfig}
-                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                    isRefreshingConfig
-                      ? 'bg-white/5 text-slate-500 cursor-not-allowed'
-                      : 'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30'
-                  }`}
-                  title="刷新模型配置"
-                >
-                  <RefreshCw size={10} className={isRefreshingConfig ? 'animate-spin' : ''} />
-                  <span>{isRefreshingConfig ? '刷新中...' : '刷新'}</span>
-                </button>
-              </div>
-
-              {/* Platform Selection */}
-              <div className="flex flex-col gap-2 mb-3">
-                <span className="text-[9px] text-slate-500 font-bold">平台 (Platform)</span>
-                <div className="flex gap-2">
-                  {platforms.map((platform) => (
-                    <button
-                      key={platform.code}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onUpdate(node.id, {
-                          selectedPlatform: platform.code,
-                          selectedModel: platform.models[0],
-                          subModel: null
-                        });
-                      }}
-                      className={`flex-1 px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${
-                        selectedPlatform === platform.code
-                          ? 'bg-purple-500/20 border border-purple-500/50 text-purple-300'
-                          : 'bg-black/40 border border-white/10 text-slate-400 hover:bg-white/5'
-                      }`}
-                    >
-                      {platform.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Model Selection */}
-              <div className="flex flex-col gap-2 mb-3">
-                <span className="text-[9px] text-slate-500 font-bold">模型 (Model)</span>
-                <div className="grid grid-cols-4 gap-1">
-                  {platforms[0].models.map((model) => {
-                    const modelName = modelNames[model] || model;
-                    const isSelected = selectedModel === model;
-                    return (
-                      <button
-                        key={model}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onUpdate(node.id, {
-                            selectedModel: model,
-                            subModel: null
-                          });
-                        }}
-                        className={`px-2 py-1.5 rounded-lg text-[9px] font-bold transition-all truncate ${
-                          isSelected
-                            ? 'bg-purple-500/20 border border-purple-500/50 text-purple-300'
-                            : 'bg-black/40 border border-white/10 text-slate-400 hover:bg-white/5'
-                        }`}
-                        title={modelName}
-                      >
-                        {modelName}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* SubModel Selection */}
-              <div className="flex flex-col gap-2 mb-3">
-                <span className="text-[9px] text-slate-500 font-bold">子模型 (SubModel)</span>
-                <div className="relative">
-                  <select
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      onUpdate(node.id, { subModel: e.target.value });
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    value={selectedSubModel}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-white outline-none focus:border-purple-500/50 cursor-pointer appearance-none"
-                  >
-                    {subModels.map((subModel) => (
-                      <option key={subModel} value={subModel}>
-                        {subModelDisplayNames[subModel] || subModel}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Video Config */}
-              <div className="flex gap-3">
-                <div className="flex-1 flex flex-col gap-1">
-                  <span className="text-[9px] text-slate-500 font-bold">比例 (Ratio)</span>
-                  <select
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      onUpdate(node.id, { modelConfig: { ...modelConfig, aspect_ratio: e.target.value } });
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    value={modelConfig.aspect_ratio}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] text-white outline-none focus:border-purple-500/50 cursor-pointer appearance-none"
-                  >
-                    <option value="16:9">16:9 横屏</option>
-                    <option value="9:16">9:16 竖屏</option>
-                  </select>
-                </div>
-                <div className="flex-1 flex flex-col gap-1">
-                  <span className="text-[9px] text-slate-500 font-bold">时长 (Duration)</span>
-                  <select
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      onUpdate(node.id, { modelConfig: { ...modelConfig, duration: e.target.value } });
-                    }}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    value={modelConfig.duration}
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[10px] text-white outline-none focus:border-purple-500/50 cursor-pointer appearance-none"
-                  >
-                    <option value="5">5 秒</option>
-                    <option value="10">10 秒</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
             {/* Prompt Editor */}
             <div className="flex-1 flex flex-col gap-2 overflow-hidden">
               <div className="flex items-center justify-between">
