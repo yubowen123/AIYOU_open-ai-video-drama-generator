@@ -108,16 +108,16 @@ export class GeminiProvider implements LLMProvider {
       responseModalities: ['TEXT', 'IMAGE']
     };
 
-    // 添加宽高比和分辨率配置（Gemini API 需要嵌套在 imageGenerationConfig 中）
+    // 添加宽高比和分辨率配置（Google GenAI SDK 使用 imageConfig）
     if (options?.aspectRatio || options?.resolution) {
-      generationConfig.imageGenerationConfig = {};
+      generationConfig.imageConfig = {};
 
       if (options.aspectRatio) {
-        generationConfig.imageGenerationConfig.aspectRatio = options.aspectRatio;
+        generationConfig.imageConfig.aspectRatio = options.aspectRatio;
       }
 
       if (options.resolution) {
-        generationConfig.imageGenerationConfig.image_size = options.resolution;
+        generationConfig.imageConfig.image_size = options.resolution;
       }
     }
 

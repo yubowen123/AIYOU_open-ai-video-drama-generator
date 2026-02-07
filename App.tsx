@@ -3566,7 +3566,7 @@ export const App = () => {
 
                   saveHistory();
                   setNodes(prev => [...prev, ...newNodes]);
-                  setConnections(prev => [...prev, newConnections]);
+                  setConnections(prev => [...prev, ...newConnections]);
                   
                   handleNodeUpdate(id, { generatedEpisodes: episodes });
               }
@@ -4062,8 +4062,19 @@ export const App = () => {
                   const parts: string[] = [];
 
                   // 1. Visual description (most important)
+                  // 将中文角色名替换为英文代号，避免 AI 在图片中渲染中文名
+                  // 但保留引号内的中文（牌匾、书籍等场景内文字）
                   if (shot.visualDescription) {
-                      parts.push(shot.visualDescription);
+                      let desc = shot.visualDescription;
+                      // 替换角色名为英文代号（如果有角色列表）
+                      if (characterNames.length > 0) {
+                          characterNames.forEach((name, i) => {
+                              const label = `Character ${String.fromCharCode(65 + i)}`;
+                              // 不替换引号内的内容（场景内文字）
+                              desc = desc.replace(new RegExp(`(?<![""「『])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![""」』])`, 'g'), label);
+                          });
+                      }
+                      parts.push(desc);
                   }
 
                   // 2. Shot size mapping (景别)
@@ -4096,13 +4107,17 @@ export const App = () => {
                       parts.push(cameraAngleMap[shot.cameraAngle]);
                   }
 
-                  // 4. Scene context
+                  // 4. Scene context — 场景名中的角色名也替换
                   if (shot.scene) {
-                      parts.push(`environment: ${shot.scene}`);
+                      let sceneText = shot.scene;
+                      if (characterNames.length > 0) {
+                          characterNames.forEach((name, i) => {
+                              const label = `Character ${String.fromCharCode(65 + i)}`;
+                              sceneText = sceneText.replace(new RegExp(`(?<![""「『])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![""」』])`, 'g'), label);
+                          });
+                      }
+                      parts.push(`environment: ${sceneText}`);
                   }
-
-                  // 5. Add unique identifier to prevent duplication
-                  parts.push(`[Unique Panel ID: ${globalIndex + 1}]`);
 
                   return parts.join('. ');
               };
@@ -4125,15 +4140,15 @@ export const App = () => {
 
                   // Build detailed panel descriptions with clear numbering and uniqueness
                   // IMPORTANT: Use format that won't be rendered as text in images
+                  // 使用纯分隔符代替 [Panel X] 标签，避免 AI 渲染面板编号
                   const panelDescriptions = pageShots.map((shot, idx) => {
                       const globalIndex = startIdx + idx;
                       if (shot.isEmpty) {
-                          return `[Panel ${idx + 1} is BLANK - Empty panel at end of storyboard]`;
+                          return `--- empty panel, leave blank ---`;
                       }
                       const shotPrompt = buildDetailedShotPrompt(shot, idx, globalIndex);
-                      // 🔧 优化：明确面板的方向和比例
-                      const panelOrientationText = panelOrientation === '16:9' ? '16:9 landscape (horizontal)' : '9:16 portrait (vertical)';
-                      return `[Panel ${idx + 1}]: ${panelOrientationText} - ${shotPrompt}`;
+                      const panelOrientationText = panelOrientation === '16:9' ? 'landscape horizontal' : 'portrait vertical';
+                      return `---\n${panelOrientationText}: ${shotPrompt}`;
                   }).join('\n\n');
 
                   // Extract unique scenes and build scene consistency guide
@@ -4152,17 +4167,25 @@ export const App = () => {
                   });
 
                   // Build scene consistency section
+                  // 场景名和描述中的角色名替换为英文代号
                   let sceneConsistencySection = '';
                   if (sceneGroups.size > 0) {
-                      const sceneEntries = Array.from(sceneGroups.entries()).map(([sceneName, data]) => {
+                      const sceneEntries = Array.from(sceneGroups.entries()).map(([sceneName, data], sceneIdx) => {
                           const panelList = data.indices.join(', ');
-                          const combinedDesc = data.descriptions.join(' ');
-                          // Truncate if too long
+                          let combinedDesc = data.descriptions.join(' ');
+                          // 替换角色名
+                          if (characterNames.length > 0) {
+                              characterNames.forEach((name, i) => {
+                                  const label = `Character ${String.fromCharCode(65 + i)}`;
+                                  combinedDesc = combinedDesc.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), label);
+                              });
+                          }
                           const descSummary = combinedDesc.length > 150
                               ? combinedDesc.substring(0, 150) + '...'
                               : combinedDesc;
 
-                          return `- Scene "${sceneName}" (Panels ${panelList}): ${descSummary}`;
+                          // 用 Location + 编号代替中文场景名
+                          return `- Location ${sceneIdx + 1} (panels ${panelList}): ${descSummary}`;
                       }).join('\n');
 
                       sceneConsistencySection = `
@@ -4192,8 +4215,6 @@ This ensures visual continuity - multiple panels showing the same scene should l
                   const gridPrompt = `
 Create a professional cinematic storyboard ${gridLayout} grid layout at ${resolutionConfig.name} resolution.
 
-IMPORTANT: The panel descriptions below use [Panel X] format for organization ONLY. DO NOT render these labels, numbers, or brackets in the actual image. They are purely for your reference in organizing the layout.
-
 OVERALL IMAGE SPECS:
 - Output Aspect Ratio: ${imageAspectRatio} (${orientation})
 - Grid Layout: ${shotsPerGrid} panels arranged in ${gridLayout} formation (${cols} columns × ${rows} rows)
@@ -4202,14 +4223,11 @@ OVERALL IMAGE SPECS:
 - Panel borders: EXACTLY 4 pixels wide black lines (NOT percentage-based, ABSOLUTE FIXED SIZE)
 - CRITICAL: All panel borders must be PERFECTLY UNIFORM - absolutely NO thickness variation allowed
 - Every dividing line must have EXACTLY the same 4-pixel width
-- NO variation in border thickness - all borders must be identical
 
 QUALITY STANDARDS:
 - Professional film industry storyboard quality
-- **${resolutionConfig.name} HD resolution (${baseWidth} pixels wide base)**
+- ${resolutionConfig.name} HD resolution (${baseWidth} pixels wide base)
 - High-detail illustration with sharp focus
-- Suitable for web and digital display
-- Crisp edges, no blurring or artifacts
 - Cinematic composition with proper framing
 - Expressive character poses and emotions
 - Dynamic lighting and shading
@@ -4218,23 +4236,11 @@ QUALITY STANDARDS:
 - ALL characters must look identical across all panels (same face, hair, clothes, body type)
 - Same color palette, same art style, same lighting quality throughout
 
-CRITICAL NEGATIVE CONSTRAINTS (MUST FOLLOW):
-- NO text, NO speech bubbles, NO dialogue boxes
-- NO subtitles, NO captions, NO watermarks
-- NO letters, NO numbers, NO typography, NO panel numbers
-- NO markings or labels of any kind
-- NO variation in panel border thickness - all borders must be EXACTLY 4 pixels
-- NO inconsistent or varying border widths
-- NO style variations between panels
-- NO character appearance changes
-- Visual narrative without any text or numbers
-
 ${stylePrefix ? `ART STYLE: ${stylePrefix}\n` : ''}
 
 ${characterReferenceImages.length > 0 ? `CHARACTER CONSISTENCY (CRITICAL):
-⚠️ MANDATORY: You MUST use the provided character reference images as the ONLY source of truth for character appearance.
-
-Characters in this storyboard: ${characterNames.length > 0 ? characterNames.join(', ') : 'See reference images'}
+MANDATORY: You MUST use the provided character reference images as the ONLY source of truth for character appearance.
+${characterNames.length > 0 ? `Character mapping: ${characterNames.map((name, i) => `Character ${String.fromCharCode(65 + i)} = reference image ${i + 1}`).join(', ')}` : ''}
 Number of character references provided: ${characterReferenceImages.length}
 
 REQUIREMENTS:
@@ -4243,12 +4249,8 @@ REQUIREMENTS:
 - Hair: IDENTICAL hairstyle, hair color, hair texture, hair length
 - Body: SAME body proportions, height, build, posture
 - Clothing: EXACT SAME clothes, accessories, shoes, colors, fabrics
-- Skin: IDENTICAL skin texture, skin tone, skin quality
 - ZERO tolerance for character appearance changes across panels
-- DO NOT generate random or different-looking characters
 - Treat these reference images as sacred - match them PERFECTLY in every detail
-
-This is NON-NEGOTIABLE: Character consistency across all panels is mandatory.
 ` : ''}
 
 ${sceneConsistencySection}
@@ -4263,6 +4265,15 @@ COMPOSITION REQUIREMENTS:
 - Maintain narrative flow across the ${gridLayout} grid
 - Professional color grading throughout
 - Environmental details and props clearly visible
+
+ABSOLUTE RULE - NO TEXT IN IMAGE:
+This is the most important rule. The generated image must contain ZERO text of any kind.
+- NO letters, numbers, words, labels, captions, titles, or typography anywhere in the image
+- NO speech bubbles, dialogue boxes, subtitles, or watermarks
+- NO panel numbers, annotations, or markings
+- If the scene description mentions signboards or books with text, render them as decorative patterns instead
+- The ONLY exception: if a scene explicitly requires visible Chinese text on props (signboards, books), render ONLY that specific text
+- Everything else must be purely visual with no text whatsoever
 `.trim();
 
                   console.log(`[STORYBOARD_IMAGE] 🎯 优化后的提示词参数:`, {
