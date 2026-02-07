@@ -395,10 +395,15 @@ export const App = () => {
             const sWfs = await loadFromStorage<Workflow[]>('workflows'); if (sWfs) setWorkflows(sWfs);
             let sNodes = await loadFromStorage<AppNode[]>('nodes');
             if (sNodes) {
-              // 数据迁移：将英文标题更新为中文标题
+              // 数据迁移：标记剧本分集的子节点
+              const episodeNodeIds = new Set(sNodes.filter(n => n.type === NodeType.SCRIPT_EPISODE).map(n => n.id));
+              // 数据迁移：将英文标题更新为中文标题 + 标记 episode 子节点
               sNodes = sNodes.map(node => ({
                 ...node,
-                title: getNodeNameCN(node.type)
+                title: getNodeNameCN(node.type),
+                data: node.type === NodeType.PROMPT_INPUT && node.inputs?.some(id => episodeNodeIds.has(id))
+                  ? { ...node.data, isEpisodeChild: true }
+                  : node.data
               }));
               setNodes(sNodes);
             }
@@ -3557,7 +3562,8 @@ export const App = () => {
                           status: NodeStatus.IDLE,
                           data: {
                               prompt: formattedContent,
-                              model: 'gemini-3-pro-preview'
+                              model: 'gemini-3-pro-preview',
+                              isEpisodeChild: true
                           },
                           inputs: [node.id]
                       });

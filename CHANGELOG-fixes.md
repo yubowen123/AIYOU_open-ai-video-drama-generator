@@ -95,3 +95,25 @@
 - 角色一致性段落用 `Character A = reference image 1` 映射代替中文名列表
 - 提示词末尾新增 `ABSOLUTE RULE - NO TEXT IN IMAGE` 段（末尾权重最高）
 - 明确唯一例外：场景描述中明确要求的牌匾/书籍中文可以渲染
+
+---
+
+## 7. 剧本分集子节点刷新后显示错误操作区
+
+**文件:** `App.tsx`
+
+**问题:** 页面刷新后，剧本分集的子节点（创意描述）会显示黄色生图操作区（图片分辨率、尺寸等），之前的修复只对新创建的节点有效，从存储加载的旧节点仍然有问题。
+
+**原因:** `nodeQuery?.hasUpstreamNode()` 依赖 `nodesRef.current`，而 `nodesRef` 通过 `useEffect` 更新（渲染后才执行），首次渲染时为空，导致判断失败。
+
+**处理:** 在 `loadData()` 加载节点时增加数据迁移步骤：收集所有 `SCRIPT_EPISODE` 节点 ID，遍历 `PROMPT_INPUT` 节点，若其 `inputs` 引用了 `SCRIPT_EPISODE`，则在 `node.data` 中设置 `isEpisodeChild: true`，确保首次渲染即可正确判断。
+
+---
+
+## 8. 剧本大纲增加复制按钮和编辑功能
+
+**文件:** `components/Node.tsx`
+
+**问题:** 剧本大纲生成后内容为只读（`<pre>` 标签），无法复制和编辑。
+
+**处理:** 右上角新增复制按钮（点击复制全部大纲内容到剪贴板），将 `<pre>` 改为 `<textarea>` 使内容可直接编辑，编辑后通过 `onUpdate` 实时保存。

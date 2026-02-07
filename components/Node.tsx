@@ -1389,7 +1389,20 @@ const NodeComponent: React.FC<NodeProps> = ({
               return (
                   <div className="w-full h-full flex flex-col bg-[#1c1c1e] overflow-hidden relative rounded-b-2xl">
                       <div className="absolute top-2 right-2 flex gap-1 z-20">
-                          <button 
+                          <button
+                              onClick={() => {
+                                  navigator.clipboard.writeText(node.data.scriptOutline || '');
+                                  const btn = document.activeElement as HTMLButtonElement;
+                                  const originalTitle = btn.title;
+                                  btn.title = '已复制';
+                                  setTimeout(() => { btn.title = originalTitle; }, 1500);
+                              }}
+                              className="p-1.5 bg-black/40 border border-white/10 rounded-md text-slate-400 hover:text-white backdrop-blur-md transition-colors"
+                              title="复制大纲"
+                          >
+                              <Copy size={14} />
+                          </button>
+                          <button
                               onClick={() => setViewingOutline(!viewingOutline)}
                               className="p-1.5 bg-black/40 border border-white/10 rounded-md text-slate-400 hover:text-white backdrop-blur-md transition-colors"
                               title={viewingOutline ? "收起大纲" : "查看完整大纲"}
@@ -1399,7 +1412,13 @@ const NodeComponent: React.FC<NodeProps> = ({
                       </div>
 
                       <div className="flex-1 p-4 overflow-y-auto custom-scrollbar bg-black/20" onWheel={(e) => e.stopPropagation()}>
-                          <pre className="text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed">{node.data.scriptOutline}</pre>
+                          <textarea
+                              className="w-full h-full bg-transparent resize-none focus:outline-none text-xs text-slate-300 whitespace-pre-wrap font-mono leading-relaxed custom-scrollbar selection:bg-orange-500/30"
+                              value={node.data.scriptOutline}
+                              onChange={(e) => onUpdate(node.id, { scriptOutline: e.target.value })}
+                              onWheel={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                          />
                       </div>
                   </div>
               );
@@ -3742,7 +3761,8 @@ const NodeComponent: React.FC<NodeProps> = ({
      // STORYBOARD_VIDEO_GENERATOR 和 SORA_VIDEO_GENERATOR 在特定状态下始终显示底部操作栏
      // PROMPT_INPUT 和 IMAGE_GENERATOR 始终显示操作栏（方便编辑）
      // 但剧本分集的子节点（创意描述）不应始终显示生图操作栏
-     const isEpisodeChildNode = node.type === NodeType.PROMPT_INPUT && nodeQuery?.hasUpstreamNode(node.id, NodeType.SCRIPT_EPISODE);
+     // 优先使用 node.data.isEpisodeChild 标记（不依赖 nodeQuery 时序），回退到 nodeQuery 查询
+     const isEpisodeChildNode = node.type === NodeType.PROMPT_INPUT && (node.data.isEpisodeChild || nodeQuery?.hasUpstreamNode(node.id, NodeType.SCRIPT_EPISODE));
      const isAlwaysOpen = (node.type === NodeType.STORYBOARD_VIDEO_GENERATOR && (node.data as any).status === 'prompting') ||
                           (node.type === NodeType.SORA_VIDEO_GENERATOR && (node.data as any).taskGroups && (node.data as any).taskGroups.length > 0) ||
                           (node.type === NodeType.PROMPT_INPUT && !isEpisodeChildNode) ||
@@ -5297,7 +5317,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                         </button>
                     </div>
                 ) : (() => {
-                    const isEpisodeChild = node.type === NodeType.PROMPT_INPUT && nodeQuery?.hasUpstreamNode(node.id, NodeType.SCRIPT_EPISODE);
+                    const isEpisodeChild = node.type === NodeType.PROMPT_INPUT && (node.data.isEpisodeChild || nodeQuery?.hasUpstreamNode(node.id, NodeType.SCRIPT_EPISODE));
                     if (node.type === NodeType.PROMPT_INPUT) {
                         console.log('[Node Render] PROMPT_INPUT node:', node.id, 'isEpisodeChild:', isEpisodeChild, 'inputs:', node.inputs);
                     }
