@@ -1655,6 +1655,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                       className={`flex-1 overflow-hidden relative flex items-center justify-center transition-all ${
                                           viewMode === 'preview' ? 'fixed inset-0 bg-black/95 z-[9999] p-8' : 'p-3'
                                       }`}
+                                      onMouseDown={(e) => e.stopPropagation()}
                                   >
                                       <img
                                           ref={mediaRef as any}
@@ -1735,6 +1736,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                                   <>
                                                       <button
                                                           onClick={handlePrevPage}
+                                                          onMouseDown={(e) => e.stopPropagation()}
                                                           disabled={currentPage === 0}
                                                           className={`p-1.5 rounded-lg transition-all ${
                                                               currentPage === 0
@@ -1755,6 +1757,7 @@ const NodeComponent: React.FC<NodeProps> = ({
                                                       </div>
                                                       <button
                                                           onClick={handleNextPage}
+                                                          onMouseDown={(e) => e.stopPropagation()}
                                                           disabled={currentPage >= totalPages - 1}
                                                           className={`p-1.5 rounded-lg transition-all ${
                                                               currentPage >= totalPages - 1
