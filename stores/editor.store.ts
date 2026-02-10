@@ -39,19 +39,19 @@ interface EditorState {
   connectionStart: { id: string; x: number; y: number } | null;
   selectionRect: any;
 
-  // Actions - core data
-  setNodes: (nodes: AppNode[]) => void;
+  // Actions - core data (support both direct value and updater function)
+  setNodes: (nodes: AppNode[] | ((prev: AppNode[]) => AppNode[])) => void;
   updateNode: (id: string, data: Partial<AppNode['data']>) => void;
-  setConnections: (connections: Connection[]) => void;
-  setGroups: (groups: Group[]) => void;
-  setWorkflows: (workflows: Workflow[]) => void;
-  setAssetHistory: (assetHistory: any[]) => void;
+  setConnections: (connections: Connection[] | ((prev: Connection[]) => Connection[])) => void;
+  setGroups: (groups: Group[] | ((prev: Group[]) => Group[])) => void;
+  setWorkflows: (workflows: Workflow[] | ((prev: Workflow[]) => Workflow[])) => void;
+  setAssetHistory: (assetHistory: any[] | ((prev: any[]) => any[])) => void;
 
   // Actions - selection & workflow
   setSelectedWorkflowId: (v: string | null) => void;
   setIsLoaded: (v: boolean) => void;
   setClipboard: (v: AppNode | null) => void;
-  setSelectedNodeIds: (v: string[]) => void;
+  setSelectedNodeIds: (v: string[] | ((prev: string[]) => string[])) => void;
   setSelectedGroupId: (v: string | null) => void;
 
   // Actions - drag
@@ -102,24 +102,36 @@ export const useEditorStore = create<EditorState>((set) => ({
   connectionStart: null,
   selectionRect: null,
 
-  // Actions - core data (immutable patterns)
-  setNodes: (nodes) => set({ nodes }),
+  // Actions - core data (support both direct value and updater function)
+  setNodes: (nodes) => set((state) => ({
+    nodes: typeof nodes === 'function' ? nodes(state.nodes) : nodes,
+  })),
   updateNode: (id, data) =>
     set((state) => ({
       nodes: state.nodes.map((n) =>
         n.id === id ? { ...n, data: { ...n.data, ...data } } : n
       ),
     })),
-  setConnections: (connections) => set({ connections }),
-  setGroups: (groups) => set({ groups }),
-  setWorkflows: (workflows) => set({ workflows }),
-  setAssetHistory: (assetHistory) => set({ assetHistory }),
+  setConnections: (connections) => set((state) => ({
+    connections: typeof connections === 'function' ? connections(state.connections) : connections,
+  })),
+  setGroups: (groups) => set((state) => ({
+    groups: typeof groups === 'function' ? groups(state.groups) : groups,
+  })),
+  setWorkflows: (workflows) => set((state) => ({
+    workflows: typeof workflows === 'function' ? workflows(state.workflows) : workflows,
+  })),
+  setAssetHistory: (assetHistory) => set((state) => ({
+    assetHistory: typeof assetHistory === 'function' ? assetHistory(state.assetHistory) : assetHistory,
+  })),
 
   // Actions - selection & workflow
   setSelectedWorkflowId: (v) => set({ selectedWorkflowId: v }),
   setIsLoaded: (v) => set({ isLoaded: v }),
   setClipboard: (v) => set({ clipboard: v }),
-  setSelectedNodeIds: (v) => set({ selectedNodeIds: v }),
+  setSelectedNodeIds: (v) => set((state) => ({
+    selectedNodeIds: typeof v === 'function' ? v(state.selectedNodeIds) : v,
+  })),
   setSelectedGroupId: (v) => set({ selectedGroupId: v }),
 
   // Actions - drag

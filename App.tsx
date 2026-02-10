@@ -54,9 +54,10 @@ const DebugPanel = lazy(() => import('./components/DebugPanel').then(m => ({ def
 import {
     Plus, Copy, Trash2, Type, Image as ImageIcon, Video as VideoIcon,
     ScanFace, Brush, MousePointerClick, LayoutTemplate, X, Film, Link, RefreshCw, Upload,
-    Minus, FolderHeart, Unplug, Sparkles, ChevronLeft, ChevronRight, Scan, Music, Mic2, Loader2, ScrollText, Clapperboard, User, BookOpen, Languages
+    Minus, FolderHeart, Unplug, Sparkles, ChevronLeft, ChevronRight, Scan, Music, Mic2, Loader2, ScrollText, Clapperboard, User, BookOpen, Languages, HardDrive
 } from 'lucide-react';
 import { ExpandedView } from './components/ExpandedView';
+import type { InputAsset } from './components/nodes/types';
 
 // ... (Constants, Helpers, ExpandedView UNCHANGED) ...
 const SPRING = "cubic-bezier(0.32, 0.72, 0, 1)";
@@ -894,16 +895,16 @@ export const App = () => {
                  const otherBounds = getNodeBounds(other);
                  if (!snappedX) {
                      if (Math.abs(myL - otherBounds.x) < SNAP) { proposedX = otherBounds.x; snappedX = true; }
-                     else if (Math.abs(myL - otherBounds.r) < SNAP) { proposedX = otherBounds.r; snappedX = true; }
+                     else if (Math.abs(myL - otherBounds.right) < SNAP) { proposedX = otherBounds.right; snappedX = true; }
                      else if (Math.abs(myR - otherBounds.x) < SNAP) { proposedX = otherBounds.x - nodeWidth; snappedX = true; }
-                     else if (Math.abs(myR - otherBounds.r) < SNAP) { proposedX = otherBounds.r - nodeWidth; snappedX = true; }
+                     else if (Math.abs(myR - otherBounds.right) < SNAP) { proposedX = otherBounds.right - nodeWidth; snappedX = true; }
                      else if (Math.abs(myC - (otherBounds.x+otherBounds.width/2)) < SNAP) { proposedX = (otherBounds.x+otherBounds.width/2) - nodeWidth/2; snappedX = true; }
                  }
                  if (!snappedY) {
                      if (Math.abs(myT - otherBounds.y) < SNAP) { proposedY = otherBounds.y; snappedY = true; }
-                     else if (Math.abs(myT - otherBounds.b) < SNAP) { proposedY = otherBounds.b; snappedY = true; }
+                     else if (Math.abs(myT - otherBounds.bottom) < SNAP) { proposedY = otherBounds.bottom; snappedY = true; }
                      else if (Math.abs(myB - otherBounds.y) < SNAP) { proposedY = otherBounds.y - nodeHeight; snappedY = true; }
-                     else if (Math.abs(myB - otherBounds.b) < SNAP) { proposedY = otherBounds.b - nodeHeight; snappedY = true; }
+                     else if (Math.abs(myB - otherBounds.bottom) < SNAP) { proposedY = otherBounds.bottom - nodeHeight; snappedY = true; }
                      else if (Math.abs(myM - (otherBounds.y+otherBounds.height/2)) < SNAP) { proposedY = (otherBounds.y+otherBounds.height/2) - nodeHeight/2; snappedY = true; }
                  }
              });
@@ -978,21 +979,21 @@ export const App = () => {
               const otherNodes = nodesRef.current.filter(n => n.id !== draggingNodeId);
               for (const other of otherNodes) {
                   const otherBounds = getNodeBounds(other);
-                  const isOverlapping = (myBounds.x < otherBounds.r && myBounds.r > otherBounds.x && myBounds.y < otherBounds.b && myBounds.b > otherBounds.y);
+                  const isOverlapping = (myBounds.x < otherBounds.right && myBounds.right > otherBounds.x && myBounds.y < otherBounds.bottom && myBounds.bottom > otherBounds.y);
                   if (isOverlapping) {
-                       const overlapLeft = myBounds.r - otherBounds.x;
-                       const overlapRight = otherBounds.r - myBounds.x;
-                       const overlapTop = myBounds.b - otherBounds.y;
-                       const overlapBottom = otherBounds.b - myBounds.y;
+                       const overlapLeft = myBounds.right - otherBounds.x;
+                       const overlapRight = otherBounds.right - myBounds.x;
+                       const overlapTop = myBounds.bottom - otherBounds.y;
+                       const overlapBottom = otherBounds.bottom - myBounds.y;
                        const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
                        if (minOverlap === overlapLeft) draggedNode.x = otherBounds.x - myBounds.width - COLLISION_PADDING;
-                       else if (minOverlap === overlapRight) draggedNode.x = otherBounds.r + COLLISION_PADDING;
+                       else if (minOverlap === overlapRight) draggedNode.x = otherBounds.right + COLLISION_PADDING;
                        else if (minOverlap === overlapTop) draggedNode.y = otherBounds.y - myBounds.height - COLLISION_PADDING;
-                       else if (minOverlap === overlapBottom) draggedNode.y = otherBounds.b + COLLISION_PADDING;
+                       else if (minOverlap === overlapBottom) draggedNode.y = otherBounds.bottom + COLLISION_PADDING;
                        myBounds.x = draggedNode.x;
                        myBounds.y = draggedNode.y;
-                       myBounds.r = draggedNode.x + myBounds.width;
-                       myBounds.b = draggedNode.y + myBounds.height;
+                       myBounds.right = draggedNode.x + myBounds.width;
+                       myBounds.bottom = draggedNode.y + myBounds.height;
                   }
               }
               setNodes(prev => prev.map(n => n.id === draggingNodeId ? { ...n, x: draggedNode.x, y: draggedNode.y } : n));
