@@ -50,6 +50,7 @@ export interface NodeProps {
     getFirstUpstreamNode: (nodeId: string, nodeType: string) => AppNode | undefined;
     hasUpstreamNode: (nodeId: string, nodeType: string) => boolean;
     getNodesByIds: (ids: string[]) => AppNode[];
+    getNodesByType?: (nodeType: string) => AppNode[];
   };
   characterLibrary?: CharacterProfile[];
 }

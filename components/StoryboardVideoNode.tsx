@@ -13,6 +13,8 @@ interface StoryboardVideoNodeProps {
   onAction: (nodeId: string, action: string, payload?: any) => void;
   onExpand?: (data: any) => void;
   nodeQuery?: any;
+  isSelected?: boolean;
+  isDragging?: boolean;
 }
 
 /**

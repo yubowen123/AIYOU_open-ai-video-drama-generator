@@ -30,6 +30,8 @@
     "@sentry/react": "^10.32.1",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^22.14.0",
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.0",
     "docx": "^9.5.1",
     "tailwindcss": "^4.1.18",

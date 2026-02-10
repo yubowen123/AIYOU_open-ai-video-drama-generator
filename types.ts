@@ -85,6 +85,7 @@ export interface StoryboardShot {
     negative: string;
     imageUrl?: string; // Generated image
     duration?: number;
+    visualDescription?: string;
 }
 
 // New detailed storyboard shot for episode breakdown
@@ -296,6 +297,89 @@ export interface AppNode {
     isCompliant?: boolean; // 是否合规
     violationReason?: string; // 违规原因
     locallySaved?: boolean; // 是否已本地保存
+
+    // Sora Video Generator Specifics
+    taskGroups?: SoraTaskGroup[]; // Sora 任务组列表
+    sora2Config?: Sora2UserConfig; // Sora2 全局配置
+    currentTaskId?: string; // 当前任务ID
+
+    // Drama Refined Specifics
+    refinedContent?: string; // 精炼后的剧本内容
+
+    // Style Preset Specifics
+    stylePrompt?: string; // 风格预设提示词
+
+    // Audio Generator Extended
+    referenceAudio?: string; // 参考音频
+    persona?: string; // 音色/角色
+    emotion?: string; // 情感
+
+    // Image Generator Extended
+    negativePrompt?: string; // 反向提示词
+    inputImages?: string[]; // 输入图片列表
+
+    // Video Generation Extended
+    videoUrl?: string; // 视频URL（videoUri 别名）
+
+    // Storyboard Video Child Specifics
+    platformInfo?: {
+      platformCode: string;
+      modelName: string;
+    };
+    modelConfig?: {
+      aspect_ratio: string;
+      duration: string;
+      quality: string;
+    };
+    promptExpanded?: boolean; // 提示词展开状态
+
+    // Generic
+    outputKey?: string; // 输出键名
+
+    // Storyboard Video Generator (inline from StoryboardVideoGeneratorData)
+    availableShots?: SplitStoryboardShot[];
+    selectedShotIds?: string[];
+    selectedShotIndex?: number;
+    characterData?: Array<any>;
+    generatedPrompt?: string;
+    promptModified?: boolean;
+    selectedPlatform?: string;
+    selectedModel?: string;
+    subModel?: string;
+    enableImageFusion?: boolean;
+    fusionLayout?: 'grid' | 'horizontal' | 'vertical';
+    fusionColumns?: number;
+    includeCharacterViews?: boolean;
+    fusedImage?: string;
+    fusedImageUrl?: string;
+    isLoadingFusion?: boolean;
+    childNodeIds?: string[];
+
+    // Video child extended
+    videoDuration?: number;
+    videoResolution?: string;
+    quality?: string;
+
+    // Style Preset Extended
+    styleUserInput?: string;
+    stylePresetType?: string;
+    storyboardRegeneratePanel?: boolean;
+
+    // Status/loading
+    isLoading?: boolean;
+    isCached?: boolean;
+    cacheLocation?: string;
+    isRemovingSensitiveWords?: boolean;
+
+    // Character extended
+    characterName?: string;
+
+    // Misc runtime fields
+    imageUrl?: string;
+    count?: number;
+    shotCount?: number;
+    visualStyle?: string;
+    taskId?: string;
   };
   inputs: string[]; // IDs of nodes this node connects FROM
 }
@@ -310,6 +394,7 @@ export interface Group {
 }
 
 export interface Connection {
+  id?: string;
   from: string;
   to: string;
 }
@@ -401,6 +486,11 @@ export interface SoraTaskGroup {
     createdAt: Date;
   };
   error?: string;
+
+  // 敏感词处理
+  isRemovingSensitiveWords?: boolean;
+  removeSensitiveWordsSuccess?: boolean;
+  removeSensitiveWordsError?: string;
 }
 
 export interface SoraStorageConfig {
@@ -526,6 +616,10 @@ export interface StoryboardVideoChildData {
 
 // Window interface for Google AI Studio key selection
 declare global {
+  interface Window {
+    aistudio?: AIStudio;
+    showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
+  }
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;
     openSelectKey: () => Promise<void>;

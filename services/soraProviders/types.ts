@@ -30,14 +30,15 @@ export interface SoraSubmitResult {
 // 视频生成结果
 export interface SoraVideoResult {
   taskId: string;
-  status: 'queued' | 'processing' | 'completed' | 'error';
+  status: 'queued' | 'processing' | 'completed' | 'error' | 'failed' | 'FAILED' | 'succeeded' | 'success';
   progress: number;
   videoUrl?: string;
   videoUrlWatermarked?: string;
-  duration?: string;
+  duration?: string | number;
   quality: string;
   isCompliant: boolean;
   violationReason?: string;
+  created_at?: string | number;
   _rawData?: any; // 用于调试
 }
 
