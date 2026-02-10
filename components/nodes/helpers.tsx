@@ -255,7 +255,7 @@ export const InputThumbnails = ({ assets, onReorder }: { assets: InputAsset[], o
                             {isVideo ? (
                                 <video src={asset.src} className="w-full h-full object-cover" muted playsInline preload="metadata" />
                             ) : (
-                                <img src={asset.src} className="w-full h-full object-cover" alt="" draggable={false} />
+                                <img loading="lazy" src={asset.src} className="w-full h-full object-cover" alt="" draggable={false} />
                             )}
                             <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors" />
                         </div>

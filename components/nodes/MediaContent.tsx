@@ -689,7 +689,7 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
                                       }`}
                                   >
                                       <img
-                                          ref={mediaRef as any}
+                                          loading="lazy" ref={mediaRef as any}
                                           src={currentImage}
                                           className="max-w-full max-h-full object-contain cursor-default"
                                           onContextMenu={handleContextMenu}
@@ -857,7 +857,7 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
                                           {/* Left: Image */}
                                           <div className="flex-shrink-0">
                                               <img
-                                                  src={shot.splitImage}
+                                                  loading="lazy" src={shot.splitImage}
                                                   alt={`分镜 ${shot.shotNumber}`}
                                                   className="w-[200px] rounded-lg border border-white/10 cursor-pointer hover:border-blue-500/50 transition-colors"
                                                   onClick={() => onExpand?.({
@@ -1007,7 +1007,7 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
                                   {/* Shot Image */}
                                   <div className="w-24 h-24 shrink-0 rounded-lg bg-black/50 overflow-hidden relative border border-white/10">
                                       {shot.imageUrl ? (
-                                          <img src={shot.imageUrl} className="w-full h-full object-cover" onClick={() => onExpand?.({ type: 'image', src: shot.imageUrl!, rect: new DOMRect(), images: shots.filter(s=>s.imageUrl).map(s=>s.imageUrl!), initialIndex: idx })} />
+                                          <img loading="lazy" src={shot.imageUrl} className="w-full h-full object-cover" onClick={() => onExpand?.({ type: 'image', src: shot.imageUrl!, rect: new DOMRect(), images: shots.filter(s=>s.imageUrl).map(s=>s.imageUrl!), initialIndex: idx })} />
                                       ) : (
                                           <div className="w-full h-full flex items-center justify-center">
                                               <Loader2 className="animate-spin text-slate-600" size={16} />
@@ -1200,9 +1200,9 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
                                                   <div className="flex gap-3">
                                                       <div className="w-16 h-16 shrink-0 bg-black rounded-md overflow-hidden relative">
                                                           {profile.threeViewSheet ? (
-                                                              <img src={profile.threeViewSheet} className="w-full h-full object-cover" />
+                                                              <img loading="lazy" src={profile.threeViewSheet} className="w-full h-full object-cover" />
                                                           ) : profile.expressionSheet ? (
-                                                              <img src={profile.expressionSheet} className="w-full h-full object-cover" />
+                                                              <img loading="lazy" src={profile.expressionSheet} className="w-full h-full object-cover" />
                                                           ) : (
                                                               <div className="w-full h-full bg-black flex items-center justify-center">
                                                                   <User className="w-8 h-8 text-slate-700 opacity-30" />
@@ -1456,7 +1456,7 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
               <div className="w-full h-full p-0 flex flex-col relative group/edit">
                   {node.data.image ? (
                       <div className="relative flex-1 overflow-hidden bg-[#09090b]">
-                          <img src={node.data.image} className="w-full h-full object-contain" onClick={handleExpand} />
+                          <img loading="lazy" src={node.data.image} className="w-full h-full object-contain" onClick={handleExpand} />
                           <button className="absolute top-2 right-2 p-1.5 bg-black/60 text-white rounded-full hover:bg-red-500/80 transition-colors" onClick={() => onUpdate(node.id, { image: undefined })}><X size={14} /></button>
                       </div>
                   ) : (
@@ -1965,7 +1965,7 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
                                                       {tg.splitShots.slice(0, 6).map((shot: any) => (
                                                           <div key={shot.id} className="relative group/shot">
                                                               <img
-                                                                  src={shot.splitImage}
+                                                                  loading="lazy" src={shot.splitImage}
                                                                   alt={`Shot ${shot.shotNumber}`}
                                                                   className="w-full aspect-video object-cover rounded border border-white/10 cursor-pointer hover:border-cyan-500/50 transition-all"
                                                                   onClick={(e) => {
@@ -2042,7 +2042,7 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
                                                               {/* Thumbnail - Collapsed by default */}
                                                               <div className="relative group rounded overflow-hidden border border-purple-500/30 bg-black/40">
                                                                   <img
-                                                                      src={tg.referenceImage}
+                                                                      loading="lazy" src={tg.referenceImage}
                                                                       alt={`任务组 ${tg.taskNumber} 融合图`}
                                                                       className="w-full h-auto object-contain cursor-pointer hover:opacity-90 transition-opacity"
                                                                       onClick={() => onExpand?.(tg.referenceImage)}
@@ -2689,7 +2689,7 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
             ) : (
                 <>
                     {node.data.image ? 
-                        <img ref={mediaRef as any} src={node.data.image} className="w-full h-full object-cover transition-transform duration-700 group-hover/media:scale-105 bg-zinc-900" draggable={false} style={showImageGrid ? STYLE_BLUR_ON : STYLE_BLUR_OFF} onContextMenu={(e) => onMediaContextMenu?.(e, node.id, 'image', node.data.image!)} /> 
+                        <img loading="lazy" ref={mediaRef as any} src={node.data.image} className="w-full h-full object-cover transition-transform duration-700 group-hover/media:scale-105 bg-zinc-900" draggable={false} style={showImageGrid ? STYLE_BLUR_ON : STYLE_BLUR_OFF} onContextMenu={(e) => onMediaContextMenu?.(e, node.id, 'image', node.data.image!)} /> 
                     : 
                         <SecureVideo 
                             videoRef={mediaRef} // Pass Ref to Video
@@ -2707,7 +2707,7 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
                         <div className="absolute inset-0 bg-black/40 z-10 grid grid-cols-2 gap-2 p-2 animate-in fade-in duration-200">
                             {node.data.images ? node.data.images.map((img, idx) => (
                                 <div key={idx} className={`relative rounded-lg overflow-hidden cursor-pointer border-2 bg-zinc-900 ${img === node.data.image ? 'border-cyan-500' : 'border-transparent hover:border-white/50'}`} onClick={(e) => { e.stopPropagation(); onUpdate(node.id, { image: img }); }}>
-                                    <img src={img} className="w-full h-full object-cover" />
+                                    <img loading="lazy" src={img} className="w-full h-full object-cover" />
                                 </div>
                             )) : node.data.videoUris?.map((uri, idx) => (
                                 <div key={idx} className={`relative rounded-lg overflow-hidden cursor-pointer border-2 bg-zinc-900 ${uri === node.data.videoUri ? 'border-cyan-500' : 'border-transparent hover:border-white/50'}`} onClick={(e) => { e.stopPropagation(); onUpdate(node.id, { videoUri: uri }); }}>
@@ -2720,8 +2720,8 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
                             ))}
                         </div>
                     )}
-                    {generationMode === 'CUT' && node.data.croppedFrame && <div className="absolute top-4 right-4 w-24 aspect-video bg-black/80 rounded-lg border border-purple-500/50 shadow-xl overflow-hidden z-20 hover:scale-150 transition-transform origin-top-right opacity-0 group-hover:opacity-100 transition-opacity duration-300"><img src={node.data.croppedFrame} className="w-full h-full object-cover" /></div>}
-                    {generationMode === 'CUT' && !node.data.croppedFrame && hasInputs && inputAssets?.some(a => a.src) && (<div className="absolute top-4 right-4 w-24 aspect-video bg-black/80 rounded-lg border border-purple-500/30 border-dashed shadow-xl overflow-hidden z-20 hover:scale-150 transition-transform origin-top-right flex flex-col items-center justify-center group/preview opacity-0 group-hover:opacity-100 transition-opacity duration-300"><div className="absolute inset-0 bg-purple-500/10 z-10"></div>{(() => { const asset = inputAssets!.find(a => a.src); if (asset?.type === 'video') { return <SecureVideo src={asset.src} className="w-full h-full object-cover opacity-60 bg-zinc-900" muted autoPlay />; } else { return <img src={asset?.src} className="w-full h-full object-cover opacity-60 bg-zinc-900" />; } })()}<span className="absolute z-20 text-[8px] font-bold text-purple-200 bg-black/50 px-1 rounded">分镜参考</span></div>)}
+                    {generationMode === 'CUT' && node.data.croppedFrame && <div className="absolute top-4 right-4 w-24 aspect-video bg-black/80 rounded-lg border border-purple-500/50 shadow-xl overflow-hidden z-20 hover:scale-150 transition-transform origin-top-right opacity-0 group-hover:opacity-100 transition-opacity duration-300"><img loading="lazy" src={node.data.croppedFrame} className="w-full h-full object-cover" /></div>}
+                    {generationMode === 'CUT' && !node.data.croppedFrame && hasInputs && inputAssets?.some(a => a.src) && (<div className="absolute top-4 right-4 w-24 aspect-video bg-black/80 rounded-lg border border-purple-500/30 border-dashed shadow-xl overflow-hidden z-20 hover:scale-150 transition-transform origin-top-right flex flex-col items-center justify-center group/preview opacity-0 group-hover:opacity-100 transition-opacity duration-300"><div className="absolute inset-0 bg-purple-500/10 z-10"></div>{(() => { const asset = inputAssets!.find(a => a.src); if (asset?.type === 'video') { return <SecureVideo src={asset.src} className="w-full h-full object-cover opacity-60 bg-zinc-900" muted autoPlay />; } else { return <img loading="lazy" src={asset?.src} className="w-full h-full object-cover opacity-60 bg-zinc-900" />; } })()}<span className="absolute z-20 text-[8px] font-bold text-purple-200 bg-black/50 px-1 rounded">分镜参考</span></div>)}
                 </>
             )}
             {node.type === NodeType.VIDEO_GENERATOR && generationMode === 'CUT' && (videoBlobUrl || node.data.videoUri) && 

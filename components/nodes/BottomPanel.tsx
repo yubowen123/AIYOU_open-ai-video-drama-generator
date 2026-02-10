@@ -1145,7 +1145,7 @@ export const BottomPanel: React.FC<BottomPanelContext> = (ctx) => {
                                                  <div className="grid grid-cols-4 gap-1 pl-7">
                                                      {gridImages.map((img, idx) => (
                                                          <img
-                                                             key={idx}
+                                                             loading="lazy" key={idx}
                                                              src={img}
                                                              alt={`${sbNode.title} 第${idx + 1}页`}
                                                              className="w-full aspect-square rounded object-cover border border-white/10 hover:border-blue-500/50 transition-colors cursor-pointer"
