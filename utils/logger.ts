@@ -37,7 +37,6 @@ export const logger = {
    */
   debug: (...args: any[]) => {
     if (shouldLog('debug')) {
-      console.log('[DEBUG]', ...args);
     }
   },
 

@@ -83,7 +83,6 @@ export class ImageGeneratorNodeService extends BaseNodeService {
       };
 
       // 4. 调用 AI Provider API (支持 Google Gemini 和 云雾 API)
-      console.log(`[ImageGeneratorNodeService] 开始生成图像:`, request);
 
       const imageUrls = await generateImageWithProvider(
         request.prompt,
@@ -112,7 +111,6 @@ export class ImageGeneratorNodeService extends BaseNodeService {
 
       this.updateNodeData(node.id, resultData, context);
 
-      console.log(`[ImageGeneratorNodeService] 图像生成成功:`, imageUrls);
 
       // 7. 返回成功结果
       return this.createSuccessResult(

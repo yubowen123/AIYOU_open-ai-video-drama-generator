@@ -384,7 +384,6 @@ export const getUserPriority = (category: ModelCategory): string[] => {
         }).filter((item: any) => item !== null);
 
         if (stringArray.length > 0) {
-          console.log(`[getUserPriority] Loaded priority for ${category}:`, stringArray);
           return stringArray;
         }
       }
@@ -395,7 +394,6 @@ export const getUserPriority = (category: ModelCategory): string[] => {
 
   // 返回默认优先级
   const defaultPriority = getModelsByPriority(category).map(m => m.id);
-  console.log(`[getUserPriority] Using default priority for ${category}:`, defaultPriority);
   return defaultPriority;
 };
 
@@ -415,7 +413,6 @@ export const getUserDefaultModel = (category: ModelCategory): string => {
   const model = localStorage.getItem(localStorageKey);
 
   if (model) {
-    console.log(`[getUserDefaultModel] Using configured default model for ${category}:`, model);
     return model;
   }
 
@@ -427,7 +424,6 @@ export const getUserDefaultModel = (category: ModelCategory): string => {
     try {
       const priority = JSON.parse(priorityStr);
       if (Array.isArray(priority) && priority.length > 0) {
-        console.log(`[getUserDefaultModel] Using first priority model for ${category}:`, priority[0]);
         return priority[0];
       }
     } catch (e) {
@@ -437,7 +433,6 @@ export const getUserDefaultModel = (category: ModelCategory): string => {
 
   // 3. 如果都没有，返回系统默认值
   const defaultModel = getDefaultModel(category);
-  console.log(`[getUserDefaultModel] Using system default model for ${category}:`, defaultModel);
   return defaultModel;
 };
 

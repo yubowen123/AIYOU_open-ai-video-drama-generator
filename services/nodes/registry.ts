@@ -33,8 +33,6 @@ export function registerAllNodeServices(): void {
   // NodeServiceRegistry.register('DRAMA_REFINED', DramaRefinedNodeService);
   // NodeServiceRegistry.register('STYLE_PRESET', StylePresetNodeService);
 
-  console.log('✓ 所有节点服务已注册');
-  console.log('  已注册服务:', NodeServiceRegistry.getRegisteredTypes());
 }
 
 /**

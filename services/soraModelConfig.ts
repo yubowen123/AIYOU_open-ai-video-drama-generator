@@ -50,6 +50,5 @@ export function getSoraModelName(
     return 'sora-2';  // 降级默认值
   }
 
-  console.log(`[SoraModelConfig] 使用模型: ${modelName} (provider=${provider}, quality=${quality})`);
   return modelName;
 }

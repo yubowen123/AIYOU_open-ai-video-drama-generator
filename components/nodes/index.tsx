@@ -221,7 +221,6 @@ const NodeComponent: React.FC<NodeProps> = ({
         setDynamicSubModels(subModels);
         setDynamicSubModelNames(subModelNames);
         setConfigLoaded(true);
-        console.log('[Node] ✅ Model config loaded from backend');
       } catch (error) {
         console.error('[Node] ❌ Failed to load model config:', error);
         setConfigLoaded(true); // 失败也标记为已加载，会回退到默认值
@@ -260,11 +259,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                 threeViewPromptEn: char.threeViewPromptEn
               });
 
-              console.log('[Node] ✅ Restored character to manager:', char.name, {
-                hasProfile: !!char.basicStats,
-                hasExpression: !!char.expressionSheet,
-                hasThreeView: !!char.threeViewSheet
-              });
             }
           }
         }
@@ -334,13 +328,9 @@ const NodeComponent: React.FC<NodeProps> = ({
 
   // Function to refresh chapters from planner node
   const handleRefreshChapters = useCallback(() => {
-      console.log('🔄 刷新章节列表...');
       if (node.type === NodeType.SCRIPT_EPISODE && nodeQuery) {
           const plannerNode = nodeQuery.getFirstUpstreamNode(node.id, NodeType.SCRIPT_PLANNER);
-          console.log('📖 找到上游剧本大纲节点:', plannerNode?.id);
           if (plannerNode && plannerNode.data.scriptOutline) {
-              console.log('📝 剧本大纲内容长度:', plannerNode.data.scriptOutline.length);
-              console.log('📄 完整剧本大纲:\n', plannerNode.data.scriptOutline);
               // 匹配格式：*   **## 第一章：都市异象 (Episodes 1-2)** - 描述
               const regex1 = /##\s+(第[一二三四五六七八九十\d]+章[：:][^\(\*]+|最终章[：:][^\(\*]+)/gm;
               const matches = [];
@@ -348,7 +338,6 @@ const NodeComponent: React.FC<NodeProps> = ({
               while ((match = regex1.exec(plannerNode.data.scriptOutline)) !== null) {
                   matches.push(match[1].trim());
               }
-              console.log('✅ 提取到章节数量:', matches.length, matches);
               if (matches.length > 0) {
                   setAvailableChapters(matches);
                   // Auto-select first chapter if none selected
@@ -357,7 +346,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                   }
               }
           } else {
-              console.log('⚠️ 未找到剧本大纲节点或大纲内容为空');
           }
       }
   }, [node.type, node.inputs, node.id, node.data.selectedChapter, nodeQuery, onUpdate]);
@@ -393,7 +381,6 @@ const NodeComponent: React.FC<NodeProps> = ({
 
                   // 检查本地存储是否启用
                   if (service.isEnabled()) {
-                      console.log('[Node] 📁 尝试从本地存储加载视频:', node.id);
 
                       // 获取该节点的所有视频文件
                       const metadataManager = (service as any).metadataManager;
@@ -406,26 +393,21 @@ const NodeComponent: React.FC<NodeProps> = ({
                           );
 
                           if (videoFiles.length > 0) {
-                              console.log(`[Node] ✅ 找到 ${videoFiles.length} 个本地视频文件`);
 
                               // 读取第一个视频文件
                               const dataUrl = await service.readFileAsDataUrl(videoFiles[0].relativePath);
                               setVideoBlobUrl(dataUrl);
                               setIsLoadingVideo(false);
 
-                              console.log('[Node] ✅ 使用本地视频文件');
                               return;
                           } else {
-                              console.log('[Node] 📭 本地存储中没有找到视频，使用在线URL');
                           }
                       }
                   }
               } catch (error) {
-                  console.log('[Node] 本地存储加载失败，使用在线URL:', error);
               }
 
               // ❌ 本地存储中没有，使用在线URL
-              console.log('[Node] 🌐 从在线URL加载视频');
 
               // 其他视频类型，转换为 Blob URL
               let isActive = true;
@@ -1156,7 +1138,6 @@ const NodeComponent: React.FC<NodeProps> = ({
 
               // 触发节点执行以开始重新生成
               setTimeout(() => {
-                  console.log('[分镜图编辑] 触发节点重新生成');
                   onAction(node.id);
               }, 100);
 
@@ -1702,19 +1683,6 @@ const NodeComponent: React.FC<NodeProps> = ({
 
                                   // Debug log
                                   if (profile) {
-                                      console.log('[Node CHARACTER_NODE] Rendering character:', {
-                                          name,
-                                          status: profile.status,
-                                          isProcessing,
-                                          isFailed,
-                                          shouldShowCard: !isProcessing && !isFailed,
-                                          hasProfession: !!profile.profession,
-                                          hasPersonality: !!profile.personality,
-                                          hasExpressionSheet: !!profile.expressionSheet,
-                                          hasThreeViewSheet: !!profile.threeViewSheet,
-                                          expressionLength: profile.expressionSheet?.length || 0,
-                                          threeViewLength: profile.threeViewSheet?.length || 0
-                                      });
                                   }
 
                                   return (
@@ -2338,7 +2306,6 @@ const NodeComponent: React.FC<NodeProps> = ({
 
                       // 只在本地存储启用时尝试加载
                       if (service.isEnabled() && mounted) {
-                          console.log('[Sora2] 📁 本地存储已启用，尝试加载本地视频');
 
                           // 获取父节点下所有视频文件
                           const metadataManager = (service as any).metadataManager;
@@ -2352,7 +2319,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                   f.mimeType?.startsWith('video/')
                               );
 
-                              console.log(`[Sora2] 找到 ${videoFiles.length} 个本地视频文件`);
 
                               // 按任务组 ID 匹配视频文件
                               for (const videoFile of videoFiles) {
@@ -2364,7 +2330,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                       const taskGroupId = match[1];
                                       const tg = taskGroups.find((t: any) => t.id === taskGroupId);
                                       if (tg) {
-                                          console.log(`[Sora2] ✅ 匹配到任务组 ${tg.taskNumber} 的视频`);
                                           const dataUrl = await service.readFileAsDataUrl(videoFile.relativePath);
                                           if (mounted) {
                                               localUrls[tg.id] = dataUrl;
@@ -2380,7 +2345,6 @@ const NodeComponent: React.FC<NodeProps> = ({
 
                       if (mounted && Object.keys(localUrls).length > 0) {
                           setSoraLocalVideos(localUrls);
-                          console.log(`[Sora2] ✅ 成功加载 ${Object.keys(localUrls).length} 个本地视频`);
                       }
                   } catch (error) {
                       console.error('[Sora2] 加载本地视频失败:', error);
@@ -2458,7 +2422,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                                           const updatedTaskGroups = taskGroups.map((t: any, i: number) =>
                                                               i === index ? { ...t, sora2Config: newConfig } : t
                                                           );
-                                                          console.log('[Sora] 更新尺寸配置:', index, newConfig);
                                                           onUpdate(node.id, { taskGroups: updatedTaskGroups });
                                                       }}
                                                       onPointerDownCapture={(e) => e.stopPropagation()}
@@ -2489,7 +2452,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                                           const updatedTaskGroups = taskGroups.map((t: any, i: number) =>
                                                               i === index ? { ...t, sora2Config: newConfig } : t
                                                           );
-                                                          console.log('[Sora] 更新时长配置:', index, newConfig);
                                                           onUpdate(node.id, { taskGroups: updatedTaskGroups });
                                                       }}
                                                       onPointerDownCapture={(e) => e.stopPropagation()}
@@ -2521,7 +2483,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                                           const updatedTaskGroups = taskGroups.map((t: any, i: number) =>
                                                               i === index ? { ...t, sora2Config: newConfig } : t
                                                           );
-                                                          console.log('[Sora] 更新质量配置:', index, newConfig);
                                                           onUpdate(node.id, { taskGroups: updatedTaskGroups });
                                                       }}
                                                       onPointerDownCapture={(e) => e.stopPropagation()}
@@ -2699,7 +2660,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                                                           onClick={async (e) => {
                                                                               e.stopPropagation();
                                                                               try {
-                                                                                  console.log('[合成图下载] 开始下载:', tg.referenceImage);
 
                                                                                   // 使用fetch获取图片
                                                                                   const response = await fetch(tg.referenceImage);
@@ -2719,7 +2679,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                                                                   // 释放URL
                                                                                   setTimeout(() => URL.revokeObjectURL(url), 100);
 
-                                                                                  console.log('[合成图下载] ✅ 下载成功');
                                                                               } catch (error) {
                                                                                   console.error('[合成图下载] ❌ 下载失败:', error);
                                                                                   // 回退方案：在新标签页打开
@@ -2967,7 +2926,6 @@ const NodeComponent: React.FC<NodeProps> = ({
               if (!soraTaskId || isRefreshing) return;
 
               setIsRefreshing(true);
-              console.log('[Sora2子节点] 刷新任务状态:', soraTaskId);
 
               try {
                   // 获取API Key
@@ -3019,7 +2977,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                   }
 
                   const data = await response.json();
-                  console.log('[Sora2子节点] 刷新响应:', data);
 
                   // 根据provider解析响应
                   let newVideoUrl: string | undefined;
@@ -3052,13 +3009,11 @@ const NodeComponent: React.FC<NodeProps> = ({
                           progress: newProgress,
                           violationReason: newViolationReason
                       });
-                      console.log('[Sora2子节点] ✅ 视频已更新:', newVideoUrl);
                   } else if (newStatus === 'processing' || newStatus === 'pending') {
                       onUpdate(node.id, {
                           progress: newProgress,
                           violationReason: undefined
                       });
-                      console.log('[Sora2子节点] 任务仍在处理中，进度:', newProgress);
                   } else if (newViolationReason) {
                       onUpdate(node.id, {
                           violationReason: newViolationReason,
@@ -3081,7 +3036,6 @@ const NodeComponent: React.FC<NodeProps> = ({
               }
 
               try {
-                  console.log('[直接下载] 开始下载:', displayVideoUrl);
 
                   // 尝试使用 fetch 下载
                   const response = await fetch(displayVideoUrl);
@@ -3099,12 +3053,10 @@ const NodeComponent: React.FC<NodeProps> = ({
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
 
-                  console.log('[直接下载] ✅ 下载成功');
               } catch (e) {
                   console.error('[直接下载] ❌ 下载失败:', e);
 
                   // 如果 fetch 失败，尝试在新标签页打开
-                  console.log('[直接下载] 尝试在新标签页打开');
                   window.open(displayVideoUrl, '_blank');
                   alert('已在新标签页打开视频，请在视频上右键选择"视频另存为"来下载。');
               }
@@ -3120,7 +3072,6 @@ const NodeComponent: React.FC<NodeProps> = ({
               }
 
               try {
-                  console.log('[视频下载] 开始下载视频:', { soraTaskId, videoUrl });
 
                   // 如果有 soraTaskId，先尝试从数据库下载
                   if (soraTaskId) {
@@ -3134,7 +3085,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                               // 检查是否是视频文件
                               if (!contentType || !contentType.includes('application/json')) {
                                   const blob = await response.blob();
-                                  console.log('[视频下载] ✅ 从数据库下载成功');
 
                                   const url = URL.createObjectURL(blob);
                                   const a = document.createElement('a');
@@ -3148,7 +3098,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                               }
                           }
                       } catch (dbError) {
-                          console.log('[视频下载] 数据库中未找到，尝试直接下载:', dbError.message);
                       }
                   }
 
@@ -3162,7 +3111,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                   if (shouldSaveToDb) {
                       // 保存到数据库
                       const taskId = soraTaskId || `video-${Date.now()}`;
-                      console.log('[视频下载] 正在保存到数据库...');
 
                       const saveResponse = await fetch('http://localhost:3001/api/videos/save', {
                           method: 'POST',
@@ -3178,7 +3126,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                       const saveResult = await saveResponse.json();
 
                       if (saveResult.success) {
-                          console.log('[视频下载] ✅ 保存成功，开始下载');
                           alert('视频已保存到数据库！现在开始下载...');
 
                           // 从数据库下载
@@ -3199,7 +3146,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                       }
                   } else {
                       // 直接从原始 URL 下载
-                      console.log('[视频下载] 直接从原始地址下载');
                       alert('正在从原始地址下载，请稍候...');
 
                       const response = await fetch(videoUrl);
@@ -3218,7 +3164,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                       URL.revokeObjectURL(url);
                   }
 
-                  console.log('[视频下载] ✅ 下载完成');
               } catch (e) {
                   console.error('[视频下载] ❌ 下载失败:', e);
                   alert(`视频下载失败: ${e.message}\n\n您也可以右键点击视频，选择"视频另存为"来下载。`);
@@ -3557,12 +3502,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                  const currentConfig = node.data.sora2Config || { aspect_ratio: '16:9', duration: '10', hd: true };
                                  const updateConfig = (updates: any) => {
                                      const newConfig = { ...currentConfig, ...updates };
-                                     console.log('[Sora配置更新]', {
-                                         更新内容: updates,
-                                         新配置: newConfig,
-                                         节点ID: node.id,
-                                         任务组数量: taskGroups.length
-                                     });
                                      // 同时更新节点级别和所有任务组的配置
                                      const updatedTaskGroups = taskGroups.map((tg: any) => ({
                                          ...tg,
@@ -3572,7 +3511,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                          sora2Config: newConfig,
                                          taskGroups: updatedTaskGroups
                                      });
-                                     console.log('[Sora配置更新] ✅ 已更新所有任务组配置');
                                  };
                                  return (
                                      <>
@@ -3692,12 +3630,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                  <button
                                      onClick={(e) => {
                                          e.stopPropagation();
-                                         console.log('[图片融合] 按钮被点击');
-                                         console.log('[图片融合] 当前任务组状态:', taskGroups.map(tg => ({
-                                             id: tg.id,
-                                             hasSplitShots: !!tg.splitShots,
-                                             splitShotsLength: tg.splitShots?.length || 0
-                                         })));
                                          onAction?.(node.id, 'fuse-images');
                                      }}
                                      onMouseDown={(e) => e.stopPropagation()}
@@ -3789,7 +3721,6 @@ const NodeComponent: React.FC<NodeProps> = ({
              }
 
              setIsRefreshing(true);
-             console.log('[Sora2子节点] 刷新任务状态:', { parentId, taskGroupId, soraTaskId, provider });
 
              try {
                  // 获取API Key
@@ -3841,7 +3772,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                  }
 
                  const data = await response.json();
-                 console.log('[Sora2子节点] 刷新响应:', data);
 
                  // 根据provider解析响应
                  let newVideoUrl: string | undefined;
@@ -3874,13 +3804,11 @@ const NodeComponent: React.FC<NodeProps> = ({
                          progress: newProgress,
                          violationReason: newViolationReason
                      });
-                     console.log('[Sora2子节点] ✅ 视频已更新:', newVideoUrl);
                  } else if (newStatus === 'processing' || newStatus === 'pending') {
                      onUpdate(node.id, {
                          progress: newProgress,
                          violationReason: undefined
                      });
-                     console.log('[Sora2子节点] 任务仍在处理中，进度:', newProgress);
                  } else if (newViolationReason) {
                      onUpdate(node.id, {
                          violationReason: newViolationReason,
@@ -4436,7 +4364,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                  const allSplitShots = await splitMultipleStoryboardImages(
                      nodesToSplit,
                      (current, total, currentNode) => {
-                         console.log(`正在切割 ${current}/${total}: ${currentNode}`);
                      }
                  );
                  onUpdate(node.id, { splitShots: allSplitShots, isSplitting: false });
@@ -4965,7 +4892,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                 ) : (() => {
                     const isEpisodeChild = node.type === NodeType.PROMPT_INPUT && nodeQuery?.hasUpstreamNode(node.id, NodeType.SCRIPT_EPISODE);
                     if (node.type === NodeType.PROMPT_INPUT) {
-                        console.log('[Node Render] PROMPT_INPUT node:', node.id, 'isEpisodeChild:', isEpisodeChild, 'inputs:', node.inputs);
                     }
                     return { isEpisodeChild, nodeType: node.type };
                 })().isEpisodeChild ? (
@@ -4974,8 +4900,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
-                                console.log('[Node] Button clicked, node.id:', node.id, 'isWorking:', isWorking);
-                                console.log('[Node] Node data.prompt:', node.data.prompt?.substring(0, 100));
                                 onAction(node.id, 'generate-storyboard');
                             }}
                             disabled={isActionDisabled}
@@ -4994,7 +4918,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                     // PROMPT_INPUT 默认底部面板 - 生图功能
                     <>
                     {(() => {
-                        console.log('[Node] Rendering PROMPT_INPUT bottom panel with image generation UI');
                         return null;
                     })()}
                     <div className="flex flex-col gap-3 p-2">
@@ -5063,12 +4986,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
-                                console.log('[PROMPT_INPUT] Generate image button clicked:', {
-                                    nodeId: node.id,
-                                    prompt: node.data.prompt?.substring(0, 50),
-                                    resolution: node.data.resolution,
-                                    aspectRatio: node.data.aspectRatio
-                                });
                                 onAction(node.id, 'generate-image');
                             }}
                             disabled={isActionDisabled}
@@ -5392,7 +5309,6 @@ const NodeComponent: React.FC<NodeProps> = ({
                                         <button
                                             onClick={async () => {
                                                 // TODO: Implement video merging logic
-                                                console.log('[VIDEO_EDITOR] Exporting video:', exportSettings);
                                                 setShowExportModal(false);
                                             }}
                                             disabled={isWorking || !exportSettings.name.trim()}

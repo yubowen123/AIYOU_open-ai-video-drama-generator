@@ -37,7 +37,6 @@ export class MetadataManager {
    */
   async initialize(): Promise<void> {
     try {
-      console.log('[MetadataManager] 尝试读取现有元数据...');
 
       const fileHandle = await this.rootHandle.getFileHandle(this.metadataFilePath);
       const file = await fileHandle.getFile();
@@ -53,13 +52,8 @@ export class MetadataManager {
       }
 
       this.metadata = parsed;
-      console.log('[MetadataManager] 成功读取元数据:', {
-        fileCount: this.metadata.files.length,
-        workspaceCount: Object.keys(this.metadata.workspaces).length,
-      });
     } catch (error: any) {
       if (error.name === 'NotFoundError') {
-        console.log('[MetadataManager] 未找到元数据文件，创建新的元数据');
         this.metadata = {
           version: METADATA_VERSION,
           files: [],
@@ -85,7 +79,6 @@ export class MetadataManager {
       this.metadata.files[existingIndex] = metadata;
     } else {
       this.metadata.files.push(metadata);
-      console.log(`[MetadataManager] 添加文件元数据: ${metadata.fileName}`);
     }
 
     // 更新工作区信息
@@ -117,7 +110,6 @@ export class MetadataManager {
     }
 
     this.metadata.files = this.metadata.files.filter(f => f.id !== fileId);
-    console.log(`[MetadataManager] 移除文件元数据: ${file.fileName}`);
 
     // 更新工作区统计
     await this.updateWorkspaceStats(file.workspaceId);
@@ -205,7 +197,6 @@ export class MetadataManager {
         totalSize: 0,
       };
       this.metadata.workspaces[workspaceId] = workspace;
-      console.log(`[MetadataManager] 创建工作区: ${workspaceId}`);
     }
 
     // 更新工作区名称（如果提供）
@@ -234,10 +225,6 @@ export class MetadataManager {
     workspace.fileCount = workspaceFiles.length;
     workspace.totalSize = workspaceFiles.reduce((sum, f) => sum + f.size, 0);
 
-    console.log(`[MetadataManager] 更新工作区统计: ${workspaceId}`, {
-      fileCount: workspace.fileCount,
-      totalSize: workspace.totalSize,
-    });
   }
 
   /**
@@ -335,7 +322,6 @@ export class MetadataManager {
       await this.removeFile(fileId);
     }
 
-    console.log(`[MetadataManager] 清理完成，移除 ${invalidFiles.length} 个无效文件引用`);
     return invalidFiles;
   }
 
@@ -363,7 +349,6 @@ export class MetadataManager {
         await this.addFile(file);
       }
 
-      console.log(`[MetadataManager] 导入完成，添加 ${imported.files.length} 个文件元数据`);
     } catch (error) {
       console.error('[MetadataManager] 导入元数据失败:', error);
       throw error;
@@ -383,7 +368,6 @@ export class MetadataManager {
       await writable.write(JSON.stringify(this.metadata, null, 2));
       await writable.close();
 
-      console.log('[MetadataManager] 元数据已保存');
     } catch (error) {
       console.error('[MetadataManager] 保存元数据失败:', error);
       throw new Error(`保存元数据失败: ${error}`);

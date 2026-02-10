@@ -75,11 +75,6 @@ const COLLISION_PADDING = 24; // Spacing when nodes bounce off each other
  */
 async function saveVideoToDatabase(videoUrl: string, taskId: string, taskNumber: number, soraPrompt: string): Promise<string> {
     // 直接返回 taskId，不保存到 IndexedDB 避免阻塞主线程
-    console.log('[视频保存] 使用 Sora URL，跳过 IndexedDB 保存', {
-        taskId,
-        taskNumber,
-        videoUrl: videoUrl ? videoUrl.substring(0, 100) + '...' : 'undefined'
-    });
     return taskId;
 }
 
@@ -223,18 +218,6 @@ export const App = () => {
 
   useEffect(() => {
       // 版权声明 - 光波开发
-      console.log(
-        '%c🎬 AIYOU 漫剧生成平台',
-        'font-size: 16px; font-weight: bold; color: #06b6d4; text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);'
-      );
-      console.log(
-        '%c开发者：光波 | Copyright (c) 2025 光波. All rights reserved.',
-        'font-size: 11px; color: #94a3b8;'
-      );
-      console.log(
-        '%c⚠️ 未经许可禁止商业转售',
-        'font-size: 10px; color: #ef4444;'
-      );
 
       if (window.aistudio) window.aistudio.hasSelectedApiKey().then(hasKey => { if (!hasKey) window.aistudio.openSelectKey(); });
 
@@ -278,8 +261,6 @@ export const App = () => {
           try {
               const savedConfig = JSON.parse(localStorage.getItem('fileStorageConfig') || '{}');
               if (savedConfig.enabled && savedConfig.rootPath) {
-                  console.log('[App] 检测到已配置的存储:', savedConfig.rootPath);
-                  console.log('[App] 💡 提示：请通过设置面板重新连接工作文件夹以访问缓存');
                   // 可以在界面上显示一个提示徽章
                   setStorageReconnectNeeded(true);
               }
@@ -299,7 +280,6 @@ export const App = () => {
     if (!isLoaded) return;
 
     const restoreSoraPolling = async () => {
-      console.log('[恢复轮询] 检查是否有正在生成的Sora任务...');
 
       // 找到所有Sora2节点
       const soraNodes = nodes.filter(n => n.type === NodeType.SORA_VIDEO_GENERATOR);
@@ -314,7 +294,6 @@ export const App = () => {
 
         if (generatingTasks.length === 0) continue;
 
-        console.log(`[恢复轮询] 找到 ${generatingTasks.length} 个正在生成的任务，节点: ${node.id}`);
 
         try {
           // 导入checkSoraTaskStatus函数
@@ -325,7 +304,6 @@ export const App = () => {
             // 标记为已恢复，防止重复恢复
             restoredTasksRef.current.add(tg.soraTaskId);
 
-            console.log(`[恢复轮询] 恢复任务组 ${tg.taskNumber} 的轮询，taskId: ${tg.soraTaskId}`);
 
             try {
               // 先查询一次当前状态，检查是否应该恢复轮询
@@ -367,7 +345,6 @@ export const App = () => {
 
               // 如果任务已经失败或完成，直接更新状态
               if (initialResult.status === 'error' || initialResult.status === 'failed' || initialResult.status === 'FAILED') {
-                console.log(`[恢复轮询] 任务 ${tg.taskNumber} 已失败，不再轮询`);
                 setNodes(prevNodes => {
                   return prevNodes.map(n => {
                     if (n.id === node.id) {
@@ -386,7 +363,6 @@ export const App = () => {
               }
 
               if (initialResult.status === 'completed' || initialResult.status === 'succeeded' || initialResult.status === 'success') {
-                console.log(`[恢复轮询] 任务 ${tg.taskNumber} 已完成，不再轮询`);
                 setNodes(prevNodes => {
                   return prevNodes.map(n => {
                     if (n.id === node.id) {
@@ -405,13 +381,11 @@ export const App = () => {
               }
 
               // 任务仍在进行中，开始轮询
-              console.log(`[恢复轮询] 任务 ${tg.taskNumber} 当前状态: ${initialResult.status}，开始轮询`);
 
               // 使用轮询函数持续查询状态
               const result = await pollSoraTaskUntilComplete(
                 tg.soraTaskId,
                 (progress) => {
-                  console.log(`[恢复轮询] 任务 ${tg.taskNumber} 进度: ${progress}%`);
                   // 更新进度
                   setNodes(prevNodes => {
                     return prevNodes.map(n => {
@@ -430,7 +404,6 @@ export const App = () => {
               );
 
               // 更新最终状态
-              console.log(`[恢复轮询] 任务 ${tg.taskNumber} 最终状态:`, result.status);
 
               setNodes(prevNodes => {
                 return prevNodes.map(n => {
@@ -1019,12 +992,6 @@ export const App = () => {
 
   const handleNodeUpdate = useCallback((id: string, data: any, size?: any, title?: string) => {
       const callingStack = new Error().stack?.split('\n').slice(1, 4).join('\n');
-      console.log('[handleNodeUpdate] Called:', {
-          nodeId: id,
-          dataKeys: Object.keys(data),
-          hasGeneratedCharacters: !!data.generatedCharacters,
-          callingStack
-      });
 
       setNodes(prev => prev.map(n => {
           if (n.id === id) {
@@ -1034,16 +1001,6 @@ export const App = () => {
 
               // Debug log for character updates
               if (data.generatedCharacters) {
-                  console.log('[handleNodeUpdate] Updating generatedCharacters:', {
-                      nodeId: id,
-                      count: data.generatedCharacters.length,
-                      characters: data.generatedCharacters.map((c: any) => ({
-                          name: c.name,
-                          status: c.status,
-                          hasExpression: !!c.expressionSheet,
-                          hasThreeView: !!c.threeViewSheet
-                      }))
-                  });
               }
 
               if (size) { if (size.width) updated.width = size.width; if (size.height) updated.height = size.height; }
@@ -1295,7 +1252,6 @@ export const App = () => {
 
   // --- Video Editor Handler ---
   const handleOpenVideoEditor = useCallback((nodeId: string) => {
-    console.log('[handleOpenVideoEditor] Opening video editor for node:', nodeId);
 
     const node = nodesRef.current.find(n => n.id === nodeId);
     if (!node) {
@@ -1308,7 +1264,6 @@ export const App = () => {
       return;
     }
 
-    console.log('[handleOpenVideoEditor] Node inputs:', node.inputs);
 
     // 获取连接的视频
     const sources: VideoSource[] = [];
@@ -1319,7 +1274,6 @@ export const App = () => {
     }
 
     const connectedNodes = nodeQuery.current.getNodesByIds(node.inputs);
-    console.log('[handleOpenVideoEditor] Connected nodes:', connectedNodes.length);
 
     for (const inputNode of connectedNodes) {
       let videoUrl = '';
@@ -1395,8 +1349,6 @@ export const App = () => {
       }
     }
 
-    console.log('[handleOpenVideoEditor] Found video sources:', sources.length);
-    console.log('[handleOpenVideoEditor] Sources:', sources);
 
     setVideoEditorSources(sources);
     setIsVideoEditorOpen(true);
@@ -1690,7 +1642,6 @@ export const App = () => {
 
                       case 'downloadImage':
                           const downloadNode = nodes.find(n => n.id === data);
-                          console.log('[下载分镜图] 节点ID:', data, '节点数据:', downloadNode?.data);
 
                           if (!downloadNode) {
                               console.error('[下载分镜图] 未找到节点');
@@ -1699,7 +1650,6 @@ export const App = () => {
 
                           if (downloadNode.data.storyboardGridImages?.length > 0) {
                               // 下载所有分镜图页面
-                              console.log('[下载分镜图] 开始下载', downloadNode.data.storyboardGridImages.length, '张图片');
 
                               downloadNode.data.storyboardGridImages.forEach((imageUrl: string, index: number) => {
                                   setTimeout(() => {
@@ -1711,7 +1661,6 @@ export const App = () => {
                                           document.body.appendChild(a);
                                           a.click();
                                           setTimeout(() => document.body.removeChild(a), 100);
-                                          console.log(`[下载分镜图] 第 ${index + 1} 张下载完成`);
                                       } catch (err) {
                                           console.error(`[下载分镜图] 第 ${index + 1} 张下载失败:`, err);
                                       }
@@ -1719,7 +1668,6 @@ export const App = () => {
                               });
                           } else if (downloadNode.data.storyboardGridImage) {
                               // 下载单张分镜图
-                              console.log('[下载分镜图] 下载单张图片');
                               const a = document.createElement('a');
                               a.href = downloadNode.data.storyboardGridImage;
                               a.download = `storyboard-${Date.now()}.png`;
@@ -1826,7 +1774,6 @@ export const App = () => {
               onClose={() => setIsVideoEditorOpen(false)}
               initialVideos={videoEditorSources}
               onExport={(outputUrl) => {
-                console.log('[VideoEditor] Export completed:', outputUrl);
                 // TODO: 将导出的视频保存到节点或下载
               }}
             />

@@ -52,11 +52,6 @@ export class SutuProvider implements SoraProvider {
     // ✅ 动态获取模型名称
     const modelName = getSoraModelName('sutu', params.config.hd);
 
-    console.log(`[${this.displayName}] 使用模型 ${modelName} 提交任务`, {
-      hd: config.hd,
-      duration: config.duration,
-      aspectRatio: config.aspect_ratio
-    });
 
     // 构建 application/x-www-form-urlencoded 格式
     const formData = new URLSearchParams();
@@ -98,8 +93,6 @@ export class SutuProvider implements SoraProvider {
     return logAPICall(
       'sutuSubmitTask',
       async () => {
-        console.log(`[${this.displayName}] 请求URL: ${submitEndpoint}`);
-        console.log(`[${this.displayName}] 请求参数:`, formData.toString());
 
         const response = await fetch(submitEndpoint, {
           method: 'POST',
@@ -142,7 +135,6 @@ export class SutuProvider implements SoraProvider {
           );
         }
 
-        console.log(`[${this.displayName}] 提交成功，任务 ID:`, taskId);
 
         return {
           id: taskId,
@@ -178,7 +170,6 @@ export class SutuProvider implements SoraProvider {
     return logAPICall(
       'sutuCheckStatus',
       async () => {
-        console.log(`[${this.displayName}] 查询状态: ${taskId}`);
 
         const response = await fetch(statusEndpoint, {
           method: 'GET',
@@ -200,12 +191,6 @@ export class SutuProvider implements SoraProvider {
 
         const result: any = await response.json();
 
-        console.log(`[${this.displayName}] 状态查询响应:`, {
-          taskId,
-          code: result.code,
-          status: result.data?.status,
-          videoUrl: result.data?.remote_url
-        });
 
         // 状态映射: 0->queued, 1->completed, 2->error, 3->processing
         const statusMap: Record<number, 'queued' | 'processing' | 'completed' | 'error'> = {

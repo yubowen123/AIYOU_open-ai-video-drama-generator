@@ -937,7 +937,6 @@ export const generateImageFromText = async (
         'generateImageFromText',
         async () => {
             // 使用提供商管理器生成图片
-            console.log(`[generateImageFromText] Using provider manager for model: ${model}`);
             return llmProviderManager.generateImages(prompt, model, inputImages, options);
         },
         {
@@ -1382,14 +1381,12 @@ export const generateDetailedStoryboard = async (
     return logAPICall(
         'generateDetailedStoryboard',
         async () => {
-            console.log('[generateDetailedStoryboard] Starting generation with:', { episodeTitle, totalDuration, visualStyle });
 
             // 计算所需分镜数量
             const minShots = Math.floor(totalDuration / 3);  // 最低：按3秒/镜
             const recommendedShots = Math.floor(totalDuration / 2.5);  // 推荐：按2.5秒/镜
             const maxShots = totalDuration;  // 最多：按1秒/镜
 
-            console.log(`[generateDetailedStoryboard] 📊 分镜数量要求：最少 ${minShots} 个，推荐 ${recommendedShots} 个`);
 
             const prompt = `🎯 CRITICAL TASK - 必须满足时长要求
 
@@ -1427,7 +1424,6 @@ Style: ${visualStyle}
 
 输出JSON数组，包含至少 ${minShots} 个分镜对象。`;
 
-            console.log(`[generateDetailedStoryboard] 📝 Prompt准备完成，要求生成 ${minShots}-${recommendedShots} 个分镜`);
 
             // 使用 llmProviderManager.generateContent 而不是直接调用 getClient()
             const response = await llmProviderManager.generateContent(
@@ -1441,10 +1437,8 @@ Style: ${visualStyle}
 
             try {
                 const text = response?.replace(/```json/g, '').replace(/```/g, '').trim() || "[]";
-                console.log('[generateDetailedStoryboard] Received response, parsing...');
 
                 const rawShots = JSON.parse(text);
-                console.log('[generateDetailedStoryboard] Parsed shots count:', rawShots.length);
 
                 // Validate and fix shot durations (must be 1-4 seconds)
                 let currentTime = 0;
@@ -1497,16 +1491,6 @@ Style: ${visualStyle}
                 const minDuration = Math.min(...shots.map(s => s.duration));
                 const maxDuration = Math.max(...shots.map(s => s.duration));
 
-                console.log('[generateDetailedStoryboard] ===== 分镜生成统计 =====');
-                console.log('[generateDetailedStoryboard] 目标总时长:', totalDuration, '秒');
-                console.log('[generateDetailedStoryboard] 实际总时长:', actualTotalDuration, '秒');
-                console.log('[generateDetailedStoryboard] 分镜数量:', shots.length, '个');
-                console.log('[generateDetailedStoryboard] 平均时长:', avgDuration.toFixed(2), '秒');
-                console.log('[generateDetailedStoryboard] 最短时长:', minDuration, '秒');
-                console.log('[generateDetailedStoryboard] 最长时长:', maxDuration, '秒');
-                console.log('[generateDetailedStoryboard] 时长修正:', fixedDurationCount, '处');
-                console.log('[generateDetailedStoryboard] 时长违规:', invalidDurationCount, '处');
-                console.log('[generateDetailedStoryboard] ========================');
 
                 // ⚠️ 时长检查（仅警告，不阻止生成）
                 const durationDiff = actualTotalDuration - totalDuration;
@@ -1524,7 +1508,6 @@ Style: ${visualStyle}
                 } else if (durationDiff > 5) {
                     console.warn(`[generateDetailedStoryboard] ⚠️ 时长超出 ${durationDiff} 秒`);
                 } else {
-                    console.log(`[generateDetailedStoryboard] ✅ 时长符合要求 (${actualTotalDuration}/${totalDuration}秒)`);
                 }
 
                 // 分镜数量检查（仅警告，不阻止生成）
@@ -1532,15 +1515,12 @@ Style: ${visualStyle}
                 const recommendedShots = Math.floor(totalDuration / 2.5);
                 const maxExpectedShots = totalDuration;
 
-                console.log(`[generateDetailedStoryboard] 分镜数量要求:`);
-                console.log(`[generateDetailedStoryboard] - 最低: ${minExpectedShots} 个，推荐: ${recommendedShots} 个，实际: ${shots.length} 个`);
 
                 if (shots.length < minExpectedShots) {
                     console.warn(`[generateDetailedStoryboard] ⚠️ 分镜数量偏少（${shots.length}/${minExpectedShots}），但仍可使用`);
                 } else if (shots.length > maxExpectedShots) {
                     console.warn(`[generateDetailedStoryboard] ⚠️ 分镜数量较多（${shots.length}/${maxExpectedShots}）`);
                 } else {
-                    console.log(`[generateDetailedStoryboard] ✅ 分镜数量符合预期`);
                 }
 
                 return shots;
@@ -2260,7 +2240,6 @@ ${contentToExtract}
                     }
                 );
 
-                console.log('[extractRefinedTags] Raw response:', response);
 
                 // 改进的JSON清理逻辑
                 let text = response?.trim() || "{}";
@@ -2296,7 +2275,6 @@ ${contentToExtract}
 
                 text = text.trim();
 
-                console.log('[extractRefinedTags] Cleaned text:', text);
 
                 const extracted = JSON.parse(text);
 
@@ -2497,7 +2475,6 @@ ${userInput || '无'}
                 const negativeKey = `${presetType}_${visualStyle}`;
                 const negativePrompt = negativePrompts[negativeKey] || 'low quality, blurry, watermark';
 
-                console.log('[generateStylePreset] Generated:', { presetType, visualStyle, stylePrompt, negativePrompt });
 
                 return { stylePrompt, negativePrompt };
             } catch (e) {

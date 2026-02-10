@@ -63,9 +63,7 @@ export class ApiInterceptorService {
     // 从全局状态获取 FileStorageService
     if (typeof window !== 'undefined' && (window as any).fileStorageService) {
       this.fileStorageService = (window as any).fileStorageService;
-      console.log('[ApiInterceptor] ✅ FileStorageService 已连接');
     } else {
-      console.log('[ApiInterceptor] ⚠️ FileStorageService 未连接,将仅使用IndexedDB');
     }
   }
 
@@ -75,7 +73,6 @@ export class ApiInterceptorService {
   setFileStorageService(service: FileStorageService | null): void {
     this.fileStorageService = service;
     if (service) {
-      console.log('[ApiInterceptor] ✅ FileStorageService 已更新');
     }
   }
 
@@ -94,7 +91,6 @@ export class ApiInterceptorService {
     const workspaceId = 'default';
     const nodeType = 'IMAGE_GENERATOR';
 
-    console.log('[ApiInterceptor] 🎨 拦截图片生成请求:', { nodeId, prompt: prompt.substring(0, 50) });
 
     // 第1步: 检查文件系统缓存
     if (this.fileStorageService?.isEnabled()) {
@@ -105,7 +101,6 @@ export class ApiInterceptorService {
         );
 
         if (existingFiles.length > 0) {
-          console.log('[ApiInterceptor] ✅ 从文件系统加载图片');
 
           // 更新访问时间
           await indexedDBService.updateFileAccessTime(nodeId);
@@ -132,7 +127,6 @@ export class ApiInterceptorService {
     // 第2步: 检查 IndexedDB 元数据
     const metadata = await indexedDBService.getFileMetadata(nodeId);
     if (metadata && metadata.files.length > 0) {
-      console.log('[ApiInterceptor] ✅ 从 IndexedDB 找到元数据');
 
       // 尝试从文件系统加载
       if (this.fileStorageService?.isEnabled()) {
@@ -155,7 +149,6 @@ export class ApiInterceptorService {
     }
 
     // 第3步: 调用原始 API (支持 Google Gemini 和 云雾 API)
-    console.log('[ApiInterceptor] 🌐 调用 API 生成图片');
     const images = await generateImageWithProvider(
       prompt,
       model,
@@ -163,7 +156,6 @@ export class ApiInterceptorService {
       options
     );
 
-    console.log('[ApiInterceptor] ✅ API 返回了', images.length, '张图片');
 
     // 第4步: 保存到文件系统
     const savedPaths: string[] = [];
@@ -185,7 +177,6 @@ export class ApiInterceptorService {
             savedPaths.push(result.relativePath);
           }
         }
-        console.log(`[ApiInterceptor] 💾 保存了 ${savedPaths.length} 个文件到文件系统`);
       } catch (error) {
         console.error('[ApiInterceptor] 文件系统保存失败:', error);
       }
@@ -235,7 +226,6 @@ export class ApiInterceptorService {
     const workspaceId = 'default';
     const nodeType = 'VIDEO_GENERATOR';
 
-    console.log('[ApiInterceptor] 🎬 拦截视频生成请求:', { nodeId, prompt: prompt.substring(0, 50) });
 
     // 第1步: 检查文件系统缓存
     if (this.fileStorageService?.isEnabled()) {
@@ -246,7 +236,6 @@ export class ApiInterceptorService {
         );
 
         if (existingFiles.length > 0) {
-          console.log('[ApiInterceptor] ✅ 从文件系统加载视频');
 
           // 更新访问时间
           await indexedDBService.updateFileAccessTime(nodeId);
@@ -267,11 +256,9 @@ export class ApiInterceptorService {
     }
 
     // 第2步: 调用原始 API
-    console.log('[ApiInterceptor] 🌐 调用 API 生成视频');
     const result = await generateVideo(prompt, model, referenceImage, options);
 
     const videoUrl = result.uri || result.videoUrl;
-    console.log('[ApiInterceptor] ✅ API 返回了视频');
 
     // 第3步: 下载视频并保存到文件系统
     let savedPath: string | undefined;
@@ -280,11 +267,9 @@ export class ApiInterceptorService {
         // 如果是远程 URL,先下载
         let videoData = videoUrl;
         if (videoUrl.startsWith('http://') || videoUrl.startsWith('https://')) {
-          console.log('[ApiInterceptor] 📥 下载远程视频...');
           const response = await fetch(videoUrl);
           const blob = await response.blob();
           videoData = await this.blobToBase64(blob);
-          console.log('[ApiInterceptor] ✅ 视频下载完成,大小:', (blob.size / 1024 / 1024).toFixed(2), 'MB');
         }
 
         // 保存到文件系统
@@ -301,7 +286,6 @@ export class ApiInterceptorService {
 
         if (saveResult.success) {
           savedPath = saveResult.relativePath;
-          console.log(`[ApiInterceptor] 💾 视频保存成功:`, savedPath);
         }
       } catch (error) {
         console.error('[ApiInterceptor] 视频保存失败:', error);
@@ -351,7 +335,6 @@ export class ApiInterceptorService {
     const workspaceId = 'default';
     const nodeType = 'AUDIO_GENERATOR';
 
-    console.log('[ApiInterceptor] 🔊 拦截音频生成请求:', { nodeId, prompt: prompt.substring(0, 50) });
 
     // 第1步: 检查文件系统缓存
     if (this.fileStorageService?.isEnabled()) {
@@ -362,7 +345,6 @@ export class ApiInterceptorService {
         );
 
         if (existingFiles.length > 0) {
-          console.log('[ApiInterceptor] ✅ 从文件系统加载音频');
 
           // 更新访问时间
           await indexedDBService.updateFileAccessTime(nodeId);
@@ -383,9 +365,7 @@ export class ApiInterceptorService {
     }
 
     // 第2步: 调用原始 API
-    console.log('[ApiInterceptor] 🌐 调用 API 生成音频');
     const audioUrl = await generateAudio(prompt, options);
-    console.log('[ApiInterceptor] ✅ API 返回了音频');
 
     // 第3步: 保存到文件系统
     let savedPath: string | undefined;
@@ -404,7 +384,6 @@ export class ApiInterceptorService {
 
         if (saveResult.success) {
           savedPath = saveResult.relativePath;
-          console.log(`[ApiInterceptor] 💾 音频保存成功:`, savedPath);
         }
       } catch (error) {
         console.error('[ApiInterceptor] 音频保存失败:', error);
@@ -505,7 +484,6 @@ export class ApiInterceptorService {
    * 清除节点缓存
    */
   async clearNodeCache(nodeId: string): Promise<void> {
-    console.log('[ApiInterceptor] 🧹 清除节点缓存:', nodeId);
 
     // 删除 IndexedDB 元数据
     await indexedDBService.deleteFileMetadata(nodeId);
@@ -526,5 +504,4 @@ export const apiInterceptor = ApiInterceptorService.getInstance();
 // 初始化时设置 FileStorageService
 if (typeof window !== 'undefined') {
   // 在应用启动后,需要手动调用 apiInterceptor.setFileStorageService(service)
-  console.log('[ApiInterceptor] 📦 API 拦截器已初始化');
 }

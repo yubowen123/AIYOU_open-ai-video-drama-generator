@@ -79,7 +79,6 @@ export class IndexedDBService {
     }
 
     return new Promise((resolve, reject) => {
-      console.log('[IndexedDBService] 📦 初始化数据库...');
 
       const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
 
@@ -90,13 +89,11 @@ export class IndexedDBService {
 
       request.onsuccess = () => {
         this.db = request.result;
-        console.log('[IndexedDBService] ✅ 数据库打开成功');
         resolve();
       };
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-        console.log('[IndexedDBService] 🔄 数据库升级中...');
 
         // 创建文件元数据表
         if (!db.objectStoreNames.contains('file_metadata')) {
@@ -105,7 +102,6 @@ export class IndexedDBService {
           store.createIndex('node_type', 'node_type', { unique: false });
           store.createIndex('created_at', 'created_at', { unique: false });
           store.createIndex('last_accessed', 'last_accessed', { unique: false });
-          console.log('[IndexedDBService] ✅ file_metadata 表创建成功');
         }
 
         // 创建角色元数据表
@@ -114,7 +110,6 @@ export class IndexedDBService {
           store.createIndex('node_id', 'node_id', { unique: false });
           store.createIndex('name', 'name', { unique: false });
           store.createIndex('role_type', 'role_type', { unique: false });
-          console.log('[IndexedDBService] ✅ character_metadata 表创建成功');
         }
 
         // 创建工作流元数据表
@@ -123,10 +118,8 @@ export class IndexedDBService {
           store.createIndex('created_at', 'created_at', { unique: false });
           store.createIndex('updated_at', 'updated_at', { unique: false });
           store.createIndex('is_favorite', 'is_favorite', { unique: false });
-          console.log('[IndexedDBService] ✅ workflow_metadata 表创建成功');
         }
 
-        console.log('[IndexedDBService] ✅ 数据库升级完成');
       };
     });
   }
@@ -149,7 +142,6 @@ export class IndexedDBService {
       const request = store.put(metadata);
 
       request.onsuccess = () => {
-        console.log('[IndexedDBService] 💾 文件元数据保存成功:', metadata.id);
         resolve();
       };
 
@@ -223,7 +215,6 @@ export class IndexedDBService {
     if (metadata) {
       metadata.last_accessed = new Date();
       await this.saveFileMetadata(metadata);
-      console.log('[IndexedDBService] 🔄 更新访问时间:', nodeId);
     }
   }
 
@@ -249,7 +240,6 @@ export class IndexedDBService {
           cursor.delete();
           cursor.continue();
         } else {
-          console.log('[IndexedDBService] 🗑️ 文件元数据删除成功:', nodeId);
           resolve();
         }
       };
@@ -279,7 +269,6 @@ export class IndexedDBService {
       const request = store.put(metadata);
 
       request.onsuccess = () => {
-        console.log('[IndexedDBService] 💾 角色元数据保存成功:', metadata.name);
         resolve();
       };
 
@@ -347,7 +336,6 @@ export class IndexedDBService {
           cursor.delete();
           cursor.continue();
         } else {
-          console.log('[IndexedDBService] 🗑️ 角色元数据删除成功:', nodeId);
           resolve();
         }
       };
@@ -377,7 +365,6 @@ export class IndexedDBService {
       const request = store.put(metadata);
 
       request.onsuccess = () => {
-        console.log('[IndexedDBService] 💾 工作流元数据保存成功:', metadata.title);
         resolve();
       };
 
@@ -460,7 +447,6 @@ export class IndexedDBService {
       const request = store.delete(workflowId);
 
       request.onsuccess = () => {
-        console.log('[IndexedDBService] 🗑️ 工作流元数据删除成功:', workflowId);
         resolve();
       };
 
@@ -501,7 +487,6 @@ export class IndexedDBService {
           deletedCount++;
           cursor.continue();
         } else {
-          console.log(`[IndexedDBService] 🧹 清理了 ${deletedCount} 条旧元数据`);
           resolve(deletedCount);
         }
       };
@@ -570,7 +555,6 @@ export class IndexedDBService {
         const request = store.clear();
 
         request.onsuccess = () => {
-          console.log(`[IndexedDBService] 🗑️ ${storeName} 清空成功`);
           resolve();
         };
 
@@ -581,7 +565,6 @@ export class IndexedDBService {
       });
     }
 
-    console.log('[IndexedDBService] 🧹 所有数据已清空');
   }
 }
 

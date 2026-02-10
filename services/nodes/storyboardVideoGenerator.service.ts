@@ -72,7 +72,6 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
     node: AppNode,
     context: NodeExecutionContext
   ): Promise<NodeExecutionResult> {
-    console.log('[StoryboardVideoGenerator] 获取分镜数据');
 
     // 1. 获取上游分镜拆解节点
     const splitterNode = this.getUpstreamNode(context, node.id, NodeType.STORYBOARD_SPLITTER);
@@ -100,7 +99,6 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
       childNodeIds: [],
     } as StoryboardVideoGeneratorData, context);
 
-    console.log(`[StoryboardVideoGenerator] 获取到 ${splitShots.length} 个分镜`);
 
     return this.createSuccessResult({
       availableShots: splitShots,
@@ -115,7 +113,6 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
     node: AppNode,
     context: NodeExecutionContext
   ): Promise<NodeExecutionResult> {
-    console.log('[StoryboardVideoGenerator] 生成提示词');
 
     const data = node.data as StoryboardVideoGeneratorData;
 
@@ -128,18 +125,11 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
       return this.createErrorResult('请先选择要生成的分镜');
     }
 
-    console.log(`[StoryboardVideoGenerator] 已选择 ${selectedShots.length} 个分镜`);
 
     // 2. 获取上游风格信息
     const { style: styleType, genre, setting } = this.getUpstreamStyleContext(node, context);
     const stylePrompt = this.getVisualStylePrompt(styleType);
 
-    console.log('[StoryboardVideoGenerator] 使用风格:', {
-      style: styleType,
-      genre,
-      setting,
-      stylePrompt: stylePrompt.substring(0, 50) + '...'
-    });
 
     // 3. 调用 AI 生成提示词（使用 GenericBuilder，传递风格和对白保留选项）
     const builder = promptBuilderFactory.getByNodeType('STORYBOARD_VIDEO_GENERATOR');
@@ -149,7 +139,6 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
       preserveDialogue: true  // 保留对白，不翻译
     });
 
-    console.log('[StoryboardVideoGenerator] 提示词生成完成:', prompt.substring(0, 100) + '...');
 
     // 4. 初始化默认配置
     const defaultConfig = {
@@ -188,7 +177,6 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
     node: AppNode,
     context: NodeExecutionContext
   ): Promise<NodeExecutionResult> {
-    console.log('[StoryboardVideoGenerator] 开始生成视频');
 
     const data = node.data as StoryboardVideoGeneratorData;
 
@@ -200,7 +188,6 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
     // 2. 图片融合（如果启用）
     let referenceImageUrl: string | undefined;
     if (data.enableImageFusion) {
-      console.log('[StoryboardVideoGenerator] 执行图片融合');
 
       this.updateNodeData(node.id, {
         ...data,
@@ -244,7 +231,6 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
           progress: 20,
         } as StoryboardVideoGeneratorData, context);
 
-        console.log('[StoryboardVideoGenerator] 图片融合完成并已上传');
       } else {
         referenceImageUrl = fusedImage;
       }
@@ -298,7 +284,6 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
       childNodeIds: [...(data.childNodeIds || []), childNodeId],
     } as StoryboardVideoGeneratorData, context);
 
-    console.log('[StoryboardVideoGenerator] 视频生成完成');
 
     return this.createSuccessResult({
       videoUrl: result.videoUrl,
@@ -359,7 +344,6 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
     // 添加到画布
     context.nodes.push(childNode);
 
-    console.log(`[StoryboardVideoGenerator] 创建子节点: ${childId}`);
 
     return childId;
   }
@@ -453,14 +437,7 @@ export class StoryboardVideoGeneratorNodeService extends BaseNodeService {
         setting = plannerNode.data.scriptSetting;
       }
 
-      console.log('[StoryboardVideoGenerator] 找到上游风格节点:', {
-        nodeId: plannerNode.id,
-        style,
-        genre,
-        setting
-      });
     } else {
-      console.log('[StoryboardVideoGenerator] 未找到上游风格节点，使用默认风格');
     }
 
     return { style, genre, setting };

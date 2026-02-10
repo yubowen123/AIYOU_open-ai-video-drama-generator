@@ -73,7 +73,6 @@ export class VideoGeneratorNodeService extends BaseNodeService {
       };
 
       // 4. 调用 Gemini API
-      console.log(`[VideoGeneratorNodeService] 开始生成视频:`, request);
 
       const result = await generateVideo(
         request.prompt,
@@ -113,7 +112,6 @@ export class VideoGeneratorNodeService extends BaseNodeService {
 
       this.updateNodeData(node.id, resultData, context);
 
-      console.log(`[VideoGeneratorNodeService] 视频生成成功:`, result);
 
       // 7. 返回成功结果
       return this.createSuccessResult(

@@ -185,10 +185,6 @@ export function useRenderMetrics(componentName: string) {
     const timeSinceLastRender = now - lastRenderTime.current;
 
     if (process.env.NODE_ENV === 'development') {
-      console.log(
-        `[RenderMetrics] ${componentName} - Render #${renderCount.current}, ` +
-        `Time since last: ${timeSinceLastRender.toFixed(2)}ms`
-      );
     }
 
     lastRenderTime.current = now;

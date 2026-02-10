@@ -83,14 +83,6 @@ export class YijiapiProvider implements SoraProvider {
       requestBody.input_reference = params.referenceImageUrl;
     }
 
-    console.log(`[${this.displayName}] 提交任务参数:`, {
-      model: requestBody.model,
-      size: requestBody.size,
-      hasPrompt: !!requestBody.prompt,
-      promptLength: params.prompt.length,
-      promptPreview: params.prompt.substring(0, 200) + (params.prompt.length > 200 ? '...' : ''),
-      hasReferenceImage: !!params.referenceImageUrl,
-    });
 
     return logAPICall(
       'yijiapiSubmitTask',
@@ -116,12 +108,6 @@ export class YijiapiProvider implements SoraProvider {
 
         const result: any = await response.json();
 
-        console.log(`[${this.displayName}] API Response:`, {
-          id: result.id,
-          status: result.status,
-          progress: result.progress,
-          hasCreatedAt: !!result.created_at,
-        });
 
         const taskId = result.id;
         if (!taskId) {
@@ -133,7 +119,6 @@ export class YijiapiProvider implements SoraProvider {
           );
         }
 
-        console.log(`[${this.displayName}] 提交成功，任务 ID:`, taskId);
 
         return {
           id: taskId,
@@ -187,16 +172,6 @@ export class YijiapiProvider implements SoraProvider {
 
         const data: any = await response.json();
 
-        console.log(`[${this.displayName}] API Response:`, {
-          taskId,
-          id: data.id,
-          status: data.status,
-          progress: data.progress,
-          hasUrl: !!data.url,
-          hasSize: !!data.size,
-          quality: data.quality,
-          seconds: data.seconds,
-        });
 
         // yijiAPI 状态映射
         // 官方状态值: queued, processing, completed, failed
@@ -279,16 +254,6 @@ export class YijiapiProvider implements SoraProvider {
           };
         }
 
-        console.log(`[${this.displayName}] 最终返回:`, {
-          taskId,
-          apiStatus,
-          status,
-          progress,
-          hasVideoUrl: !!videoUrl,
-          videoUrlPreview: videoUrl ? videoUrl.substring(0, 100) + '...' : 'N/A',
-          quality: data.quality,
-          duration: data.seconds,
-        });
 
         return {
           taskId,

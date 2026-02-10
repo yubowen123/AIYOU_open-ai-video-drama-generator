@@ -33,7 +33,6 @@ export async function generateImageWithFallback(
 
   // 如果使用云雾 API，直接调用 Provider（云雾 API 有自己的降级逻辑）
   if (providerType === 'yunwu') {
-    console.log('[图片生成] 使用云雾 API，跳过模型降级逻辑');
     return await generateImageWithProvider(
       prompt,
       initialModel,
@@ -67,7 +66,6 @@ export async function generateImageWithFallback(
       excludedModels: [], // 不预先排除
       enableFallback: true,
       onModelFallback: (from, to, reason) => {
-        console.log(`[图片生成] 模型降级: ${from} -> ${to} (${reason})`);
 
         // 显示降级通知给用户
         const event = new CustomEvent('model-fallback', {
@@ -89,7 +87,6 @@ export async function generateImageWithFallback(
 
   // 如果发生了降级，记录日志
   if (result.fallbackChain && result.fallbackChain.length > 1) {
-    console.log(`[图片生成] 使用模型: ${result.model}, 尝试次数: ${result.attempts}, 降级链: ${result.fallbackChain.join(' -> ')}`);
   }
 
   return result.data;
@@ -128,7 +125,6 @@ export async function generateVideoWithFallback(
       retryOnSameModel: 1, // 视频生成在同一模型上重试 1 次
       enableFallback: true,
       onModelFallback: (from, to, reason) => {
-        console.log(`[视频生成] 模型降级: ${from} -> ${to} (${reason})`);
 
         const event = new CustomEvent('model-fallback', {
           detail: {
@@ -148,7 +144,6 @@ export async function generateVideoWithFallback(
   }
 
   if (result.fallbackChain && result.fallbackChain.length > 1) {
-    console.log(`[视频生成] 使用模型: ${result.model}, 尝试次数: ${result.attempts}`);
   }
 
   return result.data;
@@ -215,7 +210,6 @@ export async function generateTextWithFallback<T = string>(
       maxAttempts: models.length,
       enableFallback: true,
       onModelFallback: (from, to, reason) => {
-        console.log(`[文本生成] 模型降级: ${from} -> ${to} (${reason})`);
 
         const event = new CustomEvent('model-fallback', {
           detail: {
@@ -235,7 +229,6 @@ export async function generateTextWithFallback<T = string>(
   }
 
   if (result.fallbackChain && result.fallbackChain.length > 1) {
-    console.log(`[文本生成] 使用模型: ${result.model}, 尝试次数: ${result.attempts}`);
   }
 
   return result.data;
@@ -269,7 +262,6 @@ export async function generateAudioWithFallback(
       maxAttempts: models.length,
       enableFallback: true,
       onModelFallback: (from, to, reason) => {
-        console.log(`[音频生成] 模型降级: ${from} -> ${to} (${reason})`);
 
         const event = new CustomEvent('model-fallback', {
           detail: {
@@ -289,7 +281,6 @@ export async function generateAudioWithFallback(
   }
 
   if (result.fallbackChain && result.fallbackChain.length > 1) {
-    console.log(`[音频生成] 使用模型: ${result.model}, 尝试次数: ${result.attempts}`);
   }
 
   return result.data;
@@ -324,7 +315,6 @@ export async function analyzeVideoWithFallback(
       maxAttempts: models.length,
       enableFallback: true,
       onModelFallback: (from, to, reason) => {
-        console.log(`[视频分析] 模型降级: ${from} -> ${to} (${reason})`);
       }
     }
   );

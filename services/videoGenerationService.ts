@@ -62,7 +62,6 @@ export async function generateVideoFromStoryboard(
       subModel  // 传递 subModel
     );
 
-    console.log(`[VideoGeneration] 任务已提交: ${platformCode}/${model}${subModel ? `/${subModel}` : ''} - ${submitResult.taskId}`);
 
     // 3. 轮询进度
     let attempts = 0;
@@ -73,7 +72,6 @@ export async function generateVideoFromStoryboard(
     while (attempts < maxAttempts) {
       // 检查是否被取消
       if (options.signal?.aborted) {
-        console.log(`[VideoGeneration] 任务被取消: ${submitResult.taskId}`);
         throw new Error('任务已取消');
       }
 
@@ -93,14 +91,6 @@ export async function generateVideoFromStoryboard(
       if (result.status === 'completed') {
         options.onProgress?.('视频生成完成！', 100);
 
-        console.log(`[VideoGeneration] 视频生成完成:`, {
-          platform: platformCode,
-          model,
-          taskId: result.taskId,
-          videoUrl: result.videoUrl,
-          duration: result.videoDuration,
-          resolution: result.videoResolution,
-        });
 
         return {
           videoUrl: result.videoUrl!,
@@ -160,9 +150,7 @@ export async function cancelVideoGeneration(
   taskId: string,
   apiKey: string
 ): Promise<void> {
-  console.log(`[VideoGeneration] 尝试取消任务: ${platformCode}/${model}/${taskId}`);
   
   // 目前云雾API等平台不支持取消任务
   // 这里只是记录日志，实际的取消通过 AbortController 实现
-  console.log(`[VideoGeneration] 任务 ${taskId} 的轮询已停止`);
 }

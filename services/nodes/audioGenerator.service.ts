@@ -63,7 +63,6 @@ export class AudioGeneratorNodeService extends BaseNodeService {
       };
 
       // 调用 Gemini API
-      console.log(`[AudioGeneratorNodeService] 开始生成音频:`, request);
 
       const audioData = await generateAudio(
         request.prompt,
@@ -94,7 +93,6 @@ export class AudioGeneratorNodeService extends BaseNodeService {
 
       this.updateNodeData(node.id, resultData, context);
 
-      console.log(`[AudioGeneratorNodeService] 音频生成成功`);
 
       // 返回成功结果
       return this.createSuccessResult(

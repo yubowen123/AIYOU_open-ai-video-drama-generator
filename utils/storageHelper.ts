@@ -39,17 +39,10 @@ export async function saveNodeOutput(
 
   // 检查存储是否启用
   if (!service.isEnabled()) {
-    console.log('[StorageHelper] 存储未启用，跳过保存');
     return { success: false };
   }
 
   try {
-    console.log('[StorageHelper] 开始保存节点输出:', {
-      workspaceId,
-      nodeId,
-      nodeType,
-      fileType,
-    });
 
     const savedPaths: string[] = [];
 
@@ -94,11 +87,6 @@ export async function saveNodeOutput(
       }
     }
 
-    console.log('[StorageHelper] 保存成功:', {
-      nodeType,
-      fileCount: savedPaths.length,
-      paths: savedPaths,
-    });
 
     return { success: true, savedPaths };
   } catch (error: any) {

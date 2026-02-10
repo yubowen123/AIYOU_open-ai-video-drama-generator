@@ -86,7 +86,6 @@ const StoryboardVideoNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
 
     const toggleAll = () => {
       const updated = localSelectedIds.length === shots.length ? [] : shots.map((s: any) => s.id);
-      console.log('[toggleAll] Current:', localSelectedIds.length, 'Total:', shots.length, 'Updated:', updated.length);
       updateSelectedIds(updated);
     };
 
@@ -234,7 +233,6 @@ const StoryboardVideoNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
 
     // 处理图片融合
     const handleImageFusion = async () => {
-      console.log('[图片融合] 开始处理，选中分镜数:', selectedShots.length);
 
       if (selectedShots.length === 0) {
         console.error('[图片融合] 没有选中的分镜');
@@ -243,7 +241,6 @@ const StoryboardVideoNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
 
       try {
         onUpdate(node.id, { isLoadingFusion: true });
-        console.log('[图片融合] 开始加载图片...');
 
         // 使用 canvas 融合图片
         const canvas = document.createElement('canvas');
@@ -268,13 +265,11 @@ const StoryboardVideoNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         // 加载所有图片
-        console.log('[图片融合] 加载', selectedShots.length, '张图片');
         const loadPromises = selectedShots.map((shot, index) => {
           return new Promise<HTMLImageElement>((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => {
-              console.log('[图片融合] 图片', index + 1, '加载成功');
               resolve(img);
             };
             img.onerror = (error) => {
@@ -286,7 +281,6 @@ const StoryboardVideoNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
         });
 
         const images = await Promise.all(loadPromises);
-        console.log('[图片融合] 所有图片加载完成，开始绘制');
 
         // 绘制图片
         images.forEach((img, index) => {
@@ -310,16 +304,13 @@ const StoryboardVideoNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
         });
 
         // 转换为 base64
-        console.log('[图片融合] 转换为 base64');
         const fusedDataUrl = canvas.toDataURL('image/png');
 
         // 保存融合图片
-        console.log('[图片融合] 保存融合图片，长度:', fusedDataUrl.length);
         onUpdate(node.id, {
           fusedImage: fusedDataUrl,
           isLoadingFusion: false
         });
-        console.log('[图片融合] 完成！');
       } catch (error) {
         console.error('[图片融合] 失败:', error);
         onUpdate(node.id, { isLoadingFusion: false });
@@ -601,7 +592,6 @@ const StoryboardVideoChildNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
     }
 
     try {
-      console.log('[视频下载] 开始下载视频');
       alert('正在从原始地址下载，请稍候...');
 
       const response = await fetch(videoUrl);
@@ -619,7 +609,6 @@ const StoryboardVideoChildNodeComponent: React.FC<StoryboardVideoNodeProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      console.log('[视频下载] ✅ 下载完成');
     } catch (e) {
       console.error('[视频下载] ❌ 下载失败:', e);
       alert(`视频下载失败: ${e.message}\n\n您也可以右键点击视频，选择"视频另存为"来下载。`);

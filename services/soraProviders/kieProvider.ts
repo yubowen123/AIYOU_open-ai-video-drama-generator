@@ -81,15 +81,6 @@ export class KieProvider implements SoraProvider {
       input,
     };
 
-    console.log(`[${this.displayName}] 提交任务参数:`, {
-      model,
-      hasPrompt: !!input.prompt,
-      aspect_ratio: input.aspect_ratio,
-      n_frames: input.n_frames,
-      remove_watermark: input.remove_watermark,  // 确认 remove_watermark 始终为 true
-      hasImageUrls: !!input.image_urls,
-      imageUrlsCount: input.image_urls?.length || 0,
-    });
 
     return logAPICall(
       'kieSubmitTask',
@@ -137,7 +128,6 @@ export class KieProvider implements SoraProvider {
           );
         }
 
-        console.log(`[${this.displayName}] 提交成功，任务 ID:`, taskId);
 
         return {
           id: taskId,
@@ -192,16 +182,6 @@ export class KieProvider implements SoraProvider {
 
         const data: any = await response.json();
 
-        console.log(`[${this.displayName}] API Response:`, {
-          taskId,
-          code: data.code,
-          message: data.message || data.msg,
-          hasData: !!data.data,
-          dataKeys: data.data ? Object.keys(data.data) : 'no data',
-          state: data.data?.state,
-          hasResultJson: !!data.data?.resultJson,
-          fullResponse: data,
-        });
 
         // KIE API 返回格式: {code: 200, message: "success", data: {...}}
         if (data.code !== 200) {
@@ -273,42 +253,24 @@ export class KieProvider implements SoraProvider {
         let videoUrl: string | undefined;
         if (taskData.resultJson) {
           try {
-            console.log(`[${this.displayName}] 发现 resultJson，准备解析:`, taskData.resultJson.substring(0, 200));
             const resultObj = JSON.parse(taskData.resultJson);
-            console.log(`[${this.displayName}] resultJson 解析成功:`, {
-              hasResultUrls: !!resultObj.resultUrls,
-              resultUrlsCount: resultObj.resultUrls?.length,
-              firstUrlPreview: resultObj.resultUrls?.[0] ? resultObj.resultUrls[0].substring(0, 100) : 'N/A'
-            });
             // resultJson 格式: {"resultUrls":["https://..."]}
             if (resultObj.resultUrls && Array.isArray(resultObj.resultUrls) && resultObj.resultUrls.length > 0) {
               videoUrl = resultObj.resultUrls[0];
-              console.log(`[${this.displayName}] ✅ 成功提取视频 URL:`, videoUrl);
             }
           } catch (e) {
             console.error(`[${this.displayName}] ❌ 解析 resultJson 失败:`, e, '原始数据:', taskData.resultJson);
           }
         } else {
-          console.log(`[${this.displayName}] ⚠️ state=${state} 但没有 resultJson 字段`);
         }
 
         // 兼容其他可能的字段
         if (!videoUrl) {
           videoUrl = taskData.output?.url || taskData.videoUrl || taskData.url || taskData.video_url;
           if (videoUrl) {
-            console.log(`[${this.displayName}] 从备用字段提取到视频 URL:`, videoUrl);
           }
         }
 
-        console.log(`[${this.displayName}] 最终返回:`, {
-          taskId,
-          state,
-          status,
-          progress,
-          hasVideoUrl: !!videoUrl,
-          videoUrlPreview: videoUrl ? videoUrl.substring(0, 100) + '...' : 'N/A',
-          hasResultJson: !!taskData.resultJson,
-        });
 
         return {
           taskId,

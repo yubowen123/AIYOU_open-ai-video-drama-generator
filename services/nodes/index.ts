@@ -25,7 +25,6 @@ class NodeServiceRegistryClass {
    */
   register(nodeType: string, serviceClass: NodeServiceClass): void {
     this.services.set(nodeType, serviceClass);
-    console.log(`✓ 已注册节点服务: ${nodeType}`);
   }
 
   /**

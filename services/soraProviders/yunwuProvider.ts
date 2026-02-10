@@ -27,7 +27,6 @@ export class YunwuProvider implements SoraProvider {
    * - hd: boolean -> size: 'small' | 'medium' | 'large'
    */
   transformConfig(userConfig: Sora2UserConfig): ProviderSpecificConfig {
-    console.log('[YunwuProvider] 🔧 transformConfig 输入:', JSON.stringify(userConfig, null, 2));
 
     // 防御性检查：验证必需字段
     if (!userConfig) {
@@ -72,7 +71,6 @@ export class YunwuProvider implements SoraProvider {
       watermark: false,  // 云雾 API 默认无水印
     };
 
-    console.log('[YunwuProvider] ✅ transformConfig 输出:', JSON.stringify(result, null, 2));
 
     return result;
   }
@@ -85,14 +83,6 @@ export class YunwuProvider implements SoraProvider {
     apiKey: string,
     context?: CallContext
   ): Promise<SoraSubmitResult> {
-    console.log('[YunwuProvider] 📤 submitTask 开始, params:', {
-      hasPrompt: !!params.prompt,
-      promptLength: params.prompt?.length,
-      hasConfig: !!params.config,
-      configKeys: params.config ? Object.keys(params.config) : [],
-      hasReferenceImage: !!params.referenceImageUrl,
-      referenceImageLength: params.referenceImageUrl?.length,
-    });
 
     // 防御性检查
     if (!params.config) {
@@ -108,14 +98,12 @@ export class YunwuProvider implements SoraProvider {
       ...config,
     };
 
-    console.log('[YunwuProvider] 📋 发送到后端的请求体:', JSON.stringify(requestBody, null, 2));
 
     return logAPICall(
       'yunwuSubmitTask',
       async () => {
         // 使用后端代理
         const apiUrl = 'http://localhost:3001/api/yunwu/create';
-        console.log('[YunwuProvider] 🌐 发起请求到:', apiUrl);
 
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -126,7 +114,6 @@ export class YunwuProvider implements SoraProvider {
           body: JSON.stringify(requestBody),
         });
 
-        console.log('[YunwuProvider] 📥 后端响应状态:', response.status, response.statusText);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -146,13 +133,10 @@ export class YunwuProvider implements SoraProvider {
 
         const result: any = await response.json();
 
-        console.log(`[${this.displayName}] 📦 提交成功 - 完整响应:`, JSON.stringify(result, null, 2));
-        console.log(`[${this.displayName}] 📝 提取的任务 ID:`, result.id, `(类型: ${typeof result.id})`);
 
         // 如果 result.id 不存在，尝试从其他字段获取
         const taskId = result.id || result.task_id || result.taskId || result.data?.id;
 
-        console.log(`[${this.displayName}] ✅ 最终使用的 taskId:`, taskId, `(类型: ${typeof taskId})`);
 
         return {
           id: taskId,
@@ -183,7 +167,6 @@ export class YunwuProvider implements SoraProvider {
     onProgress?: (progress: number) => void,
     context?: CallContext
   ): Promise<SoraVideoResult> {
-    console.log(`[${this.displayName}] 🔍 查询开始 - 收到的 taskId:`, taskId, `(类型: ${typeof taskId}, 长度: ${taskId?.length})`);
 
     return logAPICall(
       'yunwuCheckStatus',
@@ -191,7 +174,6 @@ export class YunwuProvider implements SoraProvider {
         // 使用后端代理
         const apiUrl = `http://localhost:3001/api/yunwu/query?id=${encodeURIComponent(taskId)}`;
 
-        console.log(`[${this.displayName}] 📤 发送查询请求到:`, apiUrl);
 
         const response = await fetch(apiUrl, {
           method: 'GET',
@@ -201,7 +183,6 @@ export class YunwuProvider implements SoraProvider {
           },
         });
 
-        console.log(`[${this.displayName}] 📥 查询响应状态:`, response.status, response.statusText);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -216,14 +197,7 @@ export class YunwuProvider implements SoraProvider {
 
         const data: any = await response.json();
 
-        console.log(`[${this.displayName}] 📦 查询成功 - 完整响应:`, JSON.stringify(data, null, 2));
 
-        console.log(`[${this.displayName}] 📥 原始API响应:`, {
-          taskId,
-          fullResponse: data,
-          hasId: !!data.id,
-          hasDetail: !!data.detail
-        });
 
         // 提取嵌套的 detail 对象
         const detail = data.detail || {};
@@ -237,17 +211,6 @@ export class YunwuProvider implements SoraProvider {
         const generations = detail.generations || data.generations || [];
         const videoUrl = generations[0]?.url || data.video_url || data.url;
 
-        console.log(`[${this.displayName}] ✅ 解析后的数据:`, {
-          taskId,
-          dataId: data.id,
-          apiStatus,
-          rootProgress: data.progress,
-          detailProgress: detail.progress_pct,
-          finalProgress: progress,
-          hasVideoUrl: !!videoUrl,
-          generationsCount: generations.length,
-          videoUrl: videoUrl || 'none'
-        });
 
         // 更新进度
         if (onProgress && typeof progress === 'number') {

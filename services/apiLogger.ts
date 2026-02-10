@@ -54,10 +54,6 @@ class APILogger {
     constructor() {
         this.loadFromStorage();
         // 在初始化时记录版权信息
-        console.log(
-            `%c✓ AIYOU Platform | Developer: ${this.DEVELOPER} | ©${this.COPYRIGHT_YEAR}`,
-            'color: #06b6d4; font-size: 10px;'
-        );
     }
 
     /**
@@ -91,10 +87,6 @@ class APILogger {
 
         this.saveToStorage();
 
-        console.log(`[API Logger] Started: ${apiName}`, {
-            logId: id,
-            request: this.sanitizeForConsole(request)
-        });
 
         return id;
     }
@@ -128,11 +120,6 @@ class APILogger {
         // 异步发送日志到服务器（不阻塞主流程）
         this.sendToServer(log);
 
-        console.log(`[API Logger] Success: ${log.apiName}`, {
-            logId,
-            duration: log.duration,
-            response: this.sanitizeForConsole(response)
-        });
     }
 
     /**
@@ -194,7 +181,6 @@ class APILogger {
     clearLogs() {
         this.logs = [];
         this.saveToStorage();
-        console.log('[API Logger] Logs cleared');
     }
 
     /**
@@ -268,7 +254,6 @@ class APILogger {
             const blob = new Blob([JSON.stringify(cleanLog)], { type: 'application/json' });
             const success = navigator.sendBeacon(logUrl, blob);
             if (success) {
-                console.log(`[API Logger] ✓ 日志已发送到服务器: ${log.apiName} (${log.status})`);
             } else {
                 console.warn(`[API Logger] ✗ sendBeacon失败，降级到fetch: ${log.apiName}`);
                 // 降级到 fetch
@@ -290,7 +275,6 @@ class APILogger {
             keepalive: true
         })
         .then(() => {
-            console.log(`[API Logger] ✓ 日志已通过fetch发送: ${cleanLog.apiName} (${cleanLog.status})`);
         })
         .catch(err => {
             // 不阻塞主流程，但记录错误

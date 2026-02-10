@@ -324,10 +324,6 @@ ${soraPrompt}
     async () => {
       const modelName = getUserDefaultModel('text');
 
-      console.log('[去敏感词] ===== 开始调用 AI 模型 =====');
-      console.log('[去敏感词] 模型名称:', modelName);
-      console.log('[去敏感词] 原始提示词长度:', soraPrompt.length);
-      console.log('[去敏感词] 原始提示词预览:', soraPrompt.substring(0, 200) + '...');
 
       const startTime = Date.now();
 
@@ -343,8 +339,6 @@ ${soraPrompt}
       const endTime = Date.now();
       const duration = endTime - startTime;
 
-      console.log('[去敏感词] AI 响应收到，耗时:', duration, 'ms');
-      console.log('[去敏感词] 响应状态:', response ? '成功' : '失败');
 
       if (!response) {
         console.error('[去敏感词] ❌ AI 返回为空');
@@ -353,7 +347,6 @@ ${soraPrompt}
 
       let text = response;
 
-      console.log('[去敏感词] AI 返回文本长度:', text.length);
 
       // 清理多余内容
       text = text.trim();
@@ -365,20 +358,12 @@ ${soraPrompt}
         const shotMatch = text.match(/Shot 1:/s);
         if (shotMatch) {
           text = text.substring(shotMatch.index);
-          console.log('[去敏感词] ✅ 成功提取Shot部分');
         } else {
           console.error('[去敏感词] ❌ 无法找到Shot 1');
           throw new Error('优化后的提示词格式错误：未找到Shot 1');
         }
       }
 
-      console.log('[去敏感词] ✅ 处理完成:', {
-        原始长度: soraPrompt.length,
-        优化后长度: text.length,
-        差异: text.length - soraPrompt.length,
-        耗时: `${duration}ms`
-      });
-      console.log('[去敏感词] ===== AI 模型调用完成 =====');
 
       return text;
     },

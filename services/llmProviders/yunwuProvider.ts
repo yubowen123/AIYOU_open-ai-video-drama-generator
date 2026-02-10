@@ -85,8 +85,6 @@ export class YunwuProvider implements LLMProvider {
       }
     }
 
-    console.log(`[YunwuProvider] generateContent URL: ${url}`);
-    console.log(`[YunwuProvider] Request body:`, JSON.stringify(requestBody, null, 2));
 
     const response = await fetch(url, {
       method: 'POST',
@@ -103,7 +101,6 @@ export class YunwuProvider implements LLMProvider {
     }
 
     const data = await response.json();
-    console.log('[YunwuProvider] Response received:', data);
 
     // 提取文本响应 - 云雾API可能返回多个parts，需要过滤掉thought部分
     const parts = data.candidates?.[0]?.content?.parts || [];
@@ -117,7 +114,6 @@ export class YunwuProvider implements LLMProvider {
       .filter((t: string) => t.trim())
       .join('\n\n');
 
-    console.log('[YunwuProvider] Extracted text:', text);
     return text;
   }
 

@@ -29,30 +29,17 @@ export const CharacterDetailModal: React.FC<CharacterDetailModalProps> = ({
     // Get latest character data from allNodes
     const latestCharacter = useMemo(() => {
         if (!character || !nodeId || !allNodes) {
-            console.log('[CharacterDetailModal] useMemo: Missing props', { hasCharacter: !!character, hasNodeId: !!nodeId, hasAllNodes: !!allNodes });
             return character;
         }
 
         const node = allNodes.find(n => n.id === nodeId);
         if (!node) {
-            console.log('[CharacterDetailModal] useMemo: Node not found', { nodeId });
             return character;
         }
 
         const generatedChars = node.data.generatedCharacters || [];
         const updated = generatedChars.find(c => c.name === character.name);
 
-        console.log('[CharacterDetailModal] useMemo: Data update', {
-            characterName: character.name,
-            totalGenerated: generatedChars.length,
-            foundUpdated: !!updated,
-            hasExpressionSheet: updated?.expressionSheet,
-            hasThreeViewSheet: updated?.threeViewSheet,
-            isGeneratingExpression: updated?.isGeneratingExpression,
-            isGeneratingThreeView: updated?.isGeneratingThreeView,
-            expressionLength: updated?.expressionSheet?.length || 0,
-            threeViewLength: updated?.threeViewSheet?.length || 0
-        });
 
         return updated || character;
     }, [character, nodeId, allNodes]);

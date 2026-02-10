@@ -104,7 +104,6 @@ export const StorageSettingsPanel: React.FC<StorageSettingsPanelProps> = ({
         // 如果启用了，尝试初始化服务
         if (parsed.enabled && parsed.rootPath) {
           // 注意：页面刷新后需要重新选择目录以获取目录句柄
-          console.log('存储已启用，需要重新选择目录以获取访问权限');
         }
       }
     } catch (error) {

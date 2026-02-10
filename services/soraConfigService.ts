@@ -273,7 +273,6 @@ export function saveSoraProvider(provider: SoraProviderType): void {
   const config = getSoraStorageConfig();
   config.provider = provider;
   saveSoraStorageConfig(config);
-  console.log('[SoraConfig] API 提供商已切换为:', provider);
 }
 
 /**
@@ -327,7 +326,6 @@ export function saveProviderApiKey(provider: SoraProviderType, apiKey: string): 
   }
 
   saveSoraStorageConfig(config);
-  console.log(`[SoraConfig] ${provider} API Key 已保存`);
 }
 
 /**
@@ -441,7 +439,6 @@ export function saveVideoPlatformApiKey(platformCode: string, apiKey: string): v
   config.videoPlatformKeys[platformCode] = apiKey;
   saveSoraStorageConfig(config);
 
-  console.log(`[SoraConfig] 视频平台 ${platformCode} API Key 已保存`);
 }
 
 /**

@@ -28,20 +28,9 @@ export const generateImageWithProvider = async (
 ): Promise<string[]> => {
     const effectiveModel = model || getUserDefaultModel('image');
 
-    console.log('[aiAdapter] Generating image with provider:', {
-        provider: llmProviderManager.getCurrentProvider().getName(),
-        model: effectiveModel,
-        prompt: prompt.substring(0, 100),
-        hasReferenceImages: !!referenceImages && referenceImages.length > 0,
-        options,
-        'options.aspectRatio': options?.aspectRatio,
-        'options.resolution': options?.resolution,
-        'options.count': options?.count
-    });
 
     // 如果设置了 aspectRatio，特别提示
     if (options?.aspectRatio) {
-        console.log(`[aiAdapter] 🎯 aspectRatio 配置: ${options.aspectRatio}`);
     }
 
     try {
@@ -52,10 +41,6 @@ export const generateImageWithProvider = async (
             options
         );
 
-        console.log('[aiAdapter] Image generation successful:', {
-            count: imageUrls.length,
-            urls: imageUrls
-        });
 
         return imageUrls;
     } catch (error) {

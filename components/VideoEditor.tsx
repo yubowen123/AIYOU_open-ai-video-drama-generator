@@ -66,13 +66,11 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({
 
   // 更新视频列表
   useEffect(() => {
-    console.log('[VideoEditor] Updating videos from initialVideos:', initialVideos.length);
     setVideos(initialVideos);
   }, [initialVideos]);
 
   // 初始化时间轴
   useEffect(() => {
-    console.log('[VideoEditor] Initializing timeline, isOpen:', isOpen, 'initialVideos:', initialVideos.length);
     if (isOpen && initialVideos.length > 0) {
       // 将初始视频添加到时间轴
       let offsetTime = 0;
@@ -91,11 +89,9 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({
         return clip;
       });
 
-      console.log('[VideoEditor] Created clips:', initialClips.length, 'total duration:', offsetTime);
       setClips(initialClips);
       setDuration(offsetTime);
     } else if (isOpen && initialVideos.length === 0) {
-      console.log('[VideoEditor] No initial videos, starting with empty timeline');
       setClips([]);
       setDuration(0);
     }
@@ -253,7 +249,6 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({
       // const { FFmpeg } = await import('@ffmpeg/ffmpeg');
       // const { fetchFile } = await import('@ffmpeg/util');
 
-      console.log('导出完成，共', clips.length, '个片段');
       setIsProcessing(false);
 
       if (onExport) {

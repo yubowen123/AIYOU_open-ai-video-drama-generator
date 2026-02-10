@@ -117,11 +117,6 @@ async function uploadToTencentCOS(
   formData.append('file', file, finalFileName);
   formData.append('folder', 'aiyou-uploads');
 
-  console.log('[uploadToTencentCOS] 上传文件:', {
-    fileName: finalFileName,
-    blobType: file.type,
-    blobSize: file.size
-  });
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/upload-oss`, {
@@ -227,11 +222,6 @@ async function uploadToImgBB(
     throw new Error('请配置 ImgBB API Key');
   }
 
-  console.log('[uploadToImgBB] 上传文件:', {
-    fileName,
-    blobType: file.type,
-    blobSize: file.size
-  });
 
   // 转换为 base64
   const base64 = await blobToBase64(file);
@@ -264,7 +254,6 @@ async function uploadToImgBB(
       throw new Error('ImgBB API 未返回图片 URL');
     }
 
-    console.log('[uploadToImgBB] 上传成功:', imageUrl);
     return imageUrl;
   } catch (error: any) {
     throw new Error(`ImgBB 上传失败: ${error.message}`);
@@ -568,9 +557,7 @@ export async function uploadFileToOSS(
   // 注意：ImgBB 不需要PNG转换，它支持多种格式
   if (isImageBlob(blob) && config.provider !== 'imgbb') {
     try {
-      console.log('[OSS Service] 检测到图片格式:', blob.type, '→ 转换为PNG');
       blob = await convertImageToPNG(blob);
-      console.log('[OSS Service] PNG转换成功');
     } catch (error: any) {
       console.error('[OSS Service] PNG转换失败:', error);
       // 如果转换失败，继续使用原始blob（可能是已经是PNG/JPG）

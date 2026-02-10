@@ -123,7 +123,6 @@ export class DayuapiProvider implements SoraProvider {
 
         const result: any = await response.json();
 
-        console.log(`[${this.displayName}] 提交成功，任务 ID:`, result.id);
 
         return {
           id: result.id,
@@ -175,16 +174,6 @@ export class DayuapiProvider implements SoraProvider {
 
         const data: any = await response.json();
 
-        console.log(`[${this.displayName}] API Response:`, {
-          taskId,
-          status: data.status,
-          progress: data.progress,
-          hasOutput: !!data.output?.[0]?.url,
-          fullOutput: data.output,
-          outputKeys: data.output ? Object.keys(data.output) : 'no output',
-          outputArrayLength: Array.isArray(data.output) ? data.output.length : 'not array',
-          allKeys: Object.keys(data),
-        });
 
         // 状态映射：大洋芋API返回的状态值
         // API文档：https://6ibmqmipvf.apifox.cn/363035225e0
@@ -211,7 +200,6 @@ export class DayuapiProvider implements SoraProvider {
 
         // 如果状态是 completed 但没有 video_url，尝试调用 /content 端点
         if (status === 'completed' && !videoUrl) {
-          console.log(`[${this.displayName}] 任务已完成但没有视频 URL，尝试调用 /content 端点...`);
 
           try {
             const contentResponse = await fetch(`http://localhost:3001/api/dayuapi/content?id=${data.id}`, {
@@ -223,11 +211,6 @@ export class DayuapiProvider implements SoraProvider {
 
             if (contentResponse.ok) {
               const contentData = await contentResponse.json();
-              console.log(`[${this.displayName}] /content 响应:`, {
-                hasUrl: !!contentData.url,
-                urlPreview: contentData.url ? contentData.url.substring(0, 100) : 'N/A',
-                fullData: contentData
-              });
 
               if (contentData.url) {
                 videoUrl = contentData.url;
@@ -275,13 +258,6 @@ export class DayuapiProvider implements SoraProvider {
           };
         }
 
-        console.log(`[${this.displayName}] 最终返回:`, {
-          taskId: data.id,
-          status,
-          progress,
-          hasVideoUrl: !!videoUrl,
-          videoUrlPreview: videoUrl ? videoUrl.substring(0, 100) : 'N/A'
-        });
 
         return {
           taskId: data.id,

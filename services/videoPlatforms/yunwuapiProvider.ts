@@ -155,7 +155,6 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
     return logAPICall(
       'yunwuapiSubmitTask',
       async () => {
-        console.log(`[YunwuAPI] 提交任务 - 模型: ${model}, 子模型: ${actualModel}, 提示词: ${params.prompt.substring(0, 50)}...`);
 
         // luma 使用不同的端点和参数格式
         if (!modelEndpoint.useUnifiedEndpoint) {
@@ -222,9 +221,7 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
 
       if (isVeo3Series) {
         requestBody.aspect_ratio = params.config.aspect_ratio;
-        console.log(`[YunwuAPI] ✅ veo3系列，添加 aspect_ratio: ${params.config.aspect_ratio}`);
       } else {
-        console.log(`[YunwuAPI] ⚠️ veo2系列不支持 aspect_ratio，已跳过此参数 (模型: ${actualModel})`);
       }
 
       // ❌ Veo API 不支持 duration 参数，完全删除
@@ -237,7 +234,6 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
       requestBody.ratio = params.config.aspect_ratio === '16:9' ? '16:9' : '9:16';
     }
 
-    console.log(`[YunwuAPI] 统一格式请求:`, JSON.stringify(requestBody, null, 2));
 
     // 通过本地代理调用
     const response = await fetch(`${this.config.baseUrl}${this.config.endpoints.submit}`, {
@@ -262,7 +258,6 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
       throw new Error('响应中缺少task_id');
     }
 
-    console.log(`[YunwuAPI] 统一格式任务提交成功: ${taskId}`);
 
     return { taskId };
   }
@@ -288,7 +283,6 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
       })
     };
 
-    console.log(`[YunwuAPI] Luma格式请求:`, JSON.stringify(requestBody, null, 2));
 
     // Luma 使用独立的端点
     const response = await fetch(`http://localhost:3001/api/yunwuapi/luma/create`, {
@@ -313,7 +307,6 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
       throw new Error('响应中缺少task_id');
     }
 
-    console.log(`[YunwuAPI] Luma任务提交成功: ${taskId}`);
 
     return { taskId };
   }
@@ -356,14 +349,6 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
 
         const data = await response.json();
 
-        console.log('[YunwuAPI] 状态查询响应:', {
-          taskId,
-          rawStatus: data.status,
-          rawProgress: data.progress,
-          rawProgressPct: data.progress_pct,
-          rawVideoUrl: data.video_url,
-          fullData: data
-        });
 
         // 映射状态
         let status: 'queued' | 'processing' | 'completed' | 'error';
@@ -390,12 +375,6 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
 
         const progress = data.progress || data.progress_pct || 0;
 
-        console.log('[YunwuAPI] 映射后的状态:', {
-          taskId,
-          mappedStatus: status,
-          mappedProgress: progress,
-          videoUrl: data.video_url
-        });
 
         const result: VideoGenerationResult = {
           taskId,
@@ -408,7 +387,6 @@ export class YunwuAPIPlatformProvider implements VideoPlatformProvider {
           result.videoDuration = data.duration;
           result.videoResolution = data.resolution;
           result.coverUrl = data.cover_url;
-          console.log('[YunwuAPI] 任务完成，视频URL:', data.video_url);
         }
 
         if (status === 'error') {

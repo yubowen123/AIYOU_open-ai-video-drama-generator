@@ -34,7 +34,6 @@ export class FileStorageService {
    * 初始化存储服务
    */
   async initialize(config: StorageConfig): Promise<void> {
-    console.log('[FileStorageService] 初始化存储服务...');
 
     this.config = {
       ...this.config,
@@ -50,7 +49,6 @@ export class FileStorageService {
     await this.metadataManager.initialize();
 
     this.isInitialized = true;
-    console.log('[FileStorageService] 存储服务初始化成功');
 
     // 保存配置到 localStorage
     this.saveConfigToStorage();
@@ -60,7 +58,6 @@ export class FileStorageService {
    * 选择根目录
    */
   async selectRootDirectory(): Promise<void> {
-    console.log('[FileStorageService] 打开目录选择器...');
 
     try {
       const handle = await window.showDirectoryPicker({
@@ -68,7 +65,6 @@ export class FileStorageService {
         startIn: 'documents',
       });
 
-      console.log('[FileStorageService] 用户选择目录:', handle.name);
 
       this.config.rootDirectoryHandle = handle;
       this.config.rootPath = handle.name;
@@ -78,7 +74,6 @@ export class FileStorageService {
       await this.initialize(this.config);
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.log('[FileStorageService] 用户取消选择目录');
         throw new Error('用户取消选择目录');
       } else {
         console.error('[FileStorageService] 选择目录失败:', error);
@@ -107,12 +102,6 @@ export class FileStorageService {
     }
 
     try {
-      console.log('[FileStorageService] 保存文件:', {
-        workspaceId,
-        nodeId,
-        nodeType,
-        options,
-      });
 
       // 1. 解析文件数据
       const blob = await this.parseFileData(fileData);
@@ -159,7 +148,6 @@ export class FileStorageService {
         await this.metadataManager.addFile(metadata);
       }
 
-      console.log('[FileStorageService] 文件保存成功:', relativePath);
 
       return {
         success: true,
@@ -253,7 +241,6 @@ export class FileStorageService {
       throw new Error('存储服务未初始化');
     }
 
-    console.log('[FileStorageService] 读取文件:', relativePath);
 
     const parts = relativePath.split('/');
     const fileName = parts.pop()!;
@@ -290,7 +277,6 @@ export class FileStorageService {
       throw new Error('存储服务未初始化');
     }
 
-    console.log('[FileStorageService] 删除文件:', relativePath);
 
     const parts = relativePath.split('/');
     const fileName = parts.pop()!;
@@ -307,7 +293,6 @@ export class FileStorageService {
       await this.metadataManager.removeFileByPath(relativePath);
     }
 
-    console.log('[FileStorageService] 文件删除成功:', relativePath);
   }
 
   /**
@@ -319,7 +304,6 @@ export class FileStorageService {
     }
 
     const files = this.metadataManager.getFilesByNode(nodeId);
-    console.log(`[FileStorageService] 删除节点 ${nodeId} 的 ${files.length} 个文件`);
 
     for (const file of files) {
       await this.deleteFile(file.relativePath);
@@ -379,7 +363,6 @@ export class FileStorageService {
    * 禁用本地存储
    */
   async disable(): Promise<void> {
-    console.log('[FileStorageService] 禁用本地存储');
     this.config.enabled = false;
     this.isInitialized = false;
     this.metadataManager = null;
@@ -434,10 +417,6 @@ export class FileStorageService {
         create: true,
       });
 
-      console.log('[FileStorageService] 目录结构已创建:', {
-        workspaceFolder,
-        nodeTypeFolder,
-      });
     } catch (error) {
       console.error('[FileStorageService] 创建目录结构失败:', error);
       throw error;
@@ -483,7 +462,6 @@ export class FileStorageService {
         lastUpdated: new Date().toISOString(),
       };
       localStorage.setItem('storageConfig', JSON.stringify(configToSave));
-      console.log('[FileStorageService] 配置已保存到 localStorage');
     } catch (error) {
       console.error('[FileStorageService] 保存配置失败:', error);
     }

@@ -30,11 +30,6 @@ interface UseNodeActionsParams {
  * 注意：已禁用 IndexedDB 保存，直接使用 Sora URL 避免卡顿
  */
 async function saveVideoToDatabase(videoUrl: string, taskId: string, taskNumber: number, soraPrompt: string): Promise<string> {
-    console.log('[视频保存] 使用 Sora URL，跳过 IndexedDB 保存', {
-        taskId,
-        taskNumber,
-        videoUrl: videoUrl ? videoUrl.substring(0, 100) + '...' : 'undefined'
-    });
     return taskId;
 }
 
@@ -166,12 +161,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   if (foundPlanner.data.scriptVisualStyle) style = foundPlanner.data.scriptVisualStyle;
                   genre = foundPlanner.data.scriptGenre || '';
                   setting = foundPlanner.data.scriptSetting || '';
-                  console.log(`[getUpstreamStyleContext] Found SCRIPT_PLANNER recursively:`, {
-                      style,
-                      genre,
-                      setting,
-                      plannerId: foundPlanner.id
-                  });
                   break;
               }
           }
@@ -181,12 +170,7 @@ export function useNodeActions(params: UseNodeActionsParams) {
   };
   // --- Main Action Handler ---
   const handleNodeAction = useCallback(async (id: string, promptOverride?: string) => {
-      console.log('[handleNodeAction] ===== 动作处理器被调用 =====');
-      console.log('[handleNodeAction] 节点ID:', id);
-      console.log('[handleNodeAction] 动作类型:', promptOverride);
-      console.log('[handleNodeAction] Called with id:', id, 'promptOverride:', promptOverride);
       const node = nodesRef.current.find(n => n.id === id);
-      console.log('[handleNodeAction] Found node:', node?.type, 'data.prompt length:', node?.data?.prompt?.length);
       if (!node) {
           console.error('[handleNodeAction] 未找到节点:', id);
           return;
@@ -197,7 +181,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
       try {
           // Handle PROMPT_INPUT storyboard generation
           if (node.type === NodeType.PROMPT_INPUT && promptOverride === 'generate-storyboard') {
-              console.log('[handleNodeAction] Entering storyboard generation block');
               const episodeContent = node.data.prompt || '';
               if (!episodeContent || episodeContent.length < 50) {
                   throw new Error('剧本内容太短，无法生成分镜');
@@ -222,7 +205,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   if (plannerNode && plannerNode.data.scriptDuration) {
                       // Convert minutes to seconds
                       configuredDuration = plannerNode.data.scriptDuration * 60;
-                      console.log('[Duration] Using configured duration from SCRIPT_PLANNER:', configuredDuration, 'seconds');
                   }
 
                   if (plannerNode && plannerNode.data.scriptVisualStyle) {
@@ -319,7 +301,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       throw new Error(`未找到任务组 ${taskGroupIndex + 1}`);
                   }
 
-                  console.log('[SORA_VIDEO_GENERATOR] Regenerating AI-enhanced prompt for task group:', taskGroup.taskNumber);
 
                   // Set node to WORKING status
                   setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.WORKING, data: { ...n.data, progress: '正在优化提示词...' } } : n));
@@ -359,7 +340,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       throw new Error(`未找到任务组 ${taskGroupIndex + 1}`);
                   }
 
-                  console.log('[SORA_VIDEO_GENERATOR] Opening shot editor for task group:', taskGroup.taskNumber);
                   // Store the editing state in a temporary location (could use localStorage or a modal state)
                   // For now, we'll just log it - the actual editing UI will need to be implemented separately
                   alert(`分镜编辑功能即将推出\n\n任务组 ${taskGroup.taskNumber} 包含 ${taskGroup.splitShots?.length || 0} 个分镜\n\n您可以先在分镜图拆解节点中编辑，然后重新生成提示词。`);
@@ -379,9 +359,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       throw new Error('请先生成提示词');
                   }
 
-                  console.log('[去敏感词] ===== 开始处理 =====');
-                  console.log('[去敏感词] 任务组:', taskGroup.taskNumber);
-                  console.log('[去敏感词] 原始提示词长度:', taskGroup.soraPrompt.length);
 
                   // 设置正在去敏感词状态
                   const updatedTaskGroups = [...taskGroups];
@@ -394,13 +371,9 @@ export function useNodeActions(params: UseNodeActionsParams) {
 
                   try {
                       // Import and call the remove sensitive words function
-                      console.log('[去敏感词] 正在调用 AI 模型...');
                       const { removeSensitiveWords } = await import('../services/soraPromptBuilder');
                       const cleanedPrompt = await removeSensitiveWords(taskGroup.soraPrompt);
 
-                      console.log('[去敏感词] AI 模型调用成功');
-                      console.log('[去敏感词] 优化后提示词长度:', cleanedPrompt.length);
-                      console.log('[去敏感词] ===== 处理完成 =====');
 
                       // 计算优化统计
                       const wordCountDiff = taskGroup.soraPrompt.length - cleanedPrompt.length;
@@ -474,7 +447,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       throw new Error(`未找到任务组 ${taskGroupIndex + 1}`);
                   }
 
-                  console.log('[SORA_VIDEO_GENERATOR] Generating video for task group:', taskGroup.taskNumber);
 
                   if (!taskGroup.soraPrompt) {
                       throw new Error('请先生成提示词');
@@ -495,7 +467,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                     const result = await generateSoraVideo(
                         updatedTaskGroups[taskGroupIndex],
                         (message, progress) => {
-                            console.log(`[SORA_VIDEO_GENERATOR] Task ${taskGroup.taskNumber}: ${message} (${progress}%)`);
                         },
                         { nodeId: id, nodeType: node.type }
                     );
@@ -628,7 +599,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
 
               // Action: Fuse reference images for task groups
               if (promptOverride === 'fuse-images') {
-                  console.log('[SORA_VIDEO_GENERATOR] Fusing reference images for task groups');
 
                   if (taskGroups.length === 0) {
                       throw new Error('请先生成任务组和提示词');
@@ -647,17 +617,14 @@ export function useNodeActions(params: UseNodeActionsParams) {
                           throw new Error('没有可融合的分镜图');
                       }
 
-                      console.log('[SORA_VIDEO_GENERATOR] Starting image fusion for', taskGroupsToFuse.length, 'task groups');
 
                       // 执行图片融合
                       const fusionResults = await fuseMultipleTaskGroups(
                           taskGroupsToFuse,
                           (current, total, groupName) => {
-                              console.log(`正在融合 ${current}/${total}: ${groupName}`);
                           }
                       );
 
-                      console.log('[SORA_VIDEO_GENERATOR] Fusion completed:', fusionResults.length, 'groups');
 
                       // 导入OSS服务
                       const { getOSSConfig } = await import('../services/soraConfigService');
@@ -680,7 +647,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                                   try {
                                       const fileName = `sora-reference-${tg.id}-${Date.now()}.png`;
                                       imageUrl = await uploadFileToOSS(result.fusedImage, fileName, ossConfig);
-                                      console.log('[SORA_VIDEO_GENERATOR] Task group', tg.taskNumber, 'reference image uploaded to OSS:', imageUrl);
                                   } catch (error: any) {
                                       console.error('[SORA_VIDEO_GENERATOR] Failed to upload reference image for task group', tg.taskNumber, ':', error);
                                       // 上传失败，回退到Base64
@@ -709,7 +675,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
 
               // Action: Generate Sora videos for all task groups
               if (promptOverride === 'generate-videos') {
-                  console.log('[SORA_VIDEO_GENERATOR] Generating Sora videos for task groups');
 
                   const taskGroupsToGenerate = taskGroups.filter(tg =>
                       tg.generationStatus === 'prompt_ready' || tg.generationStatus === 'image_fused'
@@ -732,7 +697,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   const results = await generateMultipleSoraVideos(
                       taskGroupsToGenerate,
                       (index, message, progress) => {
-                          console.log(`[SORA_VIDEO_GENERATOR] Task ${index + 1}/${taskGroupsToGenerate.length}: ${message} (${progress}%)`);
                           // 实时更新进度到节点状态
                           const tg = taskGroupsToGenerate[index];
                           if (tg) {
@@ -776,7 +740,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                                   );
 
                                   if (saveResult.success) {
-                                      console.log('[Sora2] ✅ 视频已保存到本地:', taskGroup.taskNumber, saveResult.relativePath);
                                   }
                               }
                           } catch (error) {
@@ -865,7 +828,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
 
               // Action: Regenerate all videos
               if (promptOverride === 'regenerate-all') {
-                  console.log('[SORA_VIDEO_GENERATOR] Regenerating all videos');
 
                   // Reset all task groups to prompt_ready status
                   const updatedTaskGroups = taskGroups.map(tg => ({
@@ -904,7 +866,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       const results = await generateMultipleSoraVideos(
                           updatedTaskGroups,
                           (index, message, progress) => {
-                              console.log(`[SORA_VIDEO_GENERATOR] Task ${index + 1}/${updatedTaskGroups.length}: ${message} (${progress}%)`);
                           },
                           { nodeId: id, nodeType: node.type }
                       );
@@ -1014,7 +975,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   throw new Error('未找到任务ID');
               }
 
-              console.log('[SORA_VIDEO_CHILD] Refreshing status:', { soraTaskId, provider });
 
               try {
                   // Get API key based on provider
@@ -1051,7 +1011,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       throw new Error('不支持的provider');
                   }
 
-                  console.log('[SORA_VIDEO_CHILD] Calling API:', { apiUrl, provider });
 
                   const response = await fetch(apiUrl, {
                       method: 'POST',
@@ -1067,7 +1026,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   }
 
                   const data = await response.json();
-                  console.log('[SORA_VIDEO_CHILD] API response:', data);
 
                   // Parse response based on provider
                   let newVideoUrl: string | undefined;
@@ -1100,11 +1058,9 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       updateData.status = newStatus === 'completed' ? NodeStatus.SUCCESS : undefined;
                       updateData.progress = newProgress;
                       updateData.violationReason = newViolationReason;
-                      console.log('[SORA_VIDEO_CHILD] ✅ Video updated:', newVideoUrl);
                   } else if (newStatus === 'processing' || newStatus === 'pending') {
                       updateData.progress = newProgress;
                       updateData.violationReason = undefined;
-                      console.log('[SORA_VIDEO_CHILD] Task still processing, progress:', newProgress);
                   } else if (newViolationReason) {
                       updateData.violationReason = newViolationReason;
                       updateData.status = NodeStatus.ERROR;
@@ -1125,7 +1081,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   throw new Error('未找到视频URL');
               }
 
-              console.log('[SORA_VIDEO_CHILD] Saving video locally');
 
               // Get parent node to retrieve task group info
               const parentNode = nodesRef.current.find(n => n.id === node.inputs[0]);
@@ -1167,7 +1122,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
           // Handle STORYBOARD_VIDEO_GENERATOR node actions
           if (node.type === NodeType.STORYBOARD_VIDEO_GENERATOR) {
               if (promptOverride === 'fetch-shots') {
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] Fetching shots from splitter node');
 
                   // Find upstream STORYBOARD_SPLITTER node
                   const splitterNode = inputs.find(n => n?.type === NodeType.STORYBOARD_SPLITTER);
@@ -1196,7 +1150,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
               }
 
               if (promptOverride === 'generate-prompt') {
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] Generating prompt');
 
                   const selectedShotIds = node.data.selectedShotIds || [];
                   if (selectedShotIds.length === 0) {
@@ -1211,12 +1164,10 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   const { promptBuilderFactory } = await import('../services/promptBuilders');
                   const builder = promptBuilderFactory.getByNodeType('STORYBOARD_VIDEO_GENERATOR');
 
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] Calling AI with', selectedShots.length, 'shots');
 
                   // Generate prompt using Generic format (no black screen for storyboard videos)
                   const generatedPrompt = await builder.build(selectedShots);
 
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] Generated prompt:', generatedPrompt);
 
                   handleNodeUpdate(id, {
                       generatedPrompt,
@@ -1227,15 +1178,12 @@ export function useNodeActions(params: UseNodeActionsParams) {
               }
 
               if (promptOverride === 'cancel-generate') {
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] ===== 取消视频生成 =====');
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] 节点ID:', id);
 
                   // 获取并触发 AbortController
                   const abortController = abortControllersRef.current.get(id);
                   if (abortController) {
                       abortController.abort();
                       abortControllersRef.current.delete(id);
-                      console.log('[STORYBOARD_VIDEO_GENERATOR] 已触发取消信号');
                   }
 
                   // 更新节点状态
@@ -1250,10 +1198,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
               }
 
               if (promptOverride === 'generate-video') {
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] ===== 开始生成视频 =====');
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] 节点ID:', id);
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] 提示词长度:', node.data.generatedPrompt?.length || 0);
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] Generating video');
 
                   const generatedPrompt = node.data.generatedPrompt;
                   if (!generatedPrompt) {
@@ -1269,12 +1213,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       quality: 'standard'
                   };
 
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] Model config:', {
-                      platform: selectedPlatform,
-                      model: selectedModel,
-                      subModel: node.data.subModel,
-                      config: modelConfig
-                  });
 
                   // Set to generating status
                   handleNodeUpdate(id, {
@@ -1287,7 +1225,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       // Handle image fusion (if exists)
                       let referenceImageUrl: string | undefined;
                       if (node.data.fusedImage) {
-                          console.log('[STORYBOARD_VIDEO_GENERATOR] Uploading fused image to OSS');
 
                           handleNodeUpdate(id, { progress: 10 });
 
@@ -1305,7 +1242,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                                   progress: 20
                               });
 
-                              console.log('[STORYBOARD_VIDEO_GENERATOR] Fused image uploaded:', referenceImageUrl);
                           } else {
                               console.warn('[STORYBOARD_VIDEO_GENERATOR] No OSS config, using base64 data URL');
                               referenceImageUrl = node.data.fusedImage;
@@ -1330,7 +1266,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       // Generate video
                       const { generateVideoFromStoryboard } = await import('../services/videoGenerationService');
 
-                      console.log('[STORYBOARD_VIDEO_GENERATOR] Calling video generation service');
 
                       // 创建 AbortController 用于取消任务
                       const abortController = new AbortController();
@@ -1347,7 +1282,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                               onProgress: (message, progress) => {
                                   const adjustedProgress = 30 + Math.round(progress * 0.7);
                                   handleNodeUpdate(id, { progress: adjustedProgress });
-                                  console.log(`[STORYBOARD_VIDEO_GENERATOR] ${message} (${progress}%)`);
                               },
                               signal: abortController.signal,  // 传递取消信号
                               subModel: node.data.subModel  // 传递子模型
@@ -1357,7 +1291,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       // 任务完成，清理 AbortController
                       abortControllersRef.current.delete(id);
 
-                      console.log('[STORYBOARD_VIDEO_GENERATOR] Video generation complete:', result);
 
                       // Create child node
                       const childNodeId = `node-storyboard-video-child-${Date.now()}`;
@@ -1438,10 +1371,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
               }
 
               if (promptOverride === 'regenerate-video') {
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] ===== 重新生成视频 =====');
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] 节点ID:', id);
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] 提示词长度:', node.data.generatedPrompt?.length || 0);
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] Regenerating video');
 
                   const generatedPrompt = node.data.generatedPrompt;
                   if (!generatedPrompt) {
@@ -1457,12 +1386,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       quality: 'standard'
                   };
 
-                  console.log('[STORYBOARD_VIDEO_GENERATOR] Model config:', {
-                      platform: selectedPlatform,
-                      model: selectedModel,
-                      subModel: node.data.subModel,
-                      config: modelConfig
-                  });
 
                   // Set to generating status
                   handleNodeUpdate(id, {
@@ -1475,7 +1398,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       // Handle image fusion (if exists)
                       let referenceImageUrl: string | undefined;
                       if (node.data.fusedImage) {
-                          console.log('[STORYBOARD_VIDEO_GENERATOR] Uploading fused image to OSS');
 
                           handleNodeUpdate(id, { progress: 10 });
 
@@ -1488,7 +1410,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                               // Check if already uploaded
                               if (node.data.fusedImageUrl) {
                                   referenceImageUrl = node.data.fusedImageUrl;
-                                  console.log('[STORYBOARD_VIDEO_GENERATOR] Using already uploaded fused image:', referenceImageUrl);
                               } else {
                                   const fileName = `storyboard-fusion-${node.id}-${Date.now()}.png`;
                                   referenceImageUrl = await uploadFileToOSS(node.data.fusedImage, fileName, ossConfig);
@@ -1498,7 +1419,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                                       progress: 20
                                   });
 
-                                  console.log('[STORYBOARD_VIDEO_GENERATOR] Fused image uploaded:', referenceImageUrl);
                               }
                           } else {
                               console.warn('[STORYBOARD_VIDEO_GENERATOR] No OSS config, using base64 data URL');
@@ -1524,7 +1444,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       // Generate video
                       const { generateVideoFromStoryboard } = await import('../services/videoGenerationService');
 
-                      console.log('[STORYBOARD_VIDEO_GENERATOR] Calling video generation service');
 
                       const result = await generateVideoFromStoryboard(
                           selectedPlatform as any,
@@ -1537,13 +1456,11 @@ export function useNodeActions(params: UseNodeActionsParams) {
                               onProgress: (message, progress) => {
                                   const adjustedProgress = 30 + Math.round(progress * 0.7);
                                   handleNodeUpdate(id, { progress: adjustedProgress });
-                                  console.log(`[STORYBOARD_VIDEO_GENERATOR] ${message} (${progress}%)`);
                               },
                               subModel: node.data.subModel  // 传递子模型
                           }
                       );
 
-                      console.log('[STORYBOARD_VIDEO_GENERATOR] Video generation complete:', result);
 
                       // Create child node
                       const childNodeId = `node-storyboard-video-child-${Date.now()}`;
@@ -1678,13 +1595,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
           } else if (node.type === NodeType.CHARACTER_NODE) {
               // --- Character Node Generation Logic ---
 
-              console.log('[CHARACTER_NODE] Starting character node processing:', {
-                  nodeId: id,
-                  hasExtractedNames: !!node.data.extractedCharacterNames,
-                  nameCount: node.data.extractedCharacterNames?.length || 0,
-                  inputCount: node.inputs.length,
-                  existingGeneratedCount: node.data.generatedCharacters?.length || 0
-              });
 
               // For character name extraction: Use ONLY direct inputs (not recursive)
               const directUpstreamTexts = inputs.map(n => {
@@ -1720,14 +1630,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
               // For character info generation: Use recursive upstream context (includes SCRIPT_PLANNER, etc.)
               const recursiveUpstreamTexts = getUpstreamContext(node, nodesRef.current);
 
-              console.log('[CHARACTER_NODE] Context collection:', {
-                  nodeId: id,
-                  directTextCount: directUpstreamTexts.length,
-                  recursiveTextCount: recursiveUpstreamTexts.length,
-                  directLength: directUpstreamTexts.join('\n').length,
-                  recursiveLength: recursiveUpstreamTexts.join('\n').length,
-                  inputTypes: inputs.map(n => n?.type)
-              });
 
               if (!node.data.extractedCharacterNames || node.data.extractedCharacterNames.length === 0) {
                   // STEP 1: Extract character names from DIRECT inputs only
@@ -1742,10 +1644,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
 
                       const uniqueNames = Array.from(new Set(allCharacterNames.map(name => name.trim()))).filter(name => name.length > 0);
 
-                      console.log('[CHARACTER_NODE] Extracted characters from DIRECT inputs only:', {
-                          inputCount: directUpstreamTexts.length,
-                          characters: uniqueNames
-                      });
 
                       handleNodeUpdate(id, { extractedCharacterNames: uniqueNames, characterConfigs: {} });
                       setNodes(p => p.map(n => n.id === id ? { ...n, status: NodeStatus.SUCCESS } : n));
@@ -1774,13 +1672,11 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   }
                   // 对于 SUCCESS、IDLE、GENERATING、PENDING 状态的角色，跳过
                   // 直接点击生成会通过 handleCharacterAction 单独处理，不通过这里
-                  console.log('[CHARACTER_NODE] Skipping character (already processed or processing):', name, 'status:', existingChar.status);
                   return false;
               });
 
               // 如果没有需要生成的角色，直接返回
               if (charactersNeedingGeneration.length === 0) {
-                  console.log('[CHARACTER_NODE] No characters need generation, skipping STEP 2');
                   // 更新状态为 SUCCESS（如果所有角色都已完成）
                   if (generatedChars.length > 0) {
                       const allDone = generatedChars.every(c => 
@@ -1830,10 +1726,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       // SUPPORTING CHARACTER: 只生成基础信息，不生成图片
                       const context = recursiveUpstreamTexts.join('\n');
 
-                      console.log('[CHARACTER_NODE] Generating supporting character with recursive context:', {
-                          name,
-                          contextLength: context.length
-                      });
 
                       try {
                           // Import the supporting character generator
@@ -1859,11 +1751,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                               isGeneratingExpression: false,
                               isGeneratingThreeView: false
                           };
-                          console.log('[CHARACTER_NODE] Supporting character profile generated successfully:', {
-                              name,
-                              status: newGeneratedChars[idx].status,
-                              roleType: 'supporting'
-                          });
                       } catch (e: any) {
                           const idx = newGeneratedChars.findIndex(c => c.name === name);
                           newGeneratedChars[idx] = { ...newGeneratedChars[idx], status: 'ERROR', error: e.message };
@@ -1873,10 +1760,8 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   } else {
                       // 主角：只生成基础信息，不自动生成表情和三视图
                       // 表情和三视图需要用户额外点击生成
-                      console.log('[CHARACTER_NODE] Generating main character profile only:', name);
 
                       try {
-                          console.log('[CHARACTER_NODE] About to call handleCharacterActionNew for:', name);
 
                           // 只调用 GENERATE_SINGLE，生成基础信息
                           const { handleCharacterAction: handleCharacterActionNew } = await import('../services/characterActionHandler');
@@ -1889,7 +1774,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                               handleNodeUpdate     // onNodeUpdate
                           );
 
-                          console.log('[CHARACTER_NODE] handleCharacterActionNew returned successfully for:', name);
 
                           // 从 nodesRef 获取最新的完整角色列表，同步到 newGeneratedChars
                           // 这确保了 handleCharacterActionNew 内部通过 updateNodeUI 更新的所有角色数据都被保留
@@ -1903,10 +1787,8 @@ export function useNodeActions(params: UseNodeActionsParams) {
                                       newGeneratedChars[idx] = { ...latestChar };
                                   }
                               }
-                              console.log('[CHARACTER_NODE] Synced all characters from latest node data after:', name);
                           }
 
-                          console.log('[CHARACTER_NODE] Profile generation completed for:', name);
                       } catch (e: any) {
                           console.error('[CHARACTER_NODE] Profile generation failed for:', name, e);
                           console.error('[CHARACTER_NODE] Error stack:', e?.stack);
@@ -2022,12 +1904,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
 
               const previousEpisodes = allScriptEpisodeNodes.flatMap(n => n.data.generatedEpisodes);
 
-              console.log('[SCRIPT_EPISODE] Generating with context:', {
-                  currentChapter: node.data.selectedChapter,
-                  totalPreviousEpisodes: previousEpisodes.length,
-                  hasGlobalCharacters: planner.data.scriptOutline.includes('主要人物小传'),
-                  hasGlobalItems: planner.data.scriptOutline.includes('关键物品设定')
-              });
 
               const { generateScriptEpisodes } = await import('../services/geminiService');
               const episodes = await generateScriptEpisodes(
@@ -2157,7 +2033,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                // ✅ 检查缓存
                const cachedImages = await checkImageNodeCache(id);
                if (cachedImages && cachedImages.length > 0) {
-                   console.log('[App] ✅ 使用缓存的图片:', cachedImages.length);
                    handleNodeUpdate(id, {
                        image: cachedImages[0],
                        images: cachedImages,
@@ -2167,7 +2042,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                    });
                } else {
                    // ❌ 没有缓存，调用 API
-                   console.log('[App] 🌐 缓存未命中，调用 API 生成图片');
                   const { generateImageFromText } = await import('../services/geminiService');
                   const res = await generateImageFromText(
                       finalPrompt,
@@ -2197,7 +2071,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
               // ✅ 检查缓存
               const cachedVideo = await checkVideoNodeCache(id);
               if (cachedVideo) {
-                  console.log('[App] ✅ 使用缓存的视频');
                   handleNodeUpdate(id, {
                       videoUri: cachedVideo,
                       videoMetadata: node.data.videoMetadata,
@@ -2208,7 +2081,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   });
               } else {
                   // ❌ 没有缓存，调用 API
-                  console.log('[App] 🌐 缓存未命中，调用 API 生成视频');
                   const { generateVideo } = await import('../services/geminiService');
                   const res = await generateVideo(
                       strategy.finalPrompt,
@@ -2255,7 +2127,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
               // ✅ 检查缓存
               const cachedAudio = await checkAudioNodeCache(id);
               if (cachedAudio) {
-                  console.log('[App] ✅ 使用缓存的音频');
                   handleNodeUpdate(id, {
                       audioUri: cachedAudio,
                       status: NodeStatus.SUCCESS,
@@ -2264,7 +2135,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   });
               } else {
                   // ❌ 没有缓存，调用 API
-                  console.log('[App] 🌐 缓存未命中，调用 API 生成音频');
                   const { generateAudio } = await import('../services/geminiService');
                   const audioUri = await generateAudio(finalPrompt, node.data.model);
                   handleNodeUpdate(id, {
@@ -2341,10 +2211,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   const promptInputNode = inputs.find(n => n.type === NodeType.PROMPT_INPUT);
                   if (promptInputNode?.data.episodeStoryboard) {
                       const storyboard = promptInputNode.data.episodeStoryboard;
-                      console.log('[STORYBOARD_IMAGE] Found episodeStoryboard from PROMPT_INPUT:', {
-                          shotCount: storyboard.shots?.length || 0,
-                          totalDuration: storyboard.totalDuration
-                      });
 
                       // Keep the full structured data for detailed prompt generation
                       storyboardContent = JSON.stringify({
@@ -2370,11 +2236,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       throw new Error("请输入分镜描述或连接剧本分集子节点");
                   }
 
-                  console.log('[STORYBOARD_IMAGE] Processing content:', {
-                      contentLength: storyboardContent.length,
-                      inputCount: inputs.length,
-                      hasEpisodeStoryboard: !!promptInputNode?.data.episodeStoryboard
-                  });
 
                   // Extract shots with full structured data
                   // Try to parse as JSON first (from generateDetailedStoryboard)
@@ -2383,8 +2244,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       const parsed = JSON.parse(storyboardContent);
                       if (parsed.shots && Array.isArray(parsed.shots) && parsed.shots.length > 0) {
                           extractedShots = parsed.shots;
-                          console.log('[STORYBOARD_IMAGE] Parsed structured shots:', extractedShots.length);
-                          console.log('[STORYBOARD_IMAGE] First shot sample:', extractedShots[0]);
                       }
                   } catch (e) {
                       console.warn('[STORYBOARD_IMAGE] Failed to parse JSON as whole, trying regex fallback:', e);
@@ -2395,7 +2254,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                               const parsed = JSON.parse(jsonMatch[0]);
                               if (parsed.shots && Array.isArray(parsed.shots)) {
                                   extractedShots = parsed.shots;
-                                  console.log('[STORYBOARD_IMAGE] Parsed structured shots via regex:', extractedShots.length);
                               }
                           } catch (e2) {
                               console.warn('[STORYBOARD_IMAGE] Regex fallback also failed, using text parsing');
@@ -2423,7 +2281,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                   throw new Error("未能从内容中提取分镜描述，请检查格式");
               }
 
-              console.log('[STORYBOARD_IMAGE] Total shots to process:', extractedShots.length);
 
               // Get grid configuration
               const gridType = node.data.storyboardGridType || '9';
@@ -2516,36 +2373,10 @@ export function useNodeActions(params: UseNodeActionsParams) {
               const panelWidth = Math.floor(totalWidth / cols);
               const panelHeight = Math.floor(totalHeight / rows);
 
-              console.log('[STORYBOARD_IMAGE] 动态尺寸计算:', {
-                  gridLayout: gridConfig.gridLayout,
-                  cols,
-                  rows,
-                  panelOrientation,
-                  imageAspectRatio,
-                  calculatedRatio,
-                  targetMegapixels: resolutionConfig.width * resolutionConfig.height,
-                  totalWidth,
-                  totalHeight,
-                  panelWidth,
-                  panelHeight,
-                  explanation: `根据 ${imageAspectRatio} 比例动态计算输出尺寸，保持 ${resolutionConfig.name} 分辨率级别的像素总数`
-              });
 
               // Calculate number of pages needed
               const numberOfPages = Math.ceil(extractedShots.length / shotsPerGrid);
 
-              console.log('[STORYBOARD_IMAGE] Generation plan:', {
-                  totalShots: extractedShots.length,
-                  shotsPerGrid,
-                  numberOfPages,
-                  gridLayout,
-                  panelOrientation,
-                  resolution: resolutionConfig.quality,
-                  resolutionName: resolutionConfig.name,
-                  outputWidth: resolutionConfig.width,
-                  outputHeight: resolutionConfig.height,
-                  isRegenerating
-              });
 
               // Get visual style from upstream
               const { style } = getUpstreamStyleContext(node, nodesRef.current);
@@ -2554,7 +2385,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
               // Get user-configured image model priority
               const imageModelPriority = getUserPriority('image' as ModelCategory);
               const primaryImageModel = imageModelPriority[0] || getDefaultModel('image');
-              console.log('[STORYBOARD_IMAGE] Using image model priority:', imageModelPriority);
 
               // Extract character reference images from upstream CHARACTER_NODE (for all cases)
               const characterReferenceImages: string[] = [];
@@ -2575,12 +2405,6 @@ export function useNodeActions(params: UseNodeActionsParams) {
                       }
                   });
 
-                  console.log('[STORYBOARD_IMAGE] Character references:', {
-                      characterCount: characters.length,
-                      referenceImageCount: characterReferenceImages.length,
-                      characterNames: characterNames,
-                      hasReferences: characterReferenceImages.length > 0
-                  });
               }
 
               // Helper: Build detailed shot prompt with camera language
@@ -2791,35 +2615,9 @@ COMPOSITION REQUIREMENTS:
 - Environmental details and props clearly visible
 `.trim();
 
-                  console.log(`[STORYBOARD_IMAGE] 🎯 优化后的提示词参数:`, {
-                      shotRange: `${startIdx + 1}-${endIdx}`,
-                      promptLength: gridPrompt.length,
-                      // 🔧 优化后的关键参数
-                      promptAspectRatio: `${imageAspectRatio} (${orientation})`,  // Prompt 中的描述
-                      apiAspectRatio: imageAspectRatio,  // API 参数
-                      baseWidth: baseWidth,  // 基础宽度
-                      // 实际计算的尺寸（仅供参考，不放入 Prompt）
-                      actualSize: `${totalWidth}x${totalHeight}`,
-                      panelSize: `${panelWidth}x${panelHeight}`,
-                      panelOrientation: panelOrientation,
-                      gridLayout: `${cols}x${rows}`,
-                      // 优化说明
-                      optimization: 'Prompt 使用比例+方向，避免与 API aspectRatio 参数冲突',
-                      sceneGroups: Array.from(sceneGroups.entries()).map(([scene, data]) => ({
-                          scene,
-                          panelCount: data.indices.length,
-                          panels: data.indices
-                      })),
-                      characterReferences: {
-                          count: characterReferenceImages.length,
-                          names: characterNames,
-                          hasReferences: characterReferenceImages.length > 0
-                      }
-                  });
 
                   try {
                       // Use user-configured model priority with fallback
-                      console.log(`[STORYBOARD_IMAGE] Generating page ${pageIndex + 1}/${numberOfPages} with model: ${primaryImageModel}`);
 
                       // Add timeout wrapper (5 minutes per page)
                       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -2843,7 +2641,6 @@ COMPOSITION REQUIREMENTS:
                       ]);
 
                       if (imgs && imgs.length > 0) {
-                          console.log(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generated successfully`);
                           return imgs[0];
                       } else {
                           console.error(`[STORYBOARD_IMAGE] Page ${pageIndex + 1} generation failed - no images returned`);
@@ -2865,10 +2662,8 @@ COMPOSITION REQUIREMENTS:
 
                   if (isRegeneratingPage) {
                       targetPageIndex = regeneratePageIndex;
-                      console.log(`[STORYBOARD_IMAGE] Regenerating entire page ${targetPageIndex + 1}`);
                   } else {
                       targetPageIndex = Math.floor(regeneratePanelIndex / shotsPerGrid);
-                      console.log(`[STORYBOARD_IMAGE] Regenerating page ${targetPageIndex + 1} for panel ${regeneratePanelIndex + 1}`);
                   }
 
                   // Keep existing grids, regenerate only the target page
@@ -2897,7 +2692,6 @@ COMPOSITION REQUIREMENTS:
                       // Save to local storage
                       await saveStoryboardGridOutput(id, updatedGrids, 'STORYBOARD_IMAGE');
 
-                      console.log('[STORYBOARD_IMAGE] Page regeneration complete');
                   } else {
                       throw new Error("分镜重新生成失败，请重试");
                   }
@@ -2919,11 +2713,6 @@ COMPOSITION REQUIREMENTS:
                       }
                   });
 
-                  console.log('[STORYBOARD_IMAGE] Generation complete:', {
-                      totalPagesRequested: numberOfPages,
-                      totalPagesGenerated: generatedGrids.length,
-                      success: generatedGrids.length === numberOfPages
-                  });
 
                   // Warn if some pages failed
                   if (generatedGrids.length > 0 && generatedGrids.length < numberOfPages) {
@@ -2955,7 +2744,6 @@ COMPOSITION REQUIREMENTS:
                       handleAssetGenerated('image', gridUrl, `分镜图 第${index + 1}页`);
                   });
 
-                  console.log('[STORYBOARD_IMAGE] All data saved successfully');
               }
 
           } else if (node.type === NodeType.SORA_VIDEO_GENERATOR) {
@@ -3031,13 +2819,6 @@ COMPOSITION REQUIREMENTS:
                   taskGroups.push(currentGroup);
               }
 
-              console.log('[SORA_VIDEO_GENERATOR] Created task groups:', {
-                  totalGroups: taskGroups.length,
-                  maxDuration: maxDuration,
-                  aspectRatio: sora2Config.aspect_ratio,
-                  hd: sora2Config.hd,
-                  shotsPerGroup: taskGroups.map(tg => tg.shotIds.length)
-              });
 
               // 4. Generate AI-enhanced Sora prompts for each task group using Sora2 builder (includes black screen)
               const { promptBuilderFactory } = await import('../services/promptBuilders');
@@ -3046,7 +2827,6 @@ COMPOSITION REQUIREMENTS:
               // Generate prompts asynchronously
               for (const tg of taskGroups) {
                   try {
-                    console.log(`[SORA_VIDEO_GENERATOR] Generating professional prompt for task group ${tg.taskNumber}...`);
                     tg.soraPrompt = await sora2Builder.build(tg.splitShots, {
                       includeBlackScreen: true,
                       blackScreenDuration: 0.5
@@ -3057,7 +2837,6 @@ COMPOSITION REQUIREMENTS:
                         tg.sora2Config = { ...DEFAULT_SORA2_CONFIG };
                     }
                     tg.generationStatus = 'prompt_ready';
-                    console.log(`[SORA_VIDEO_GENERATOR] Prompt generated for task group ${tg.taskNumber}`);
                   } catch (error) {
                     console.error(`[SORA_VIDEO_GENERATOR] Failed to generate professional prompt for task group ${tg.taskNumber}:`, error);
                     // Fallback to basic prompt
@@ -3077,7 +2856,6 @@ COMPOSITION REQUIREMENTS:
                   taskGroups: taskGroups
               });
 
-              console.log('[SORA_VIDEO_GENERATOR] Task groups created successfully');
 
           } else if (node.type === NodeType.VIDEO_ANALYZER) {
              const vid = node.data.videoUri || inputs.find(n => n?.data.videoUri)?.data.videoUri;

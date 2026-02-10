@@ -256,7 +256,6 @@ class ModelConfigManager {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         this.config = JSON.parse(stored);
-        console.log('[ModelConfigManager] 已加载配置:', this.config);
         return this.config!;
       }
     } catch (error) {
@@ -279,7 +278,6 @@ class ModelConfigManager {
 
     this.config.updatedAt = new Date().toISOString();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.config));
-    console.log('[ModelConfigManager] 已保存配置');
   }
 
   /**

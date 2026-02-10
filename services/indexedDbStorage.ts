@@ -48,7 +48,6 @@ class IndexedDBStorage {
 
       request.onsuccess = () => {
         this.db = request.result;
-        console.log('[IndexedDBStorage] 数据库打开成功');
         resolve();
       };
 
@@ -64,7 +63,6 @@ class IndexedDBStorage {
           objectStore.createIndex('nodeType', 'metadata.nodeType', { unique: false });
           objectStore.createIndex('createdAt', 'metadata.createdAt', { unique: false });
 
-          console.log('[IndexedDBStorage] 对象仓库创建成功');
         }
       };
     });
@@ -128,7 +126,6 @@ class IndexedDBStorage {
 
       return new Promise((resolve, reject) => {
         request.onsuccess = () => {
-          console.log('[IndexedDBStorage] 视频保存成功:', id);
           resolve();
         };
         request.onerror = () => {
@@ -155,7 +152,6 @@ class IndexedDBStorage {
       return null;
     }
 
-    console.log('[IndexedDBStorage] 📥 查询视频，ID:', id);
 
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction([this.STORE_NAME], 'readonly');
@@ -167,24 +163,13 @@ class IndexedDBStorage {
         if (result) {
           // 创建Blob URL
           const blobUrl = URL.createObjectURL(result.videoData);
-          console.log('[IndexedDBStorage] ✅ 视频读取成功:', {
-              id,
-              blobSize: result.videoData.size,
-              blobType: result.videoData.type
-          });
           resolve(blobUrl);
         } else {
           console.warn('[IndexedDBStorage] ⚠️ 视频未找到:', id);
-          console.log('[IndexedDBStorage] 💡 提示: 检查所有存储的视频ID...');
           // 列出所有存储的视频ID用于调试
           const getAllRequest = objectStore.getAll();
           getAllRequest.onsuccess = () => {
               const allVideos = getAllRequest.result as StoredVideo[];
-              console.log('[IndexedDBStorage] 📋 所有存储的视频:', allVideos.map(v => ({
-                  id: v.id,
-                  nodeId: v.metadata.nodeId,
-                  size: v.videoData.size
-              })));
           };
           resolve(null);
         }
@@ -217,7 +202,6 @@ class IndexedDBStorage {
 
       request.onsuccess = () => {
         const results = request.result as StoredVideo[];
-        console.log('[IndexedDBStorage] 找到', results.length, '个视频');
         resolve(results);
       };
 
@@ -245,7 +229,6 @@ class IndexedDBStorage {
       const request = objectStore.delete(id);
 
       request.onsuccess = () => {
-        console.log('[IndexedDBStorage] 视频删除成功:', id);
         resolve();
       };
 
@@ -284,7 +267,6 @@ class IndexedDBStorage {
       const request = objectStore.clear();
 
       request.onsuccess = () => {
-        console.log('[IndexedDBStorage] 所有视频已清空');
         resolve();
       };
 

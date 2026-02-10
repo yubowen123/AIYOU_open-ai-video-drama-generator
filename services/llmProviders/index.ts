@@ -127,7 +127,6 @@ class LLMProviderManager {
     options?: { responseMimeType?: string; systemInstruction?: string }
   ): Promise<string> {
     const provider = this.getCurrentProvider();
-    console.log(`[LLMProviderManager] Using provider: ${provider.getName()}`);
     return provider.generateContent(prompt, model, options);
   }
 
@@ -141,7 +140,6 @@ class LLMProviderManager {
     options?: GenerateImageOptions
   ): Promise<string[]> {
     const provider = this.getCurrentProvider();
-    console.log(`[LLMProviderManager] Using provider: ${provider.getName()}`);
     return provider.generateImages(prompt, model, referenceImages, options);
   }
 

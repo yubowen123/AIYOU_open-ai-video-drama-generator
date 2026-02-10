@@ -30,7 +30,6 @@ export async function handleCharacterAction(
   onNodeUpdate: (nodeId: string, updates: any) => void,
   customPrompt?: { expressionPrompt?: string; threeViewPrompt?: string }
 ) {
-  console.log('[CharacterAction] handleCharacterAction START:', { nodeId, action, charName });
 
   switch (action) {
     case 'DELETE':
@@ -62,7 +61,6 @@ export async function handleCharacterAction(
       break;
   }
 
-  console.log('[CharacterAction] handleCharacterAction COMPLETE');
   // 注意：不再在此处调用 updateNodeUI，各 handler 内部已负责更新
 }
 
@@ -71,7 +69,6 @@ export async function handleCharacterAction(
  * 关键：从manager和node.data中完全删除角色
  */
 function handleDelete(nodeId: string, charName: string, onNodeUpdate: (nodeId: string, updates: any) => void, allNodes: AppNode[]) {
-  console.log('[CharacterAction] handleDelete:', { nodeId, charName });
 
   // 1. 从manager中删除
   characterGenerationManager.deleteCharacter(nodeId, charName);
@@ -91,13 +88,6 @@ function handleDelete(nodeId: string, charName: string, onNodeUpdate: (nodeId: s
     const extractedCharacterNames = (node.data.extractedCharacterNames || [])
       .filter((name: string) => name !== charName);
 
-    console.log('[CharacterAction] Deleting from node.data:', {
-      charName,
-      beforeCount: node.data.generatedCharacters?.length || 0,
-      afterCount: generatedCharacters.length,
-      removedFromConfigs: !!node.data.characterConfigs?.[charName],
-      removedFromExtracted: extractedCharacterNames.length < (node.data.extractedCharacterNames?.length || 0)
-    });
 
     // 3. 一次性更新所有变更
     onNodeUpdate(nodeId, {
@@ -111,7 +101,6 @@ function handleDelete(nodeId: string, charName: string, onNodeUpdate: (nodeId: s
     updateNodeUI(nodeId, onNodeUpdate, allNodes);
   }
 
-  console.log('[CharacterAction] Character deleted successfully:', charName);
 }
 
 /**
@@ -124,7 +113,6 @@ async function handleSave(
   allNodes: AppNode[],
   onNodeUpdate: (nodeId: string, updates: any) => void
 ) {
-  console.log('[CharacterAction] handleSave:', { nodeId, charName });
 
   const state = characterGenerationManager.getCharacterState(nodeId, charName);
   if (!state) {
@@ -154,7 +142,6 @@ async function handleRetry(
   allNodes: AppNode[],
   onNodeUpdate: (nodeId: string, updates: any) => void
 ) {
-  console.log('[CharacterAction] handleRetry (regenerate profile):', { nodeId, charName });
 
   // 立即更新 UI 为生成中状态
   const existingChars = node.data.generatedCharacters || [];
@@ -173,7 +160,6 @@ async function handleRetry(
 
   // 获取角色配置
   const config = node.data.characterConfigs?.[charName] || { method: 'AI_AUTO' };
-  console.log('[CharacterAction] Character config:', { charName, method: config.method });
 
   // 获取上游上下文
   const context = getUpstreamContext(node, allNodes);
@@ -184,14 +170,12 @@ async function handleRetry(
 
     if (config.method === 'SUPPORTING_ROLE') {
       // 配角：使用简化生成方法
-      console.log('[CharacterAction] Using SUPPORTING_ROLE method for:', charName);
       const { generateSupportingCharacter } = await import('./geminiService');
 
       profile = await characterGenerationManager.generateProfile(
         nodeId,
         charName,
         async () => {
-          console.log('[CharacterAction] Calling generateSupportingCharacter API for:', charName);
           const result = await generateSupportingCharacter(
             charName,
             context,
@@ -199,19 +183,16 @@ async function handleRetry(
             getUserDefaultModel('text'),
             { nodeId, nodeType: node.type }
           );
-          console.log('[CharacterAction] generateSupportingCharacter returned for:', charName, 'hasBasicStats:', !!result?.basicStats);
           return result;
         }
       );
     } else {
       // 主角：使用完整生成方法
-      console.log('[CharacterAction] Using AI_AUTO/MAIN method for:', charName);
 
       profile = await characterGenerationManager.generateProfile(
         nodeId,
         charName,
         async () => {
-          console.log('[CharacterAction] Calling generateCharacterProfile API for:', charName);
           const result = await generateCharacterProfile(
             charName,
             context,
@@ -220,29 +201,15 @@ async function handleRetry(
             getUserDefaultModel('text'),
             { nodeId, nodeType: node.type }
           );
-          console.log('[CharacterAction] generateCharacterProfile returned for:', charName, {
-            hasBasicStats: !!result?.basicStats,
-            basicStatsValue: result?.basicStats,
-            hasProfession: !!result?.profession,
-            professionValue: result?.profession,
-            hasPersonality: !!result?.personality,
-            personalityValue: result?.personality,
-            hasAppearance: !!result?.appearance,
-            appearanceValue: result?.appearance,
-            allKeys: result ? Object.keys(result) : 'null result',
-            fullResult: result
-          });
           return result;
         }
       );
     }
 
-    console.log('[CharacterAction] Profile regenerated successfully:', charName, 'hasBasicStats:', !!profile?.basicStats);
   } catch (error) {
     console.error('[CharacterAction] Profile regeneration failed:', charName, error);
   }
 
-  console.log('[CharacterAction] Calling updateNodeUI after profile regeneration for:', charName);
   updateNodeUI(nodeId, onNodeUpdate, allNodes);
 }
 
@@ -257,19 +224,16 @@ async function handleGenerateExpression(
   onNodeUpdate: (nodeId: string, updates: any) => void,
   customPrompt?: string
 ) {
-  console.log('[CharacterAction] handleGenerateExpression:', { nodeId, charName, hasCustomPrompt: !!customPrompt });
 
   let state = characterGenerationManager.getCharacterState(nodeId, charName);
 
   // 如果管理器中没有这个角色，先尝试从node.data恢复
   if (!state) {
-    console.log('[CharacterAction] Character state not found in manager, checking node.data:', charName);
 
     // 从node.data中查找角色数据
     const existingCharacter = node.data.generatedCharacters?.find(c => c.name === charName);
 
     if (existingCharacter && (existingCharacter.basicStats || existingCharacter.profession)) {
-      console.log('[CharacterAction] Found character in node.data, restoring to manager:', charName);
       // 初始化并恢复profile数据
       state = characterGenerationManager.initializeCharacter(nodeId, charName);
       if (existingCharacter.basicStats) {
@@ -281,11 +245,9 @@ async function handleGenerateExpression(
         state = characterGenerationManager.getCharacterState(nodeId, charName)!;
       }
     } else {
-      console.log('[CharacterAction] Character not found in node.data, initializing empty state:', charName);
       state = characterGenerationManager.initializeCharacter(nodeId, charName);
     }
   } else {
-    console.log('[CharacterAction] Character state exists:', charName, 'profileStatus:', state.profileStatus, 'hasProfile:', !!state.profile);
   }
 
   // 检查是否有 profile 数据
@@ -339,7 +301,6 @@ async function handleGenerateExpression(
           const userPriority = getUserPriority('image');
           const initialModel = userPriority[0] || 'gemini-3-pro-image-preview';
 
-          console.log('[CharacterAction] Generating expression with model:', initialModel);
 
           // 添加文字检测和重试逻辑
           let exprImages: string[] = [];
@@ -347,7 +308,6 @@ async function handleGenerateExpression(
           let attempt = 0;
           const MAX_ATTEMPTS = 3;
 
-          console.log('[CharacterAction] Starting expression generation with text detection, attempts:', MAX_ATTEMPTS);
 
           while (hasText && attempt < MAX_ATTEMPTS) {
             let currentPrompt = expressionPromptPair.zh;
@@ -355,14 +315,8 @@ async function handleGenerateExpression(
             if (attempt > 0) {
               // 重试时加强负面提示词
               currentPrompt = currentPrompt + " NO TEXT. NO LABELS. NO LETTERS. NO CHINESE CHARACTERS. NO ENGLISH TEXT. NO WATERMARKS. CLEAN IMAGE ONLY.";
-              console.log(`[CharacterAction] Retrying expression generation (Attempt ${attempt + 1}/${MAX_ATTEMPTS}) with enhanced negative prompt`);
             }
 
-            console.log(`[CharacterAction] 🔧 Calling generateImageWithFallback with options:`, {
-              aspectRatio: '1:1',
-              count: 1,
-              promptPreview: currentPrompt.substring(0, 50)
-            });
 
             exprImages = await generateImageWithFallback(
               currentPrompt,
@@ -375,9 +329,7 @@ async function handleGenerateExpression(
             if (exprImages.length > 0) {
               hasText = await detectTextInImage(exprImages[0]);
               if (hasText) {
-                console.log(`[CharacterAction] Text detected in expression sheet (Attempt ${attempt + 1}/${MAX_ATTEMPTS}). Retrying...`);
               } else {
-                console.log(`[CharacterAction] No text detected in expression sheet (Attempt ${attempt + 1}/${MAX_ATTEMPTS}). Success!`);
               }
             }
             attempt++;
@@ -404,7 +356,6 @@ async function handleGenerateExpression(
       clearTimeout(timeoutId);
     }) as string;
 
-    console.log('[CharacterAction] Expression sheet generated successfully:', charName);
     // 添加成功反馈
     alert(`✅ 九宫格表情生成成功：${charName}`);
   } catch (error) {
@@ -425,7 +376,6 @@ async function handleGenerateExpression(
       characterGenerationManager.updateCharacterState(nodeId, charName, {
         expressionStatus: 'FAILED'
       });
-      console.log('[CharacterAction] Updated expressionStatus to FAILED after error:', charName);
     } catch (updateError) {
       console.error('[CharacterAction] Failed to update expressionStatus:', updateError);
     }
@@ -447,19 +397,16 @@ async function handleGenerateThreeView(
   onNodeUpdate: (nodeId: string, updates: any) => void,
   customPrompt?: string
 ) {
-  console.log('[CharacterAction] handleGenerateThreeView:', { nodeId, charName, hasCustomPrompt: !!customPrompt });
 
   let state = characterGenerationManager.getCharacterState(nodeId, charName);
 
   // 如果管理器中没有这个角色，先尝试从node.data恢复
   if (!state) {
-    console.log('[CharacterAction] Character state not found in manager, checking node.data:', charName);
 
     // 从node.data中查找角色数据
     const existingCharacter = node.data.generatedCharacters?.find(c => c.name === charName);
 
     if (existingCharacter && (existingCharacter.basicStats || existingCharacter.profession)) {
-      console.log('[CharacterAction] Found character in node.data, restoring to manager:', charName);
       // 初始化并恢复profile数据
       state = characterGenerationManager.initializeCharacter(nodeId, charName);
       if (existingCharacter.basicStats) {
@@ -478,15 +425,9 @@ async function handleGenerateThreeView(
       // 重新获取更新后的 state，避免直接 mutation
       state = characterGenerationManager.getCharacterState(nodeId, charName)!;
     } else {
-      console.log('[CharacterAction] Character not found in node.data, initializing empty state:', charName);
       state = characterGenerationManager.initializeCharacter(nodeId, charName);
     }
   } else {
-    console.log('[CharacterAction] Character state exists:', charName,
-      'profileStatus:', state.profileStatus,
-      'expressionStatus:', state.expressionStatus,
-      'hasProfile:', !!state.profile,
-      'hasExpression:', !!state.expressionSheet);
   }
 
   // 检查是否有 profile 数据
@@ -506,7 +447,6 @@ async function handleGenerateThreeView(
 
   // 配角可以直接生成三视图（不需要九宫格）
   if (isSupportingRole && !state?.expressionSheet) {
-    console.log('[CharacterAction] Supporting character generating three-view without expression sheet');
   }
 
   const stylePrompt = getStylePrompt(node, allNodes);
@@ -564,7 +504,6 @@ async function handleGenerateThreeView(
           let attempt = 0;
           const MAX_ATTEMPTS = 3;
 
-          console.log('[CharacterAction] Starting 3-view generation, attempts:', MAX_ATTEMPTS);
 
           while (hasText && attempt < MAX_ATTEMPTS) {
             if (attempt > 0) {
@@ -589,7 +528,6 @@ async function handleGenerateThreeView(
             if (viewImages.length > 0) {
               hasText = await detectTextInImage(viewImages[0]);
               if (hasText) {
-                console.log(`Text detected in generated 3-view (Attempt ${attempt + 1}/${MAX_ATTEMPTS}). Retrying...`);
               }
             }
             attempt++;
@@ -611,7 +549,6 @@ async function handleGenerateThreeView(
       clearTimeout(timeoutId);
     }) as string;
 
-    console.log('[CharacterAction] Three-view sheet generated successfully:', charName);
     // 添加成功反馈
     alert(`✅ 三视图生成成功：${charName}`);
   } catch (error) {
@@ -632,7 +569,6 @@ async function handleGenerateThreeView(
       characterGenerationManager.updateCharacterState(nodeId, charName, {
         threeViewStatus: 'FAILED'
       });
-      console.log('[CharacterAction] Updated threeViewStatus to FAILED after error:', charName);
     } catch (updateError) {
       console.error('[CharacterAction] Failed to update threeViewStatus:', updateError);
     }
@@ -653,13 +589,11 @@ async function handleGenerateSingle(
   allNodes: AppNode[],
   onNodeUpdate: (nodeId: string, updates: any) => void
 ) {
-  console.log('[CharacterAction] handleGenerateSingle:', { nodeId, charName });
 
   try {
     // 仅生成档案，不自动生成表情和三视图
     await handleRetry(nodeId, charName, node, allNodes, onNodeUpdate);
 
-    console.log('[CharacterAction] Character profile generated:', charName);
   } catch (error) {
     console.error('[CharacterAction] Character profile generation failed:', charName, error);
   }
@@ -682,11 +616,6 @@ function updateNodeUI(
   const node = allNodes.find(n => n.id === nodeId);
   const existingCharacters = node?.data?.generatedCharacters || [];
 
-  console.log('[updateNodeUI] Merging data:', {
-    nodeId,
-    managerCount: managerCharacters.length,
-    existingCount: existingCharacters.length,
-  });
 
   // 合并两个数据源
   const mergedMap = new Map<string, any>();
@@ -720,17 +649,6 @@ function updateNodeUI(
   // 3. 转回数组
   const mergedCharacters = Array.from(mergedMap.values());
 
-  console.log('[updateNodeUI] Merged result:', {
-    nodeId,
-    totalCount: mergedCharacters.length,
-    characters: mergedCharacters.map(c => ({
-      name: c.name,
-      status: c.status,
-      hasBasicStats: !!c.basicStats,
-      hasExpression: !!c.expressionSheet,
-      hasThreeView: !!c.threeViewSheet,
-    }))
-  });
 
   // 更新合并后的数据
   onNodeUpdate(nodeId, { generatedCharacters: mergedCharacters });
@@ -820,12 +738,6 @@ function getUpstreamStyleContextFromNode(node: AppNode, allNodes: AppNode[]): { 
         if (foundPlanner.data.scriptVisualStyle) style = foundPlanner.data.scriptVisualStyle;
         genre = foundPlanner.data.scriptGenre || '';
         setting = foundPlanner.data.scriptSetting || '';
-        console.log(`[getUpstreamStyleContextFromNode] Found SCRIPT_PLANNER recursively:`, {
-          style,
-          genre,
-          setting,
-          plannerId: foundPlanner.id
-        });
         break;
       }
     }
@@ -883,7 +795,6 @@ async function handleGenerateAll(
   allNodes: AppNode[],
   onNodeUpdate: (nodeId: string, updates: any) => void
 ) {
-  console.log('[CharacterAction] handleGenerateAll START:', { nodeId, charName });
 
   // 初始化状态为GENERATING
   characterGenerationManager.initializeCharacter(nodeId, charName);
@@ -897,7 +808,6 @@ async function handleGenerateAll(
     let state = characterGenerationManager.getCharacterState(nodeId, charName);
 
     if (!state || !state.profile) {
-      console.log('[CharacterAction] Step 1: Generating profile...');
       await handleGenerateSingle(nodeId, charName, node, allNodes, onNodeUpdate);
       // 重新获取状态
       state = characterGenerationManager.getCharacterState(nodeId, charName);
@@ -911,12 +821,10 @@ async function handleGenerateAll(
     const character = node.data.generatedCharacters?.find(c => c.name === charName);
     const isSupportingRole = character?.roleType === 'supporting';
 
-    console.log('[CharacterAction] Character role type:', { charName, roleType: character?.roleType, isSupportingRole });
 
     // 步骤2: 生成九宫格表情（仅主角需要，配角跳过）
     if (!isSupportingRole) {
       if (!state.expressionSheet) {
-        console.log('[CharacterAction] Step 2: Generating expression sheet for main character...');
         await handleGenerateExpression(nodeId, charName, node, allNodes, onNodeUpdate);
         // 重新获取状态
         state = characterGenerationManager.getCharacterState(nodeId, charName);
@@ -926,16 +834,13 @@ async function handleGenerateAll(
         throw new Error('九宫格表情生成失败');
       }
     } else {
-      console.log('[CharacterAction] Step 2: Skipping expression sheet for supporting character');
     }
 
     // 步骤3: 生成三视图（主角和配角都需要）
     if (!state.threeViewSheet) {
-      console.log('[CharacterAction] Step 3: Generating three-view sheet...');
       await handleGenerateThreeView(nodeId, charName, node, allNodes, onNodeUpdate);
     }
 
-    console.log('[CharacterAction] handleGenerateAll COMPLETE:', { nodeId, charName, roleType: isSupportingRole ? 'supporting' : 'main' });
   } catch (error) {
     console.error('[CharacterAction] handleGenerateAll FAILED:', { nodeId, charName, error });
     throw error; // 重新抛出错误，让上层处理

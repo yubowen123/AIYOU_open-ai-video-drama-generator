@@ -174,7 +174,6 @@ export async function executeWithFallback<T>(
 
     try {
       // 尝试执行
-      console.log(`[ModelFallback] 尝试使用模型 ${currentModel} (第 ${attempt + 1} 次, 同模型重试 ${sameModelRetryCount}/${retryOnSameModel})`);
 
       const result = await executeModel(currentModel);
 
@@ -222,7 +221,6 @@ export async function executeWithFallback<T>(
         if (sameModelRetryCount < retryOnSameModel) {
           sameModelRetryCount++;
           attempt++;
-          console.log(`[ModelFallback] 模型 ${currentModel} 调用失败，在同一模型上重试 (${sameModelRetryCount}/${retryOnSameModel})`);
           continue;
         }
       }
@@ -267,7 +265,6 @@ export async function executeWithFallback<T>(
       excludedModels.push(currentModel);
 
       // 切换到下一个模型
-      console.log(`[ModelFallback] 从 ${currentModel} 降级到 ${nextModel}`);
       currentModel = nextModel;
       fallbackChain.push(currentModel);
       attempt++;

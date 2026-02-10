@@ -121,8 +121,6 @@ class CharacterGenerationManager {
       }
     }
 
-    console.log('[CharacterGenerationManager] getCharactersForNode:', nodeId, 'count:', characters.length,
-      'characters:', characters.map(c => ({ name: c.name, status: c.status })));
 
     return characters;
   }
@@ -134,7 +132,6 @@ class CharacterGenerationManager {
     const characterId = this.createCharacterId(nodeId, characterName);
     const now = Date.now();
 
-    console.log('[CharacterGenerationManager] initializeCharacter:', { nodeId, characterName, characterId });
 
     const state: CharacterGenerationState = {
       characterId,
@@ -179,17 +176,6 @@ class CharacterGenerationManager {
 
     this.states.set(characterId, newState);
 
-    console.log('[CharacterGenerationManager] updateCharacterState:', {
-      nodeId,
-      characterName,
-      updates: Object.keys(updates),
-      profileStatus: newState.profileStatus,
-      expressionStatus: newState.expressionStatus,
-      threeViewStatus: newState.threeViewStatus,
-      hasProfile: !!newState.profile,
-      hasExpression: !!newState.expressionSheet,
-      hasThreeView: !!newState.threeViewSheet
-    });
 
     return newState;
   }
@@ -209,12 +195,6 @@ class CharacterGenerationManager {
         onError: reject
       });
 
-      console.log('[CharacterGenerationManager] enqueueTask:', {
-        taskId: task.id,
-        characterId: task.characterId,
-        taskType: task.taskType,
-        queueLength: this.queue.length
-      });
 
       this.processQueue();
     });
@@ -234,12 +214,6 @@ class CharacterGenerationManager {
       const item = this.queue.shift()!;
       const { nodeId, characterId, taskType } = item.task;
 
-      console.log('[CharacterGenerationManager] Processing task:', {
-        taskId: item.task.id,
-        characterId,
-        taskType,
-        remainingQueue: this.queue.length
-      });
 
       try {
         // 更新任务状态为 GENERATING
@@ -296,15 +270,6 @@ class CharacterGenerationManager {
     const nodeId = parts[0];
     const characterName = parts.slice(1).join('|'); // 处理角色名中可能包含 | 的情况
 
-    console.log('[CharacterGenerationManager] updateTaskStatus:', {
-      taskId,
-      characterId: task.characterId,
-      nodeId,
-      characterName,
-      taskType: task.taskType,
-      status,
-      hasResult: !!result
-    });
 
     // 更新角色状态
     switch (task.taskType) {
@@ -391,7 +356,6 @@ class CharacterGenerationManager {
   ): Promise<CharacterProfile> {
     const characterId = this.createCharacterId(nodeId, characterName);
 
-    console.log('[CharacterGenerationManager] generateProfile:', { nodeId, characterName, characterId });
 
     // 确保角色已初始化
     let state = this.states.get(characterId);
@@ -432,7 +396,6 @@ class CharacterGenerationManager {
   ): Promise<string> {
     const characterId = this.createCharacterId(nodeId, characterName);
 
-    console.log('[CharacterGenerationManager] generateExpression:', { nodeId, characterName, characterId });
 
     // 确保角色已初始化
     let state = this.states.get(characterId);
@@ -473,7 +436,6 @@ class CharacterGenerationManager {
   ): Promise<string> {
     const characterId = this.createCharacterId(nodeId, characterName);
 
-    console.log('[CharacterGenerationManager] generateThreeView:', { nodeId, characterName, characterId });
 
     // 确保角色已初始化
     let state = this.states.get(characterId);
@@ -512,7 +474,6 @@ class CharacterGenerationManager {
     const state = this.states.get(characterId);
     if (!state) return;
 
-    console.log('[CharacterGenerationManager] saveCharacter:', { nodeId, characterName, characterId });
 
     this.updateCharacterState(nodeId, characterName, {
       isSaved: true
@@ -543,7 +504,6 @@ class CharacterGenerationManager {
       state = this.initializeCharacter(nodeId, characterName);
     }
 
-    console.log('[CharacterGenerationManager] restoreCharacter:', { nodeId, characterName, characterId, hasProfile: !!data.profile, hasExpression: !!data.expressionSheet, hasThreeView: !!data.threeViewSheet });
 
     // 通过 updateCharacterState 进行不可变更新
     const updates: Partial<CharacterGenerationState> = {};
@@ -576,7 +536,6 @@ class CharacterGenerationManager {
   deleteCharacter(nodeId: string, characterName: string): void {
     const characterId = this.createCharacterId(nodeId, characterName);
 
-    console.log('[CharacterGenerationManager] deleteCharacter:', { nodeId, characterName, characterId });
 
     this.states.delete(characterId);
 
@@ -595,7 +554,6 @@ class CharacterGenerationManager {
    * 清理节点数据
    */
   clearNode(nodeId: string): void {
-    console.log('[CharacterGenerationManager] clearNode:', { nodeId });
 
     // 删除该节点的所有角色状态
     for (const [characterId, state] of this.states) {
