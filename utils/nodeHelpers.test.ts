@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { NodeType } from '../types';
+import { NodeType, NodeStatus } from '../types';
 import {
   getNodeNameCN,
   getNodeColor,
@@ -19,7 +19,7 @@ const makeNode = (overrides: Record<string, any> = {}) => ({
   width: 420,
   height: 360,
   title: 'Test',
-  status: 'IDLE' as const,
+  status: NodeStatus.IDLE,
   data: {},
   inputs: [],
   ...overrides,

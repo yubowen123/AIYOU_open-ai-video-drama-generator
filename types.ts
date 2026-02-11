@@ -494,6 +494,7 @@ export interface SoraTaskGroup {
   isRemovingSensitiveWords?: boolean;
   removeSensitiveWordsSuccess?: boolean;
   removeSensitiveWordsError?: string;
+  removeSensitiveWordsProgress?: string;
 }
 
 export interface SoraStorageConfig {

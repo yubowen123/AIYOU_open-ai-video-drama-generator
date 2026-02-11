@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { NodeType, Connection } from '../types';
+import { NodeType, Connection, NodeStatus } from '../types';
 import {
   validateConnection,
   canExecuteNode,
@@ -17,7 +17,7 @@ const makeNode = (overrides: Record<string, any> = {}) => ({
   width: 420,
   height: 360,
   title: 'Test Node',
-  status: 'IDLE' as const,
+  status: NodeStatus.IDLE,
   data: {},
   inputs: [],
   ...overrides,

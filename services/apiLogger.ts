@@ -21,6 +21,7 @@ export interface APILogEntry {
         inputImagesCount?: number;  // 参考图数量
         enhancedPrompt?: string;    // 完整的增强提示词
         generationConfig?: any;     // 生成配置
+        [key: string]: any;         // 允许额外字段
     };
     response?: {
         success: boolean;
