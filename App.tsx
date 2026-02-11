@@ -202,6 +202,8 @@ export const App = () => {
       siblingNodeIds: string[]
   } | null>(null);
 
+  const selectionRectRef = useRef<any>(null);
+
   const dragGroupRef = useRef<{
       id: string, 
       startX: number, 
@@ -852,7 +854,9 @@ export const App = () => {
           setSelectedNodeIds([]);
 
           // Start selection rect
-          setSelectionRect({ startX: e.clientX, startY: e.clientY, currentX: e.clientX, currentY: e.clientY });
+          const rect = { startX: e.clientX, startY: e.clientY, currentX: e.clientX, currentY: e.clientY };
+          setSelectionRect(rect);
+          selectionRectRef.current = rect;
 
           // Setup long press detection (300ms)
           longPressStartPosRef.current = { x: e.clientX, y: e.clientY };
@@ -863,6 +867,7 @@ export const App = () => {
               if (longPressStartPosRef.current) {
                   isLongPressDraggingRef.current = true;
                   setSelectionRect(null); // Cancel selection rect
+                  selectionRectRef.current = null;
                   canvas.startCanvasDrag(longPressStartPosRef.current.x, longPressStartPosRef.current.y);
               }
           }, 300);
@@ -896,8 +901,10 @@ export const App = () => {
               canvas.commitMousePos();
           }
 
-          if (selectionRect) {
-              setSelectionRect((prev:any) => prev ? ({ ...prev, currentX: clientX, currentY: clientY }) : null);
+          if (selectionRectRef.current) {
+              const updated = { ...selectionRectRef.current, currentX: clientX, currentY: clientY };
+              selectionRectRef.current = updated;
+              setSelectionRect(updated);
               return;
           }
 
@@ -979,7 +986,7 @@ export const App = () => {
               setNodes(prev => prev.map(n => n.id === resizingNodeId ? { ...n, width: Math.max(360, initialSize.width + dx), height: Math.max(240, initialSize.height + dy) } : n));
           }
       });
-  }, [selectionRect, canvas, draggingNodeId, resizingNodeId, initialSize, resizeStartPos]);
+  }, [canvas, draggingNodeId, resizingNodeId, initialSize, resizeStartPos]);
 
   const handleGlobalMouseUp = useCallback(() => {
       // Clear long press timer
@@ -991,11 +998,12 @@ export const App = () => {
       isLongPressDraggingRef.current = false;
 
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-      if (selectionRect) {
-          const x = Math.min(selectionRect.startX, selectionRect.currentX);
-          const y = Math.min(selectionRect.startY, selectionRect.currentY);
-          const w = Math.abs(selectionRect.currentX - selectionRect.startX);
-          const h = Math.abs(selectionRect.currentY - selectionRect.startY);
+      if (selectionRectRef.current) {
+          const sr = selectionRectRef.current;
+          const x = Math.min(sr.startX, sr.currentX);
+          const y = Math.min(sr.startY, sr.currentY);
+          const w = Math.abs(sr.currentX - sr.startX);
+          const h = Math.abs(sr.currentY - sr.startY);
           if (w > 10) {
               const rect = {
                   x: (x - canvas.pan.x) / canvas.scale,
@@ -1014,6 +1022,7 @@ export const App = () => {
               }
           }
           setSelectionRect(null);
+          selectionRectRef.current = null;
       }
       if (draggingNodeId) {
           const draggedNode = nodesRef.current.find(n => n.id === draggingNodeId);
@@ -1056,7 +1065,7 @@ export const App = () => {
       dragNodeRef.current = null;
       resizeContextRef.current = null;
       dragGroupRef.current = null;
-  }, [selectionRect, canvas, saveHistory, draggingNodeId, resizingNodeId]);
+  }, [canvas, saveHistory, draggingNodeId, resizingNodeId]);
 
   useEffect(() => { window.addEventListener('mousemove', handleGlobalMouseMove); window.addEventListener('mouseup', handleGlobalMouseUp); return () => { window.removeEventListener('mousemove', handleGlobalMouseMove); window.removeEventListener('mouseup', handleGlobalMouseUp); }; }, [handleGlobalMouseMove, handleGlobalMouseUp]);
 

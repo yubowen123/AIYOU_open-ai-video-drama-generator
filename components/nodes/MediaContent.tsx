@@ -8,8 +8,8 @@
  * @copyright Copyright (c) 2025 光波. All rights reserved.
  */
 
-import React from 'react';
-import { NodeType, StoryboardShot, CharacterProfile } from '../../types';
+import React, { useState } from 'react';
+import { NodeType, NodeStatus, StoryboardShot, CharacterProfile, DetailedStoryboardShot } from '../../types';
 import { RefreshCw, Play, Image as ImageIcon, Video as VideoIcon, Type, AlertCircle, CheckCircle, Plus, Maximize2, Download, MoreHorizontal, Wand2, Scaling, FileSearch, Edit, Loader2, Layers, Trash2, X, Upload, Scissors, Film, MousePointerClick, Crop as CropIcon, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, GripHorizontal, Link, Copy, Monitor, Music, Pause, Volume2, Mic2, BookOpen, ScrollText, Clapperboard, LayoutGrid, Box, User, Users, Save, RotateCcw, Eye, List, Sparkles, ZoomIn, ZoomOut, Minus, Circle, Square, Maximize, Move, RotateCw, TrendingUp, TrendingDown, ArrowRight, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight, Palette, Grid, Grid3X3, MoveHorizontal, ArrowUpDown, Database, ShieldAlert, ExternalLink, Package } from 'lucide-react';
 import { VideoModeSelector, SceneDirectorOverlay } from '../VideoNodeModules';
 import { PromptEditor } from '../PromptEditor';
@@ -48,6 +48,9 @@ export const MediaContent: React.FC<NodeContentContext> = (ctx) => {
     showExportModal, setShowExportModal, exportSettings, setExportSettings,
     isActionProcessing,
   } = ctx;
+
+  const [editingShot, setEditingShot] = useState<DetailedStoryboardShot | null>(null);
+  const [editingShotIndex, setEditingShotIndex] = useState<number>(-1);
 
       // 分镜视频生成节点（新节点）
       if (node.type === NodeType.STORYBOARD_VIDEO_GENERATOR) {

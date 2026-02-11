@@ -8,8 +8,8 @@
  * @copyright Copyright (c) 2025 光波. All rights reserved.
  */
 
-import React from 'react';
-import { NodeType, StoryboardShot, CharacterProfile } from '../../types';
+import React, { useState } from 'react';
+import { NodeType, NodeStatus, StoryboardShot, CharacterProfile } from '../../types';
 import { RefreshCw, Play, Image as ImageIcon, Video as VideoIcon, Type, AlertCircle, CheckCircle, Plus, Maximize2, Download, MoreHorizontal, Wand2, Scaling, FileSearch, Edit, Loader2, Layers, Trash2, X, Upload, Scissors, Film, MousePointerClick, Crop as CropIcon, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, GripHorizontal, Link, Copy, Monitor, Music, Pause, Volume2, Mic2, BookOpen, ScrollText, Clapperboard, LayoutGrid, Box, User, Users, Save, RotateCcw, Eye, List, Sparkles, ZoomIn, ZoomOut, Minus, Circle, Square, Maximize, Move, RotateCw, TrendingUp, TrendingDown, ArrowRight, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight, Palette, Grid, Grid3X3, MoveHorizontal, ArrowUpDown, Database, ShieldAlert, ExternalLink, Package } from 'lucide-react';
 import { PromptEditor } from '../PromptEditor';
 import { IMAGE_MODELS, TEXT_MODELS, VIDEO_MODELS, AUDIO_MODELS } from '../../services/modelConfig';
@@ -17,6 +17,8 @@ import {
   IMAGE_ASPECT_RATIOS, VIDEO_ASPECT_RATIOS,
   IMAGE_COUNTS, VIDEO_COUNTS, GLASS_PANEL,
   SHORT_DRAMA_GENRES, SHORT_DRAMA_SETTINGS,
+  DEFAULT_NODE_WIDTH,
+  STYLE_MAX_HEIGHT_180, STYLE_HEIGHT_60, STYLE_HEIGHT_80,
 } from './constants';
 import { InputThumbnails } from './helpers';
 import type { BottomPanelContext } from './types';
@@ -51,7 +53,8 @@ export const BottomPanel: React.FC<BottomPanelContext> = (ctx) => {
      // STORYBOARD_VIDEO_GENERATOR 和 SORA_VIDEO_GENERATOR 在特定状态下始终显示底部操作栏
      // PROMPT_INPUT 和 IMAGE_GENERATOR 始终显示操作栏（方便编辑）
      // 但剧本分集的子节点（创意描述）不应始终显示生图操作栏
-     const isEpisodeChildNode = node.type === NodeType.PROMPT_INPUT && nodeQuery?.hasUpstreamNode(node.id, NodeType.SCRIPT_EPISODE);
+     // 优先使用 node.data.isEpisodeChild 标记（不依赖 nodeQuery 时序），回退到 nodeQuery 查询
+     const isEpisodeChildNode = node.type === NodeType.PROMPT_INPUT && (node.data.isEpisodeChild || nodeQuery?.hasUpstreamNode(node.id, NodeType.SCRIPT_EPISODE));
      const isAlwaysOpen = (node.type === NodeType.STORYBOARD_VIDEO_GENERATOR && node.data.status === 'prompting') ||
                           (node.type === NodeType.SORA_VIDEO_GENERATOR && node.data.taskGroups && node.data.taskGroups.length > 0) ||
                           (node.type === NodeType.PROMPT_INPUT && !isEpisodeChildNode) ||
@@ -1588,7 +1591,7 @@ export const BottomPanel: React.FC<BottomPanelContext> = (ctx) => {
                         </button>
                     </div>
                 ) : (() => {
-                    const isEpisodeChild = node.type === NodeType.PROMPT_INPUT && nodeQuery?.hasUpstreamNode(node.id, NodeType.SCRIPT_EPISODE);
+                    const isEpisodeChild = node.type === NodeType.PROMPT_INPUT && (node.data.isEpisodeChild || nodeQuery?.hasUpstreamNode(node.id, NodeType.SCRIPT_EPISODE));
                     if (node.type === NodeType.PROMPT_INPUT) {
                     }
                     return { isEpisodeChild, nodeType: node.type };
@@ -1705,7 +1708,7 @@ export const BottomPanel: React.FC<BottomPanelContext> = (ctx) => {
                     {/* Content Area: Video Grid Display */}
                     <div
                         className="flex-1 overflow-y-auto custom-scrollbar p-2"
-                        onMouseEnter={handleMouseEnter}  // 鼠标在内容区时保持操作区显示
+                        onMouseEnter={() => {}}  // 鼠标在内容区时保持操作区显示
                     >
                         {(() => {
                             // Get connected video nodes
@@ -1885,8 +1888,8 @@ export const BottomPanel: React.FC<BottomPanelContext> = (ctx) => {
                     {/* Operation Area: Edit & Export Buttons */}
                     <div
                         className="flex flex-col gap-2 p-2 border-t border-white/5"
-                        onMouseEnter={handleMouseEnter}  // 进入操作区时保持显示
-                        onMouseLeave={handleMouseLeave}  // 离开操作区时重新开始倒计时
+                        onMouseEnter={() => {}}  // 进入操作区时保持显示
+                        onMouseLeave={() => {}}  // 离开操作区时重新开始倒计时
                     >
                         <div className="flex items-center justify-between px-1">
                             <span className="text-[9px] text-slate-400">
