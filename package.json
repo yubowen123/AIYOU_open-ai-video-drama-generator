@@ -9,6 +9,9 @@
   },
   "license": "MIT",
   "copyright": "Copyright (c) 2025 光波. All rights reserved.",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "@tauri-apps/cli"]
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
