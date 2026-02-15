@@ -23,7 +23,7 @@ const SERVER_DIR = path.join(ROOT, 'server');
 // 获取当前平台的 target triple
 function getTargetTriple() {
   try {
-    const output = execSync('/Users/gb/.cargo/bin/rustc -vV', { encoding: 'utf8' });
+    const output = execSync('rustc -vV', { encoding: 'utf8' });
     const match = output.match(/host:\s+(.+)/);
     return match ? match[1].trim() : null;
   } catch {
@@ -85,7 +85,7 @@ async function build() {
     if (fs.existsSync(sqliteModuleDst)) {
       fs.rmSync(sqliteModuleDst, { recursive: true });
     }
-    execSync(`cp -r "${sqliteModuleSrc}" "${sqliteModuleDst}"`, { stdio: 'inherit' });
+    fs.cpSync(sqliteModuleSrc, sqliteModuleDst, { recursive: true });
   }
 
   // 5. 复制 .env 文件（如果存在）

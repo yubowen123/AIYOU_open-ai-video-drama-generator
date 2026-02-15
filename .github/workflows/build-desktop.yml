@@ -35,14 +35,11 @@ jobs:
         run: pnpm install
 
       - name: Install server dependencies
-        run: |
-          cd server
-          pnpm install
+        working-directory: server
+        run: pnpm install
 
       - name: Build server sidecar
-        run: node scripts/build-server.js x86_64-pc-windows-msvc
-        env:
-          PATH: ${{ env.PATH }}
+        run: node scripts/build-server.js
 
       - name: Build Tauri app (Windows)
         uses: tauri-apps/tauri-action@v0
@@ -86,9 +83,8 @@ jobs:
         run: pnpm install
 
       - name: Install server dependencies
-        run: |
-          cd server
-          pnpm install
+        working-directory: server
+        run: pnpm install
 
       - name: Build server sidecar
         run: node scripts/build-server.js
