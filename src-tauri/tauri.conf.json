@@ -37,6 +37,10 @@
       "icons/icon.ico"
     ],
     "externalBin": ["binaries/aiyou-server"],
+    "resources": [
+      "binaries/server-bundle.cjs",
+      "binaries/node_modules/**/*"
+    ],
     "macOS": {
       "minimumSystemVersion": "10.15"
     },

@@ -34,11 +34,32 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 let shell = handle.shell();
 
-                let (mut rx, child) = shell
+                // Resolve resource directory where server-bundle.cjs and node_modules live
+                let resource_dir = handle
+                    .path()
+                    .resource_dir()
+                    .expect("failed to resolve resource dir");
+                let binaries_res = resource_dir.join("binaries");
+
+                let node_path = binaries_res.join("node_modules");
+
+                let mut cmd = shell
                     .sidecar("aiyou-server")
-                    .expect("failed to create sidecar command")
-                    .spawn()
-                    .expect("failed to spawn sidecar");
+                    .expect("failed to create sidecar command");
+
+                // On Windows, the sidecar is a copy of node.exe — pass server-bundle.cjs as arg
+                #[cfg(target_os = "windows")]
+                {
+                    let bundle_path = binaries_res.join("server-bundle.cjs");
+                    cmd = cmd.args([bundle_path.to_string_lossy().to_string()]);
+                }
+
+                // Set environment variables for the sidecar
+                cmd = cmd
+                    .env("NODE_PATH", node_path.to_string_lossy().to_string())
+                    .env("DB_CLIENT", "sqlite");
+
+                let (mut rx, child) = cmd.spawn().expect("failed to spawn sidecar");
 
                 // Store child PID for cleanup
                 let state = handle.state::<ServerState>();

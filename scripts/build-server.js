@@ -113,16 +113,29 @@ async function build() {
     const isWindows = target.includes('windows');
 
     if (isWindows) {
-      const batContent = `@echo off\r\nset "DIR=%~dp0"\r\nset "NODE_PATH=%DIR%node_modules"\r\nset "DB_CLIENT=sqlite"\r\nnode "%DIR%server-bundle.cjs" %*\r\n`;
-      const cmdPath = path.join(BINARIES_DIR, `aiyou-server-${target}.cmd`);
-      fs.writeFileSync(cmdPath, batContent);
-      console.log(`[build-server] Created Windows launcher: ${cmdPath}`);
+      // Tauri expects .exe for sidecar on Windows
+      // Copy node.exe as the sidecar, Rust code will pass server-bundle.cjs as arg
+      const nodeExe = process.execPath; // path to current node.exe
+      const sidecarPath = path.join(BINARIES_DIR, `aiyou-server-${target}.exe`);
+      fs.copyFileSync(nodeExe, sidecarPath);
+      console.log(`[build-server] Created Windows sidecar (node.exe copy): ${sidecarPath}`);
     } else {
+      // macOS/Linux: shell script wrapper
+      // In .app bundle: sidecar is in Contents/MacOS/, resources in Contents/Resources/binaries/
+      // In dev mode: everything is in src-tauri/binaries/
       const shContent = `#!/bin/sh
 DIR="$(cd "$(dirname "$0")" && pwd)"
-export NODE_PATH="$DIR/node_modules"
-export DB_CLIENT=sqlite
-exec node "$DIR/server-bundle.cjs" "$@"
+BUNDLE="$DIR/server-bundle.cjs"
+if [ ! -f "$BUNDLE" ]; then
+  BUNDLE="$DIR/../Resources/binaries/server-bundle.cjs"
+fi
+if [ -z "$NODE_PATH" ]; then
+  export NODE_PATH="$DIR/node_modules"
+fi
+if [ -z "$DB_CLIENT" ]; then
+  export DB_CLIENT=sqlite
+fi
+exec node "$BUNDLE" "$@"
 `;
       const shPath = path.join(BINARIES_DIR, `aiyou-server-${target}`);
       fs.writeFileSync(shPath, shContent);
