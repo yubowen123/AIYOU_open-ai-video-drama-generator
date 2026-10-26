@@ -244,10 +244,18 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 ---
 
-## 📧 Contact
+<!-- aiyou-contact:start -->
+
+## 联系作者 / Contact
+
+扫码添加作者微信，交流使用体验与项目合作。
+
+<img src="docs/assets/wechat-contact.jpg" alt="Glimmer · 光波的个人微信二维码" width="280" />
 
 - GitHub Issues: [Submit Issues](https://github.com/yubowen123/AIYOU_open-ai-video-drama-generator/issues)
 - Email: a@ggbo.com
+
+<!-- aiyou-contact:end -->
 
 ---
 
